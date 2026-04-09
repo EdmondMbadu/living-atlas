@@ -216,11 +216,15 @@
     border-radius: 999px;
     background: var(--panel-strong);
     color: var(--text);
-    padding: 0.7rem;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.65rem;
+    line-height: 1;
     font-weight: 700;
     letter-spacing: 0.01em;
     cursor: pointer;
@@ -240,7 +244,8 @@
   }
 
   .theme-switcher__button .material-symbols-outlined {
-    font-size: 1rem;
+    font-size: 0.42rem;
+    line-height: 1;
   }
 
   .theme-nav {
