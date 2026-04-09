@@ -16,13 +16,14 @@
   --soft-fill-strong: rgba(255, 255, 255, 0.1);
   --accent: #ee6643;
   --accent-soft: #ffb4a2;
-  --accent-contrast: #3c0800;
+  --accent-contrast: #fff7f2;
   --text: #f2f2f3;
   --muted: #929298;
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.14);
   --ambient-1: rgba(238, 102, 67, 0.16);
   --ambient-2: rgba(63, 185, 156, 0.08);
+  --body-background-image: none;
   --shadow-elevated: 0 26px 70px rgba(0, 0, 0, 0.35);
   --shadow-floating: 0 18px 48px rgba(0, 0, 0, 0.28);
   --font-display: 'Inter', -apple-system, sans-serif;
@@ -50,6 +51,10 @@
   --line-strong: rgba(101, 70, 34, 0.18);
   --ambient-1: rgba(215, 90, 54, 0.15);
   --ambient-2: rgba(210, 173, 110, 0.2);
+  --body-background-image:
+    radial-gradient(circle at top left, var(--ambient-1), transparent 34%),
+    radial-gradient(circle at 85% 12%, var(--ambient-2), transparent 24%),
+    linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 58%, var(--bg-alt) 100%);
   --shadow-elevated: 0 28px 70px rgba(117, 82, 43, 0.12);
   --shadow-floating: 0 18px 46px rgba(117, 82, 43, 0.16);
 }
@@ -66,10 +71,7 @@
   body {
     min-height: 100vh;
     background-color: var(--bg);
-    background-image:
-      radial-gradient(circle at top left, var(--ambient-1), transparent 34%),
-      radial-gradient(circle at 85% 12%, var(--ambient-2), transparent 24%),
-      linear-gradient(180deg, var(--bg-alt) 0%, var(--bg) 58%, var(--bg-alt) 100%);
+    background-image: var(--body-background-image);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
