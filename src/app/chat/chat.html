@@ -1,0 +1,208 @@
+<div
+  class="min-h-screen bg-[var(--bg)] text-[var(--text)] selection:bg-[var(--accent)] selection:text-[#3c0800]"
+>
+  <div class="pointer-events-none fixed inset-0 overflow-hidden">
+    <div
+      class="absolute left-[-10rem] top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-[var(--accent)]/12 blur-[120px]"
+    ></div>
+    <div
+      class="absolute bottom-[-10rem] right-[-6rem] h-[20rem] w-[20rem] rounded-full bg-[rgba(63,185,156,0.10)] blur-[110px]"
+    ></div>
+  </div>
+
+  <div class="relative flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
+    <aside
+      class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col"
+    >
+      <div class="mb-10 px-2">
+        <div class="flex items-center gap-2">
+          <a routerLink="/" class="text-xl font-black tracking-tighter text-[var(--text)]"
+            >engram core</a
+          >
+          <span class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]"></span>
+        </div>
+        <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--muted)]">
+          Personal knowledge system
+        </p>
+      </div>
+
+      <nav class="flex-1 space-y-1 text-sm">
+        <a
+          routerLink="/home"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">neurology</span>
+          <span>Knowledge Base</span>
+        </a>
+        <a
+          routerLink="/chat"
+          class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(238,102,67,0.08)]"
+        >
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+            >chat</span
+          >
+          <span>New Chat</span>
+        </a>
+        <a
+          href="#sources"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">library_books</span>
+          <span>Library</span>
+        </a>
+        <a
+          routerLink="/wiki"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">menu_book</span>
+          <span>Wiki</span>
+        </a>
+        <a
+          href="#focus-areas"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">category</span>
+          <span>Collections</span>
+        </a>
+        <a
+          href="#workspace-meta"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="mt-8 space-y-5 border-t border-white/5 px-2 pt-6">
+        <button class="primary-btn !w-full !justify-center !px-4 !py-3 text-sm">
+          <span class="material-symbols-outlined text-lg">add</span>
+          <span>Add Documents</span>
+        </button>
+
+        <div class="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">
+            Active workspace
+          </p>
+          <p class="mt-3 text-sm font-semibold text-[var(--text)]">Research Cluster Alpha</p>
+          <p class="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+            Query across notes, files, and generated pages from one running context.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="theme-shell relative flex min-w-0 flex-1 flex-col">
+      <header
+        class="theme-nav sticky top-0 z-40 flex h-16 items-center justify-between border-b px-5 backdrop-blur-xl md:px-8"
+      >
+        <div class="flex min-w-0 items-center gap-3 md:gap-8">
+          <a routerLink="/home" class="md:hidden">
+            <span class="material-symbols-outlined text-[var(--text)]">arrow_back</span>
+          </a>
+
+          <div
+            class="theme-input flex min-w-0 items-center gap-3 rounded-full px-4 py-2 text-sm text-[var(--muted)] md:w-[18rem]"
+          >
+            <span class="material-symbols-outlined text-base">search</span>
+            <input
+              type="text"
+              placeholder="Search across your workspace..."
+              class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+            />
+          </div>
+
+          <nav class="hidden items-center gap-6 md:flex">
+            <a
+              href="#query"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]"
+              >Query</a
+            >
+            <a
+              href="#focus-areas"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
+              >Focus Areas</a
+            >
+            <a
+              href="#live-graph"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
+              >Live Graph</a
+            >
+          </nav>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <app-theme-toggle></app-theme-toggle>
+          <a routerLink="/sign-in" class="ghost-btn hidden !px-4 !py-2 text-sm lg:inline-flex"
+            >Sign In</a
+          >
+          <a routerLink="/create-account" class="primary-btn hidden !px-5 !py-2 text-sm lg:inline-flex"
+            >Create Account</a
+          >
+        </div>
+      </header>
+
+      <section
+        class="flex flex-1 items-center justify-center overflow-y-auto px-5 py-16 md:px-8 md:py-24 lg:px-12"
+      >
+        <div class="w-full max-w-3xl">
+          <div class="space-y-8 text-center">
+            <div class="space-y-5">
+              <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">
+                General query
+              </p>
+              <h1 class="text-5xl font-black tracking-[-0.08em] text-[var(--text)] md:text-6xl">
+                What's on your mind?
+              </h1>
+              <p class="mx-auto max-w-2xl text-base leading-8 text-[var(--muted)] md:text-lg">
+                Ask one clear question and Engram will pull together the most relevant context
+                across your notes, documents, and generated pages.
+              </p>
+            </div>
+
+            <div id="query" class="glass-card rounded-[2.25rem] px-5 py-6 text-left md:px-7 md:py-7">
+              <label
+                for="general-query"
+                class="mb-4 block text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]"
+              >
+                Start a new thread
+              </label>
+              <div class="theme-input rounded-[1.75rem] px-5 py-5 shadow-[var(--shadow-floating)]">
+                <div class="flex items-start gap-4">
+                  <span class="material-symbols-outlined mt-1 text-[var(--accent)]">chat</span>
+                  <textarea
+                    id="general-query"
+                    rows="4"
+                    placeholder="Ask anything about your knowledge base..."
+                    class="min-h-28 w-full resize-none bg-transparent text-lg leading-8 text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+                  ></textarea>
+                </div>
+                <div class="mt-5 flex items-center justify-between gap-4 border-t border-white/5 pt-4">
+                  <p class="text-xs leading-6 text-[var(--muted)]">
+                    Searches across PDFs, docs, slides, images, and links.
+                  </p>
+                  <button class="primary-btn !px-6 !py-3 text-sm">Ask</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">
+                Try asking
+              </p>
+              <div class="flex flex-wrap justify-center gap-2.5">
+                @for (prompt of quickPrompts; track prompt) {
+                  <button
+                    type="button"
+                    class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--muted)] transition-colors hover:text-[var(--text)]"
+                  >
+                    {{ prompt }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

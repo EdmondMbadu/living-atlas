@@ -5,10 +5,12 @@ import { SignInComponent } from './sign-in/sign-in';
 import { CreateAccountComponent } from './create-account/create-account';
 import { ForgotPasswordComponent } from './forgot-password/forgot-password';
 import { WikiComponent } from './wiki/wiki';
+import { ChatComponent } from './chat/chat';
 
 export const routes: Routes = [
   { path: '', component: MarketingComponent },
   { path: 'home', component: LandingComponent },
+  { path: 'chat', component: ChatComponent },
   { path: 'wiki', component: WikiComponent },
   { path: 'landing', redirectTo: 'home', pathMatch: 'full' },
   { path: 'sign-in', component: SignInComponent },
