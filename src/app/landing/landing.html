@@ -56,11 +56,8 @@
         </nav>
       </div>
       <div class="flex items-center gap-4">
-        <button class="material-symbols-outlined text-[var(--muted)] hover:text-[var(--accent)] transition-all">notifications</button>
-        <button class="material-symbols-outlined text-[var(--muted)] hover:text-[var(--accent)] transition-all">help_outline</button>
-        <div class="w-8 h-8 rounded-full border border-white/10 overflow-hidden">
-          <img class="w-full h-full object-cover" [src]="userAvatar" alt="User Avatar">
-        </div>
+        <a routerLink="/sign-in" class="ghost-btn !px-4 !py-2.5 text-sm">Sign In</a>
+        <a routerLink="/create-account" class="primary-btn !px-5 !py-2.5 text-sm">Create Account</a>
       </div>
     </header>
 

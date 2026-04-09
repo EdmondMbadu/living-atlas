@@ -12,9 +12,14 @@
           </a>
         }
       </div>
-      <button routerLink="/landing" class="primary-btn !py-2.5 !px-6 !text-sm">
-        Join Early Access
-      </button>
+      <div class="flex items-center gap-3">
+        <a routerLink="/sign-in" class="ghost-btn !px-4 !py-2.5 !text-sm">
+          Sign In
+        </a>
+        <button routerLink="/create-account" class="primary-btn !py-2.5 !px-6 !text-sm">
+          Create Account
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -34,11 +39,11 @@
             Drop your documents and ask anything. Engram reads, remembers, and answers with exact citations so you always know where the truth came from.
           </p>
           <div class="mt-12 flex flex-wrap gap-4">
-            <button routerLink="/landing" class="primary-btn flex items-center gap-3">
-              Get Started for Free
+            <button routerLink="/create-account" class="primary-btn flex items-center gap-3">
+              Create Account
               <span class="material-symbols-outlined">arrow_forward</span>
             </button>
-            <button class="secondary-btn">View Demo</button>
+            <button routerLink="/sign-in" class="secondary-btn">Sign In</button>
           </div>
         </div>
 
@@ -191,8 +196,8 @@
         <h2 class="relative z-10 text-5xl font-bold tracking-tight text-[var(--text)] lg:text-7xl">Start Building Your Engram.</h2>
         <p class="relative z-10 mt-8 mx-auto max-w-2xl text-xl text-[var(--muted)]">Stop losing insights in a sea of browser tabs. Centralize your intelligence today.</p>
         <div class="relative z-10 mt-12 flex flex-col sm:flex-row justify-center gap-6">
-          <button routerLink="/landing" class="primary-btn text-lg">Get Started for Free</button>
-          <button class="secondary-btn text-lg">Talk to Sales</button>
+          <button routerLink="/create-account" class="primary-btn text-lg">Create Account</button>
+          <button routerLink="/sign-in" class="secondary-btn text-lg">Sign In</button>
         </div>
         <p class="mt-10 text-xs font-bold uppercase tracking-widest text-[var(--muted)]">No credit card required. 1GB free storage.</p>
       </div>
