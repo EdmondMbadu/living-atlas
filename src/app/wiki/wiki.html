@@ -141,7 +141,7 @@
       </header>
 
       <div class="flex-1 overflow-y-auto">
-        <div class="mx-auto w-full max-w-7xl px-5 py-8 md:px-8 md:py-12 lg:px-14">
+        <div class="mx-auto w-full max-w-7xl px-5 py-8 pb-28 md:px-8 md:py-12 md:pb-12 lg:px-14">
           <div
             class="mb-10 flex flex-col gap-4 border-b border-white/5 pb-8 md:flex-row md:items-center md:justify-between"
           >
@@ -243,6 +243,31 @@
                     <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ stat.hint }}</p>
                   </div>
                 }
+              </div>
+            </div>
+          </section>
+
+          <section class="mb-10 md:hidden">
+            <div class="glass-card rounded-[1.5rem] p-4">
+              <div class="mb-3 flex items-center gap-3 px-1">
+                <span class="h-2.5 w-2.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
+                <p class="text-sm font-bold text-[var(--text)]">Ask engram about this topic</p>
+              </div>
+
+              <div class="theme-input flex items-center gap-3 rounded-[1.15rem] px-4 py-3 text-sm">
+                <input
+                  type="text"
+                  placeholder="Explain this to a new team member..."
+                  class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
+                >
+                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+                    >send</span
+                  >
+                </button>
               </div>
             </div>
           </section>
@@ -358,35 +383,6 @@
                 </div>
               </section>
 
-              <section class="lg:hidden">
-                <div class="glass-card rounded-[1.75rem] p-5">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                    Ask Engram
-                  </p>
-                  <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
-                    Explain this page, trace a claim to source, or generate a simpler summary.
-                  </p>
-                  <div
-                    class="theme-input mt-4 flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-sm"
-                  >
-                    <input
-                      type="text"
-                      placeholder="Explain this to a new team member..."
-                      class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
-                    >
-                      <span
-                        class="material-symbols-outlined"
-                        style="font-variation-settings: 'FILL' 1"
-                        >send</span
-                      >
-                    </button>
-                  </div>
-                </div>
-              </section>
             </div>
 
             <aside class="space-y-8">
@@ -503,28 +499,6 @@
         </div>
       </div>
 
-      <nav
-        class="theme-nav fixed inset-x-0 bottom-0 z-50 flex h-16 items-center justify-around border-t px-3 md:hidden"
-      >
-        <a routerLink="/home" class="flex flex-col items-center gap-1 text-[var(--muted)]">
-          <span class="material-symbols-outlined">neurology</span>
-          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Home</span>
-        </a>
-        <a href="#sources" class="flex flex-col items-center gap-1 text-[var(--muted)]">
-          <span class="material-symbols-outlined">library_books</span>
-          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Library</span>
-        </a>
-        <a routerLink="/wiki" class="flex flex-col items-center gap-1 text-[var(--accent)]">
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-            >menu_book</span
-          >
-          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Wiki</span>
-        </a>
-        <a href="#mentions" class="flex flex-col items-center gap-1 text-[var(--muted)]">
-          <span class="material-symbols-outlined">category</span>
-          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Links</span>
-        </a>
-      </nav>
     </main>
   </div>
 </div>
