@@ -1,13 +1,1 @@
 <router-outlet></router-outlet>
-
-<div class="theme-switcher">
-  <button
-    type="button"
-    class="theme-switcher__button"
-    [attr.aria-label]="themeActionLabel()"
-    [attr.title]="themeActionLabel()"
-    (click)="toggleTheme()"
-  >
-    <span class="material-symbols-outlined">{{ themeIcon() }}</span>
-  </button>
-</div>
