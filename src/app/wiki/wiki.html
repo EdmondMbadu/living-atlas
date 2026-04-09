@@ -1,0 +1,530 @@
+<div
+  class="min-h-screen bg-[var(--bg)] text-[var(--text)] selection:bg-[var(--accent)] selection:text-[#3c0800]"
+>
+  <div class="pointer-events-none fixed inset-0 overflow-hidden">
+    <div
+      class="absolute left-[-10rem] top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-[var(--accent)]/12 blur-[120px]"
+    ></div>
+    <div
+      class="absolute bottom-[-10rem] right-[-6rem] h-[20rem] w-[20rem] rounded-full bg-[rgba(63,185,156,0.10)] blur-[110px]"
+    ></div>
+  </div>
+
+  <div class="relative flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
+    <aside
+      class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col"
+    >
+      <div class="mb-10 px-2">
+        <div class="flex items-center gap-2">
+          <a routerLink="/" class="text-xl font-black tracking-tighter text-[var(--text)]"
+            >engram core</a
+          >
+          <span class="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]"></span>
+        </div>
+        <p class="mt-2 text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--muted)]">
+          Personal knowledge system
+        </p>
+      </div>
+
+      <nav class="flex-1 space-y-1 text-sm">
+        <a
+          routerLink="/home"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">neurology</span>
+          <span>Knowledge Base</span>
+        </a>
+        <a
+          href="#sources"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">library_books</span>
+          <span>Library</span>
+        </a>
+        <a
+          routerLink="/wiki"
+          class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(238,102,67,0.08)]"
+        >
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+            >menu_book</span
+          >
+          <span>Wiki</span>
+        </a>
+        <a
+          href="#mentions"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">category</span>
+          <span>Collections</span>
+        </a>
+        <a
+          href="#meta"
+          class="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+        >
+          <span class="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <div class="mt-8 space-y-5 border-t border-white/5 px-2 pt-6">
+        <button class="primary-btn !w-full !justify-center !px-4 !py-3 text-sm">
+          <span class="material-symbols-outlined text-lg">add</span>
+          <span>Add Documents</span>
+        </button>
+
+        <div class="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">
+            Active workspace
+          </p>
+          <p class="mt-3 text-sm font-semibold text-[var(--text)]">Research Cluster Alpha</p>
+          <p class="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+            Private synthesis mode enabled with provenance tracking on every generated page.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="theme-shell relative flex min-w-0 flex-1 flex-col">
+      <header
+        class="theme-nav sticky top-0 z-40 flex h-16 items-center justify-between border-b px-5 backdrop-blur-xl md:px-8"
+      >
+        <div class="flex min-w-0 items-center gap-3 md:gap-8">
+          <a routerLink="/home" class="md:hidden">
+            <span class="material-symbols-outlined text-[var(--text)]">arrow_back</span>
+          </a>
+
+          <div
+            class="theme-input flex min-w-0 items-center gap-3 rounded-full px-4 py-2 text-sm text-[var(--muted)] md:w-[18rem]"
+          >
+            <span class="material-symbols-outlined text-base">search</span>
+            <input
+              type="text"
+              placeholder="Search this wiki page..."
+              class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+            />
+          </div>
+
+          <nav class="hidden items-center gap-6 md:flex">
+            <a
+              href="#summary"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]"
+              >Summary</a
+            >
+            <a
+              href="#sources"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
+              >Sources</a
+            >
+            <a
+              href="#mentions"
+              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
+              >Links</a
+            >
+          </nav>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <app-theme-toggle></app-theme-toggle>
+          <button
+            type="button"
+            class="hidden rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)] transition-colors hover:text-[var(--text)] md:inline-flex"
+          >
+            <span class="material-symbols-outlined text-base">notifications</span>
+          </button>
+          <a routerLink="/sign-in" class="ghost-btn hidden !px-4 !py-2 text-sm lg:inline-flex"
+            >Sign In</a
+          >
+          <a routerLink="/create-account" class="primary-btn hidden !px-5 !py-2 text-sm lg:inline-flex"
+            >Create Account</a
+          >
+        </div>
+      </header>
+
+      <div class="flex-1 overflow-y-auto">
+        <div class="mx-auto w-full max-w-7xl px-5 py-8 md:px-8 md:py-12 lg:px-14">
+          <div
+            class="mb-10 flex flex-col gap-4 border-b border-white/5 pb-8 md:flex-row md:items-center md:justify-between"
+          >
+            <div
+              class="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)]"
+            >
+              <span>Collections</span>
+              <span class="material-symbols-outlined text-xs">chevron_right</span>
+              <span>Neural Networks</span>
+              <span class="material-symbols-outlined text-xs">chevron_right</span>
+              <span class="text-[var(--accent)]">Wiki Page</span>
+            </div>
+
+            <div class="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.18em]">
+              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--muted)]"
+                >Revision v2.4</span
+              >
+              <span
+                class="rounded-full border border-[rgba(238,102,67,0.18)] bg-[rgba(238,102,67,0.08)] px-3 py-1.5 text-[var(--accent-soft)]"
+                >Last sync: 2m ago</span
+              >
+            </div>
+          </div>
+
+          <section
+            class="relative mb-14 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-6 py-8 shadow-[var(--shadow-elevated)] backdrop-blur-xl md:px-10 md:py-12"
+          >
+            <div
+              class="absolute right-[-4rem] top-[-4rem] h-48 w-48 rounded-full bg-[var(--accent)]/10 blur-[70px]"
+            ></div>
+            <div
+              class="absolute bottom-[-5rem] left-[35%] h-40 w-40 rounded-full bg-[rgba(63,185,156,0.10)] blur-[70px]"
+            ></div>
+
+            <div
+              class="relative flex flex-col gap-8 border-b border-white/5 pb-8 md:flex-row md:items-end md:justify-between"
+            >
+              <div class="max-w-3xl">
+                <p class="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-[var(--accent)]">
+                  Knowledge synthesis
+                </p>
+                <h1
+                  class="max-w-4xl text-5xl font-black tracking-[-0.08em] text-[var(--text)] md:text-7xl"
+                >
+                  The Attention Mechanism.
+                </h1>
+                <p class="mt-5 max-w-2xl text-base leading-8 text-[var(--muted)] md:text-lg">
+                  A comprehensive synthesis of transformers, self-attention architectures, and
+                  their cognitive parallels in human working memory, compiled from your imported
+                  papers and notes.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                @for (tag of tags; track tag) {
+                  <span
+                    class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text)]"
+                  >
+                    {{ tag }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <div class="relative mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,0.85fr)]">
+              <div id="summary" class="glass-card rounded-[1.75rem] p-6 md:p-8">
+                <div class="mb-6 flex items-center gap-3">
+                  <div
+                    class="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
+                  >
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                  </div>
+                  <div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
+                      AI compiled summary
+                    </p>
+                    <p class="mt-1 text-sm text-[var(--muted)]">Concise synthesis with citations</p>
+                  </div>
+                </div>
+
+                <div class="space-y-5 text-sm leading-8 text-[var(--muted)] md:text-base">
+                  @for (paragraph of summary; track paragraph) {
+                    <p>{{ paragraph }}</p>
+                  }
+                </div>
+              </div>
+
+              <div class="grid gap-4">
+                @for (stat of stats; track stat.label) {
+                  <div
+                    class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 shadow-[var(--shadow-floating)] backdrop-blur-lg"
+                  >
+                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
+                      {{ stat.label }}
+                    </p>
+                    <p class="mt-3 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">
+                      {{ stat.value }}
+                    </p>
+                    <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ stat.hint }}</p>
+                  </div>
+                }
+              </div>
+            </div>
+          </section>
+
+          <section class="grid gap-10 lg:grid-cols-[minmax(0,1.7fr)_22rem]">
+            <div class="space-y-12">
+              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8">
+                <div class="mb-8 flex items-center gap-3">
+                  <span class="h-9 w-1.5 rounded-full bg-[var(--accent)]"></span>
+                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
+                    Architectural Components
+                  </h2>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                  @for (component of architecturalComponents; track component.title) {
+                    <article
+                      class="rounded-[1.5rem] border border-white/10 bg-[var(--panel)] p-5 backdrop-blur-xl transition-transform duration-200 hover:-translate-y-0.5"
+                    >
+                      <p class="text-sm font-bold text-[var(--text)]">{{ component.title }}</p>
+                      <p class="mt-3 text-sm leading-7 text-[var(--muted)]">{{ component.body }}</p>
+                    </article>
+                  }
+                </div>
+              </section>
+
+              <section
+                id="sources"
+                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8"
+              >
+                <div class="mb-8 flex items-center gap-3">
+                  <span class="h-9 w-1.5 rounded-full bg-[rgba(63,185,156,0.75)]"></span>
+                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
+                    Core Source Documents
+                  </h2>
+                </div>
+
+                <div class="space-y-3">
+                  @for (document of sourceDocuments; track document.title) {
+                    <article
+                      class="group flex items-center justify-between rounded-[1.35rem] border border-white/10 bg-white/5 p-4 transition-colors duration-200 hover:bg-white/10"
+                    >
+                      <div class="flex min-w-0 items-center gap-4">
+                        <div
+                          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                          [style.backgroundColor]="document.background"
+                          [style.color]="document.color"
+                        >
+                          <span class="material-symbols-outlined">{{ document.icon }}</span>
+                        </div>
+                        <div class="min-w-0">
+                          <p
+                            class="truncate text-sm font-semibold text-[var(--text)] transition-colors group-hover:text-[var(--accent-soft)]"
+                          >
+                            {{ document.title }}
+                          </p>
+                          <p
+                            class="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]"
+                          >
+                            {{ document.meta }}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="material-symbols-outlined text-[var(--muted)] transition-colors group-hover:text-[var(--text)]"
+                        >open_in_new</span
+                      >
+                    </article>
+                  }
+                </div>
+              </section>
+
+              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8">
+                <div class="mb-8 flex items-center gap-3">
+                  <span class="h-9 w-1.5 rounded-full bg-[rgba(240,201,139,0.8)]"></span>
+                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
+                    Why This Page Matters
+                  </h2>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-3">
+                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+                    <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
+                      Retrieval model
+                    </p>
+                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                      It explains why relevance scoring is foundational to any system that claims to
+                      remember information instead of merely storing it.
+                    </p>
+                  </article>
+                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+                    <p
+                      class="text-[10px] font-black uppercase tracking-[0.22em] text-[rgba(240,201,139,0.95)]"
+                    >
+                      Systems design
+                    </p>
+                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                      It is the conceptual bridge between the model layer and Engram’s product layer:
+                      search, citations, ranking, and cross-linking all depend on it.
+                    </p>
+                  </article>
+                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+                    <p
+                      class="text-[10px] font-black uppercase tracking-[0.22em] text-[rgba(138,215,195,0.95)]"
+                    >
+                      Cognitive analogy
+                    </p>
+                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                      It offers a useful language for discussing focus, working memory, and selective
+                      recall without collapsing those concepts into simplistic metaphors.
+                    </p>
+                  </article>
+                </div>
+              </section>
+
+              <section class="lg:hidden">
+                <div class="glass-card rounded-[1.75rem] p-5">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
+                    Ask Engram
+                  </p>
+                  <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+                    Explain this page, trace a claim to source, or generate a simpler summary.
+                  </p>
+                  <div
+                    class="theme-input mt-4 flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-sm"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Explain this to a new team member..."
+                      class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
+                    >
+                      <span
+                        class="material-symbols-outlined"
+                        style="font-variation-settings: 'FILL' 1"
+                        >send</span
+                      >
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="space-y-8">
+              <section
+                id="mentions"
+                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6"
+              >
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Linked Mentions
+                </p>
+
+                <div class="mt-6 space-y-3">
+                  @for (mention of linkedMentions; track mention.title) {
+                    <article
+                      class="rounded-[1.4rem] border border-white/10 border-l-[3px] border-l-[var(--accent)] bg-white/5 p-4 transition-colors hover:bg-white/10"
+                    >
+                      <p class="text-sm font-bold text-[var(--text)]">{{ mention.title }}</p>
+                      <p class="mt-2 text-xs leading-6 text-[var(--muted)] italic">
+                        "{{ mention.excerpt }}"
+                      </p>
+                    </article>
+                  }
+                </div>
+              </section>
+
+              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6">
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Visualization
+                </p>
+
+                <div class="group relative mt-6 overflow-hidden rounded-[1.5rem] border border-white/10">
+                  <img
+                    src="assets/knowledge_graph.png"
+                    alt="Knowledge graph visualization for the attention mechanism page"
+                    class="h-72 w-full object-cover opacity-70 transition-all duration-700 group-hover:scale-105 group-hover:opacity-100"
+                  />
+                  <div
+                    class="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(10,10,11,0.74))]"
+                  ></div>
+                  <div class="absolute inset-x-0 bottom-0 p-5">
+                    <p class="text-sm font-semibold text-white">Cross-document concept graph</p>
+                    <p class="mt-1 text-xs leading-6 text-white/70">
+                      Surface adjacent concepts, citations, and latent relationships.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                id="meta"
+                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6"
+              >
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Page Timeline
+                </p>
+
+                <div class="mt-6 space-y-4">
+                  @for (item of timeline; track item.label) {
+                    <div class="flex items-start gap-3">
+                      <span
+                        class="mt-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_10px_rgba(238,102,67,0.45)]"
+                      ></span>
+                      <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {{ item.label }}
+                        </p>
+                        <p class="mt-1 text-sm text-[var(--text)]">{{ item.value }}</p>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </section>
+            </aside>
+          </section>
+
+          <footer
+            class="mt-14 flex flex-col gap-5 border-t border-white/5 py-8 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-wrap gap-5">
+              @for (action of footerActions; track action) {
+                <span>{{ action }}</span>
+              }
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-sm">shield</span>
+              <span>Provenance preserved across every revision</span>
+            </div>
+          </footer>
+        </div>
+      </div>
+
+      <div class="pointer-events-none fixed bottom-6 right-6 z-50 hidden w-[24rem] lg:block">
+        <div class="glass-card pointer-events-auto rounded-[1.75rem] p-4">
+          <div class="mb-4 flex items-center gap-3 px-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
+            <p class="text-sm font-bold text-[var(--text)]">Ask engram about this topic</p>
+          </div>
+
+          <div class="theme-input flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-sm">
+            <input
+              type="text"
+              placeholder="Trace this concept to the original paper..."
+              class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+            />
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
+            >
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+                >send</span
+              >
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <nav
+        class="theme-nav fixed inset-x-0 bottom-0 z-50 flex h-16 items-center justify-around border-t px-3 md:hidden"
+      >
+        <a routerLink="/home" class="flex flex-col items-center gap-1 text-[var(--muted)]">
+          <span class="material-symbols-outlined">neurology</span>
+          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Home</span>
+        </a>
+        <a href="#sources" class="flex flex-col items-center gap-1 text-[var(--muted)]">
+          <span class="material-symbols-outlined">library_books</span>
+          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Library</span>
+        </a>
+        <a routerLink="/wiki" class="flex flex-col items-center gap-1 text-[var(--accent)]">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+            >menu_book</span
+          >
+          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Wiki</span>
+        </a>
+        <a href="#mentions" class="flex flex-col items-center gap-1 text-[var(--muted)]">
+          <span class="material-symbols-outlined">category</span>
+          <span class="text-[9px] font-bold uppercase tracking-[0.18em]">Links</span>
+        </a>
+      </nav>
+    </main>
+  </div>
+</div>
