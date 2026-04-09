@@ -8,6 +8,8 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
   templateUrl: './wiki.html',
 })
 export class WikiComponent {
+  askPanelExpanded = false;
+
   readonly tags = ['Machine Learning', 'Architecture', 'Memory Systems'];
 
   readonly stats = [
@@ -89,4 +91,12 @@ export class WikiComponent {
   ];
 
   readonly footerActions = ['Export as Markdown', 'Download PDF', 'Duplicate Page'];
+
+  expandAskPanel(): void {
+    this.askPanelExpanded = true;
+  }
+
+  collapseAskPanel(): void {
+    this.askPanelExpanded = false;
+  }
 }

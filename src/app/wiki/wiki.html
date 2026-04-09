@@ -141,7 +141,7 @@
       </header>
 
       <div class="flex-1 overflow-y-auto">
-        <div class="mx-auto w-full max-w-7xl px-5 py-8 pb-28 md:px-8 md:py-12 md:pb-12 lg:px-14">
+        <div class="mx-auto w-full max-w-7xl px-5 py-8 pb-40 md:px-8 md:py-12 md:pb-40 lg:px-14 lg:pb-12">
           <div
             class="mb-10 flex flex-col gap-4 border-b border-white/5 pb-8 md:flex-row md:items-center md:justify-between"
           >
@@ -247,32 +247,7 @@
             </div>
           </section>
 
-          <section class="mb-10 md:hidden">
-            <div class="glass-card rounded-[1.5rem] p-4">
-              <div class="mb-3 flex items-center gap-3 px-1">
-                <span class="h-2.5 w-2.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
-                <p class="text-sm font-bold text-[var(--text)]">Ask engram about this topic</p>
-              </div>
-
-              <div class="theme-input flex items-center gap-3 rounded-[1.15rem] px-4 py-3 text-sm">
-                <input
-                  type="text"
-                  placeholder="Explain this to a new team member..."
-                  class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
-                >
-                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                    >send</span
-                  >
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="grid gap-10 lg:grid-cols-[minmax(0,1.7fr)_22rem]">
+          <section class="grid gap-10 lg:grid-cols-[minmax(0,1.55fr)_24rem] xl:grid-cols-[minmax(0,1.7fr)_26rem]">
             <div class="space-y-12">
               <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8">
                 <div class="mb-8 flex items-center gap-3">
@@ -474,29 +449,170 @@
         </div>
       </div>
 
-      <div class="pointer-events-none fixed bottom-6 right-6 z-50 hidden w-[24rem] lg:block">
-        <div class="glass-card pointer-events-auto rounded-[1.75rem] p-4">
-          <div class="mb-4 flex items-center gap-3 px-2">
-            <span class="h-2.5 w-2.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
-            <p class="text-sm font-bold text-[var(--text)]">Ask engram about this topic</p>
-          </div>
+      <div class="fixed inset-x-4 bottom-4 z-50 lg:hidden">
+        @if (askPanelExpanded) {
+          <div class="glass-card rounded-[1.75rem] border border-white/10 p-4 shadow-[var(--shadow-elevated)]">
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
+                >
+                  <span class="material-symbols-outlined">forum</span>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
+                    Ask Engram
+                  </p>
+                  <p class="text-sm font-bold text-[var(--text)]">Ask engram about this topic</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="collapseAskPanel()"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--muted)] transition-colors hover:text-[var(--text)]"
+                aria-label="Collapse ask panel"
+              >
+                <span class="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
 
-          <div class="theme-input flex items-center gap-3 rounded-[1.25rem] px-4 py-3 text-sm">
-            <input
-              type="text"
-              placeholder="Trace this concept to the original paper..."
-              class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-            />
-            <button
-              type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-contrast)]"
+            <div class="theme-input flex items-center gap-3 rounded-[1.35rem] px-4 py-3">
+              <input
+                type="text"
+                placeholder="Ask anything about this page..."
+                class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+              />
+              <button
+                type="button"
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[var(--accent-contrast)]"
+              >
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+                  >send</span
+                >
+              </button>
+            </div>
+          </div>
+        } @else {
+          <button
+            type="button"
+            (click)="expandAskPanel()"
+            class="glass-card ml-auto flex items-center gap-3 rounded-full border border-white/10 px-4 py-3 shadow-[var(--shadow-elevated)]"
+            aria-label="Expand ask panel"
+          >
+            <span
+              class="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
             >
               <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                >send</span
+                >forum</span
               >
+            </span>
+            <span class="text-left">
+              <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
+                Ask Engram
+              </span>
+              <span class="block text-sm font-bold text-[var(--text)]">Ask anything</span>
+            </span>
+          </button>
+        }
+      </div>
+
+      <div class="pointer-events-none fixed bottom-6 right-6 z-50 hidden lg:block">
+        @if (askPanelExpanded) {
+          <div class="pointer-events-auto w-[25rem] xl:w-[27rem]">
+            <div
+              class="glass-card rounded-[2rem] border border-white/10 p-5 shadow-[var(--shadow-elevated)]"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4">
+                  <div
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
+                  >
+                    <span class="material-symbols-outlined">forum</span>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
+                      Ask Engram
+                    </p>
+                    <h3 class="mt-2 text-[1.6rem] font-black tracking-[-0.06em] text-[var(--text)]">
+                      Ask engram about this topic
+                    </h3>
+                    <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
+                      Pull out a simpler explanation, compare notes, or trace the idea back to the
+                      source.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  (click)="collapseAskPanel()"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--muted)] transition-colors hover:text-[var(--text)]"
+                  aria-label="Collapse ask panel"
+                >
+                  <span class="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+
+              <div class="mt-5 flex flex-wrap gap-2">
+                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Summarize this
+                </span>
+                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Compare sources
+                </span>
+                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Explain simply
+                </span>
+              </div>
+
+              <div class="theme-input mt-5 rounded-[1.65rem] p-4">
+                <textarea
+                  rows="4"
+                  placeholder="Ask anything about this page..."
+                  class="min-h-[7.5rem] w-full resize-none bg-transparent text-base leading-7 text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+                ></textarea>
+
+                <div class="mt-4 flex items-center justify-between gap-4">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Ask anything
+                  </p>
+                  <button
+                    type="button"
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[var(--accent-contrast)] transition-transform duration-200 hover:scale-105"
+                  >
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+                      >send</span
+                    >
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <div class="pointer-events-auto">
+            <button
+              type="button"
+              (click)="expandAskPanel()"
+              class="glass-card flex items-center gap-3 rounded-full border border-white/10 px-4 py-3 shadow-[var(--shadow-elevated)] transition-transform duration-200 hover:-translate-y-0.5"
+              aria-label="Expand ask panel"
+            >
+              <span
+                class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
+              >
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
+                  >forum</span
+                >
+              </span>
+              <span class="text-left">
+                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
+                  Ask Engram
+                </span>
+                <span class="block text-sm font-bold text-[var(--text)]">
+                  Ask engram about this topic
+                </span>
+              </span>
             </button>
           </div>
-        </div>
+        }
       </div>
 
     </main>
