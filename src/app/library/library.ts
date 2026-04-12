@@ -20,7 +20,7 @@ export class LibraryComponent {
       title: 'IRS_Publication_535.pdf',
       addedOn: 'Apr 3 2025',
       icon: 'picture_as_pdf',
-      iconClasses: 'bg-[rgba(238,102,67,0.12)] text-[#ff8e78]',
+      iconClasses: 'bg-[rgba(59,175,98,0.12)] text-[#8fd9a8]',
       status: 'Indexed',
       statusClasses:
         'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
@@ -53,7 +53,7 @@ export class LibraryComponent {
       title: 'Freelancer_Guide_2025.pdf',
       addedOn: 'Apr 1 2025',
       icon: 'picture_as_pdf',
-      iconClasses: 'bg-[rgba(238,102,67,0.12)] text-[#ff8e78]',
+      iconClasses: 'bg-[rgba(59,175,98,0.12)] text-[#8fd9a8]',
       status: 'Indexed',
       statusClasses:
         'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',

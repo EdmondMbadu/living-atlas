@@ -6,7 +6,6 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
   selector: 'app-marketing',
   imports: [RouterLink, ThemeToggleComponent],
   templateUrl: './marketing.html',
-  styleUrl: './marketing.css',
 })
 export class MarketingComponent {
   navItems = [

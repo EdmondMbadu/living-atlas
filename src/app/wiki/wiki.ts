@@ -47,8 +47,8 @@ export class WikiComponent {
       title: 'Vaswani_Attention_Is_All_You_Need.pdf',
       meta: 'Added Dec 12, 2023 • 4.2 MB',
       icon: 'picture_as_pdf',
-      color: '#ff8e78',
-      background: 'rgba(238, 102, 67, 0.12)',
+      color: '#8fd9a8',
+      background: 'rgba(59, 175, 98, 0.12)',
     },
     {
       title: 'Stanford_CS25_Transformers_Notes.md',
