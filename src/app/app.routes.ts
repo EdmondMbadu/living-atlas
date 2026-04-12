@@ -13,7 +13,7 @@ import { authGuard, guestOnlyGuard } from './auth.guards';
 
 export const routes: Routes = [
   { path: '', component: MarketingComponent, title: 'Living Atlas' },
-  { path: 'home', component: LandingComponent, title: 'Knowledge Base | Living Atlas', canActivate: [authGuard] },
+  { path: 'home', component: LandingComponent, title: 'Upload | Living Atlas', canActivate: [authGuard] },
   { path: 'chat', component: ChatComponent, title: 'Chat | Living Atlas', canActivate: [authGuard] },
   { path: 'library', component: LibraryComponent, title: 'Library | Living Atlas', canActivate: [authGuard] },
   { path: 'wiki', component: WikiComponent, title: 'Wiki | Living Atlas', canActivate: [authGuard] },

@@ -15,7 +15,7 @@ export class MobileMenuComponent {
 
   readonly navItems = [
     { route: '/chat', icon: 'chat', label: 'New Chat', key: 'chat' },
-    { route: '/home', icon: 'neurology', label: 'Knowledge Base', key: 'home' },
+    { route: '/home', icon: 'neurology', label: 'Upload', key: 'home' },
     { route: '/library', icon: 'library_books', label: 'Library', key: 'library' },
     { route: '/wiki', icon: 'menu_book', label: 'Wiki', key: 'wiki' },
   ];
