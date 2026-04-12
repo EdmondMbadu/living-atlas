@@ -2,10 +2,11 @@ import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { AtlasAnimationComponent } from './atlas-animation/atlas-animation';
+import { GraphAnimationComponent } from './atlas-animation/graph-animation';
 
 @Component({
   selector: 'app-marketing',
-  imports: [RouterLink, ThemeToggleComponent, AtlasAnimationComponent],
+  imports: [RouterLink, ThemeToggleComponent, AtlasAnimationComponent, GraphAnimationComponent],
   templateUrl: './marketing.html',
 })
 export class MarketingComponent {

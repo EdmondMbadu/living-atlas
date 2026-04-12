@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
+import { GraphAnimationComponent } from '../marketing/atlas-animation/graph-animation';
 
 @Component({
   selector: 'app-wiki',
-  imports: [RouterLink, ThemeToggleComponent],
+  imports: [RouterLink, ThemeToggleComponent, GraphAnimationComponent],
   templateUrl: './wiki.html',
 })
 export class WikiComponent {
