@@ -8,42 +8,52 @@
       <span class="text-xl font-black text-[var(--text)] tracking-tighter">Living Atlas</span>
       <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)] animate-pulse"></span>
     </div>
-    <nav class="flex-1 space-y-1">
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200" routerLink="/chat">
+    <nav class="flex-1 space-y-1 text-sm">
+      <a
+        routerLink="/chat"
+        class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+      >
         <span class="material-symbols-outlined">chat</span>
-        New Chat
+        <span>New Chat</span>
       </a>
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--accent)] font-bold border-r-2 border-[var(--accent)] bg-white/5 transition-all" href="#">
-        <span class="material-symbols-outlined">neurology</span>
-        Knowledge Base
+      <a
+        routerLink="/home"
+        class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]"
+      >
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">neurology</span>
+        <span>Knowledge Base</span>
       </a>
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200" routerLink="/library">
+      <a
+        routerLink="/library"
+        class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+      >
         <span class="material-symbols-outlined">library_books</span>
-        Library
+        <span>Library</span>
       </a>
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200" routerLink="/wiki">
+      <a
+        routerLink="/wiki"
+        class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+      >
         <span class="material-symbols-outlined">menu_book</span>
-        Wiki
+        <span>Wiki</span>
       </a>
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200" href="#">
+      <a
+        href="#"
+        class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
+      >
         <span class="material-symbols-outlined">category</span>
-        Collections
+        <span>Collections</span>
       </a>
     </nav>
     <div class="mt-auto space-y-1 border-t border-white/5 pt-6">
-      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200" href="#">
-        <span class="material-symbols-outlined">settings</span>
+      <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--muted)] hover:text-[var(--text)] hover:bg-white/5 transition-colors duration-200 text-sm" href="#">
+        <span class="material-symbols-outlined text-[1.2rem]">settings</span>
         Settings
       </a>
-      <div class="flex items-center gap-3 px-3 py-4 mt-2">
-        <div class="w-8 h-8 rounded-full bg-[var(--soft-fill)] flex items-center justify-center border border-[var(--line)] text-[10px] font-bold text-[var(--accent)]">
-          {{ userInitials() }}
-        </div>
-        <div class="flex flex-col min-w-0">
-          <span class="text-xs font-bold text-[var(--text)] truncate">{{ currentUserName() }}</span>
-          <span class="text-[10px] text-[var(--muted)] tracking-wide truncate">{{ currentUserEmail() }}</span>
-        </div>
-      </div>
+      <button type="button" class="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-400/80 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-400" [disabled]="isSigningOut()" (click)="signOut()">
+        <span class="material-symbols-outlined text-[1.2rem]">logout</span>
+        <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
+      </button>
     </div>
   </aside>
 
