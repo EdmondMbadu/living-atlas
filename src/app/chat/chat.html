@@ -153,12 +153,12 @@
             </div>
 
             @if (latestAnswer()) {
-              <article class="glass-card rounded-[2rem] p-6 md:p-8">
+              <article #answerSection class="glass-card rounded-[2rem] p-6 md:p-8">
                 <div class="flex items-center justify-between gap-4">
                   <div>
                     <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Latest answer</p>
                     @if (knowledgeGap()) {
-                      <p class="mt-2 text-sm text-amber-300">This topic is not strongly covered in the current knowledge base yet.</p>
+                      <p class="mt-2 text-sm font-bold italic text-[var(--muted)]">This topic is not strongly covered in the current knowledge base yet.</p>
                     }
                   </div>
                   <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">

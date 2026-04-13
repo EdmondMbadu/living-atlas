@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import type { CitationPassage } from '../atlas.models';
@@ -24,6 +24,8 @@ export class ChatComponent {
   readonly avatarMenuOpen = signal(false);
   readonly question = signal('');
   readonly selectedCitation = signal<CitationPassage | null>(null);
+
+  @ViewChild('answerSection') answerSection?: ElementRef<HTMLElement>;
 
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
@@ -62,6 +64,10 @@ export class ChatComponent {
       question,
       this.selectedTopic() ? [this.selectedTopic()!.id] : undefined,
     );
+
+    setTimeout(() => {
+      this.answerSection?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   usePrompt(prompt: string): void {
