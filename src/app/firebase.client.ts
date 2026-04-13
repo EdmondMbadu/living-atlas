@@ -1,8 +1,14 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getFunctions, type Functions } from 'firebase/functions';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getFirebaseConfig } from './firebase.config';
 
 let analyticsPromise: Promise<Analytics | null> | null = null;
+let firestoreInstance: Firestore | null = null;
+let storageInstance: FirebaseStorage | null = null;
+let functionsInstance: Functions | null = null;
 
 export function getFirebaseApp(): FirebaseApp {
   return getApps().length > 0 ? getApp() : initializeApp(getFirebaseConfig());
@@ -26,4 +32,19 @@ export function getFirebaseAnalytics(): Promise<Analytics | null> {
   }
 
   return analyticsPromise ?? Promise.resolve(null);
+}
+
+export function getFirebaseFirestore(): Firestore {
+  firestoreInstance ??= getFirestore(getFirebaseApp());
+  return firestoreInstance;
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  storageInstance ??= getStorage(getFirebaseApp());
+  return storageInstance;
+}
+
+export function getFirebaseFunctions(): Functions {
+  functionsInstance ??= getFunctions(getFirebaseApp(), 'us-central1');
+  return functionsInstance;
 }

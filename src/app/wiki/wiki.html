@@ -2,18 +2,12 @@
   class="min-h-screen bg-[var(--bg)] text-[var(--text)] selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]"
 >
   <div class="pointer-events-none fixed inset-0 overflow-hidden">
-    <div
-      class="absolute left-[-10rem] top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-[var(--accent)]/12 blur-[120px]"
-    ></div>
-    <div
-      class="absolute bottom-[-10rem] right-[-6rem] h-[20rem] w-[20rem] rounded-full bg-[rgba(63,185,156,0.10)] blur-[110px]"
-    ></div>
+    <div class="absolute left-[-10rem] top-[-8rem] h-[24rem] w-[24rem] rounded-full bg-[var(--accent)]/12 blur-[120px]"></div>
+    <div class="absolute bottom-[-10rem] right-[-6rem] h-[20rem] w-[20rem] rounded-full bg-[rgba(63,185,156,0.10)] blur-[110px]"></div>
   </div>
 
   <div class="relative flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
-    <aside
-      class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col"
-    >
+    <aside class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col">
       <div class="mb-10 px-2">
         <a routerLink="/" class="flex items-center gap-3">
           <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1 shadow-[0_0_24px_rgba(59,175,98,0.08)]">
@@ -24,43 +18,25 @@
       </div>
 
       <nav class="flex-1 space-y-1 text-sm">
-        <a
-          routerLink="/chat"
-          class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
-        >
+        <a routerLink="/chat" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
           <span class="material-symbols-outlined">chat</span>
           <span>New Chat</span>
         </a>
-        <a
-          routerLink="/home"
-          class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
-        >
+        <a routerLink="/home" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
           <span class="material-symbols-outlined">neurology</span>
           <span>Upload</span>
         </a>
-        <a
-          routerLink="/library"
-          class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]"
-        >
+        <a routerLink="/library" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
           <span class="material-symbols-outlined">library_books</span>
           <span>Library</span>
         </a>
-        <a
-          routerLink="/wiki"
-          class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]"
-        >
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-            >menu_book</span
-          >
+        <a routerLink="/wiki" class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">menu_book</span>
           <span>Wiki</span>
         </a>
       </nav>
 
       <div class="mt-auto space-y-1 border-t border-white/5 pt-6">
-        <a class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)] text-sm" href="#">
-          <span class="material-symbols-outlined text-[1.2rem]">settings</span>
-          <span>Settings</span>
-        </a>
         <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-400/80 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-400" [disabled]="isSigningOut()" (click)="signOut()">
           <span class="material-symbols-outlined text-[1.2rem]">logout</span>
           <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
@@ -69,52 +45,17 @@
     </aside>
 
     <main class="theme-shell relative flex min-w-0 flex-1 flex-col">
-      <header
-        class="theme-nav sticky top-0 z-40 flex h-16 items-center justify-between border-b px-5 backdrop-blur-xl md:px-8"
-      >
+      <header class="theme-nav sticky top-0 z-40 flex h-16 items-center justify-between border-b px-5 backdrop-blur-xl md:px-8">
         <div class="flex min-w-0 items-center gap-3 md:gap-8">
           <app-mobile-menu activePage="wiki"></app-mobile-menu>
-
-          <div
-            class="theme-input flex min-w-0 items-center gap-3 rounded-full px-4 py-2 text-sm text-[var(--muted)] md:w-[18rem]"
-          >
-            <span class="material-symbols-outlined text-base">search</span>
-            <input
-              type="text"
-              placeholder="Search this wiki page..."
-              class="min-w-0 flex-1 bg-transparent text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-            />
+          <div>
+            <h1 class="text-2xl font-black tracking-[-0.06em] text-[var(--text)]">Wiki</h1>
+            <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Compiled topics from your uploaded knowledge</p>
           </div>
-
-          <nav class="hidden items-center gap-6 md:flex">
-            <a
-              href="#summary"
-              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]"
-              >Summary</a
-            >
-            <a
-              href="#sources"
-              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
-              >Sources</a
-            >
-            <a
-              href="#mentions"
-              class="py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] transition-colors hover:text-[var(--accent)]"
-              >Links</a
-            >
-          </nav>
         </div>
 
         <div class="flex items-center gap-3">
           <app-theme-toggle></app-theme-toggle>
-          <button
-            type="button"
-            class="hidden rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)] transition-colors hover:text-[var(--text)] md:inline-flex"
-          >
-            <span class="material-symbols-outlined text-base">notifications</span>
-          </button>
-
-          <!-- Avatar Dropdown -->
           <div class="avatar-menu-wrapper relative">
             <button
               type="button"
@@ -127,18 +68,12 @@
             </button>
 
             @if (avatarMenuOpen()) {
-              <div class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-elevated)] backdrop-blur-xl animate-fade-up"
-                   style="animation-duration: 0.15s"
-                   role="menu">
+              <div class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-elevated)] backdrop-blur-xl" role="menu">
                 <div class="border-b border-[var(--line)] px-4 py-4">
                   <p class="text-sm font-bold text-[var(--text)] truncate">{{ currentUserName() }}</p>
                   <p class="mt-0.5 text-xs text-[var(--muted)] truncate">{{ currentUserEmail() }}</p>
                 </div>
                 <div class="py-1.5">
-                  <button type="button" role="menuitem" class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[var(--muted)] transition-colors duration-150 hover:bg-[var(--soft-fill)] hover:text-[var(--text)]" disabled>
-                    <span class="material-symbols-outlined text-base">settings</span>
-                    Settings
-                  </button>
                   <button type="button" role="menuitem" class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-400 transition-colors duration-150 hover:bg-rose-500/10" [disabled]="isSigningOut()" (click)="signOut()">
                     <span class="material-symbols-outlined text-base">logout</span>
                     {{ isSigningOut() ? 'Signing out...' : 'Sign out' }}
@@ -151,476 +86,123 @@
       </header>
 
       <div class="flex-1 overflow-y-auto">
-        <div class="mx-auto w-full max-w-7xl px-5 py-8 pb-40 md:px-8 md:py-12 md:pb-40 lg:px-14 lg:pb-12">
-          <div
-            class="mb-10 flex flex-col gap-4 border-b border-white/5 pb-8 md:flex-row md:items-center md:justify-between"
-          >
-            <div
-              class="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)]"
-            >
-              <span>Collections</span>
-              <span class="material-symbols-outlined text-xs">chevron_right</span>
-              <span>Neural Networks</span>
-              <span class="material-symbols-outlined text-xs">chevron_right</span>
-              <span class="text-[var(--accent)]">Wiki Page</span>
+        <div class="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 pb-20 md:grid-cols-[22rem_minmax(0,1fr)] md:px-8 lg:px-12">
+          <section class="space-y-4">
+            <div class="glass-card rounded-[1.75rem] p-5">
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Topic Index</p>
+              <h2 class="mt-3 text-2xl font-black tracking-[-0.05em] text-[var(--text)]">Your Wiki Topics</h2>
+              <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                Every topic is synthesized from one or more uploaded documents and refreshed during ingestion.
+              </p>
             </div>
 
-            <div class="flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-[0.18em]">
-              <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[var(--muted)]"
-                >Revision v2.4</span
-              >
-              <span
-                class="rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[var(--accent-soft)]"
-                >Last sync: 2m ago</span
-              >
-            </div>
-          </div>
-
-          <section
-            class="relative mb-14 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-6 py-8 shadow-[var(--shadow-elevated)] backdrop-blur-xl md:px-10 md:py-12"
-          >
-            <div
-              class="absolute right-[-4rem] top-[-4rem] h-48 w-48 rounded-full bg-[var(--accent)]/10 blur-[70px]"
-            ></div>
-            <div
-              class="absolute bottom-[-5rem] left-[35%] h-40 w-40 rounded-full bg-[rgba(63,185,156,0.10)] blur-[70px]"
-            ></div>
-
-            <div
-              class="relative flex flex-col gap-8 border-b border-white/5 pb-8 md:flex-row md:items-end md:justify-between"
-            >
-              <div class="max-w-3xl">
-                <p class="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-[var(--accent)]">
-                  Knowledge synthesis
-                </p>
-                <h1
-                  class="max-w-4xl text-5xl font-black tracking-[-0.08em] text-[var(--text)] md:text-7xl"
-                >
-                  The Attention Mechanism.
-                </h1>
-                <p class="mt-5 max-w-2xl text-base leading-8 text-[var(--muted)] md:text-lg">
-                  A comprehensive synthesis of transformers, self-attention architectures, and
-                  their cognitive parallels in human working memory, compiled from your imported
-                  papers and notes.
-                </p>
+            @if (isLoadingTopics()) {
+              <div class="glass-card rounded-[1.5rem] px-5 py-4 text-sm text-[var(--muted)]">Loading topics...</div>
+            } @else if (topics().length === 0) {
+              <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
+                No wiki topics yet. Upload documents in the Library and the ingestion pipeline will create topic pages automatically.
               </div>
-
-              <div class="flex flex-wrap gap-2">
-                @for (tag of tags; track tag) {
-                  <span
-                    class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text)]"
-                  >
-                    {{ tag }}
-                  </span>
-                }
-              </div>
-            </div>
-
-            <div class="relative mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,0.85fr)]">
-              <div id="summary" class="glass-card rounded-[1.75rem] p-6 md:p-8">
-                <div class="mb-6 flex items-center gap-3">
-                  <div
-                    class="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
-                  >
-                    <span class="material-symbols-outlined">auto_awesome</span>
-                  </div>
-                  <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                      AI compiled summary
-                    </p>
-                    <p class="mt-1 text-sm text-[var(--muted)]">Concise synthesis with citations</p>
-                  </div>
-                </div>
-
-                <div class="space-y-5 text-sm leading-8 text-[var(--muted)] md:text-base">
-                  @for (paragraph of summary; track paragraph) {
-                    <p>{{ paragraph }}</p>
-                  }
-                </div>
-              </div>
-
-              <div class="grid gap-4">
-                @for (stat of stats; track stat.label) {
-                  <div
-                    class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 shadow-[var(--shadow-floating)] backdrop-blur-lg"
-                  >
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
-                      {{ stat.label }}
-                    </p>
-                    <p class="mt-3 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">
-                      {{ stat.value }}
-                    </p>
-                    <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ stat.hint }}</p>
-                  </div>
-                }
-              </div>
-            </div>
-          </section>
-
-          <section class="grid gap-10 lg:grid-cols-[minmax(0,1.55fr)_24rem] xl:grid-cols-[minmax(0,1.7fr)_26rem]">
-            <div class="space-y-12">
-              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8">
-                <div class="mb-8 flex items-center gap-3">
-                  <span class="h-9 w-1.5 rounded-full bg-[var(--accent)]"></span>
-                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
-                    Architectural Components
-                  </h2>
-                </div>
-
-                <div class="grid gap-4 md:grid-cols-2">
-                  @for (component of architecturalComponents; track component.title) {
-                    <article
-                      class="rounded-[1.5rem] border border-white/10 bg-[var(--panel)] p-5 backdrop-blur-xl transition-transform duration-200 hover:-translate-y-0.5"
-                    >
-                      <p class="text-sm font-bold text-[var(--text)]">{{ component.title }}</p>
-                      <p class="mt-3 text-sm leading-7 text-[var(--muted)]">{{ component.body }}</p>
-                    </article>
-                  }
-                </div>
-              </section>
-
-              <section
-                id="sources"
-                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8"
-              >
-                <div class="mb-8 flex items-center gap-3">
-                  <span class="h-9 w-1.5 rounded-full bg-[rgba(63,185,156,0.75)]"></span>
-                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
-                    Core Source Documents
-                  </h2>
-                </div>
-
-                <div class="space-y-3">
-                  @for (document of sourceDocuments; track document.title) {
-                    <article
-                      class="group flex items-center justify-between rounded-[1.35rem] border border-white/10 bg-white/5 p-4 transition-colors duration-200 hover:bg-white/10"
-                    >
-                      <div class="flex min-w-0 items-center gap-4">
-                        <div
-                          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
-                          [style.backgroundColor]="document.background"
-                          [style.color]="document.color"
-                        >
-                          <span class="material-symbols-outlined">{{ document.icon }}</span>
-                        </div>
-                        <div class="min-w-0">
-                          <p
-                            class="truncate text-sm font-semibold text-[var(--text)] transition-colors group-hover:text-[var(--accent-soft)]"
-                          >
-                            {{ document.title }}
-                          </p>
-                          <p
-                            class="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]"
-                          >
-                            {{ document.meta }}
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="material-symbols-outlined text-[var(--muted)] transition-colors group-hover:text-[var(--text)]"
-                        >open_in_new</span
-                      >
-                    </article>
-                  }
-                </div>
-              </section>
-
-              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 md:p-8">
-                <div class="mb-8 flex items-center gap-3">
-                  <span class="h-9 w-1.5 rounded-full bg-[rgba(240,201,139,0.8)]"></span>
-                  <h2 class="text-3xl font-bold tracking-tight text-[var(--text)]">
-                    Why This Page Matters
-                  </h2>
-                </div>
-
-                <div class="grid gap-4 md:grid-cols-3">
-                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
-                      Retrieval model
-                    </p>
-                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
-                      It explains why relevance scoring is foundational to any system that claims to
-                      remember information instead of merely storing it.
-                    </p>
-                  </article>
-                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <p
-                      class="text-[10px] font-black uppercase tracking-[0.22em] text-[rgba(240,201,139,0.95)]"
-                    >
-                      Systems design
-                    </p>
-                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
-                      It is the conceptual bridge between the model layer and Living Atlas' product layer:
-                      search, citations, ranking, and cross-linking all depend on it.
-                    </p>
-                  </article>
-                  <article class="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <p
-                      class="text-[10px] font-black uppercase tracking-[0.22em] text-[rgba(138,215,195,0.95)]"
-                    >
-                      Cognitive analogy
-                    </p>
-                    <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
-                      It offers a useful language for discussing focus, working memory, and selective
-                      recall without collapsing those concepts into simplistic metaphors.
-                    </p>
-                  </article>
-                </div>
-              </section>
-
-            </div>
-
-            <aside class="space-y-8">
-              <section
-                id="mentions"
-                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6"
-              >
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Linked Mentions
-                </p>
-
-                <div class="mt-6 space-y-3">
-                  @for (mention of linkedMentions; track mention.title) {
-                    <article
-                      class="rounded-[1.4rem] border border-white/10 border-l-[3px] border-l-[var(--accent)] bg-white/5 p-4 transition-colors hover:bg-white/10"
-                    >
-                      <p class="text-sm font-bold text-[var(--text)]">{{ mention.title }}</p>
-                      <p class="mt-2 text-xs leading-6 text-[var(--muted)] italic">
-                        "{{ mention.excerpt }}"
-                      </p>
-                    </article>
-                  }
-                </div>
-              </section>
-
-              <section class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6">
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Visualization
-                </p>
-
-                  <div class="group relative mt-6 overflow-hidden rounded-[1.5rem] border border-white/10 h-72">
-                    <app-graph-animation></app-graph-animation>
-                    <div
-                      class="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(10,10,11,0.74))]"
-                    ></div>
-                    <div class="absolute inset-x-0 bottom-0 p-5">
-                      <p class="text-sm font-semibold text-white">Cross-document concept graph</p>
-                      <p class="mt-1 text-xs leading-6 text-white/70">
-                        Surface adjacent concepts, citations, and latent relationships.
-                      </p>
-                    </div>
-                  </div>
-              </section>
-
-              <section
-                id="meta"
-                class="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6"
-              >
-                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--muted)]">
-                  Page Timeline
-                </p>
-
-                <div class="mt-6 space-y-4">
-                  @for (item of timeline; track item.label) {
-                    <div class="flex items-start gap-3">
-                      <span
-                        class="mt-1.5 h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_10px_rgba(59,175,98,0.45)]"
-                      ></span>
-                      <div>
-                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-                          {{ item.label }}
-                        </p>
-                        <p class="mt-1 text-sm text-[var(--text)]">{{ item.value }}</p>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </section>
-            </aside>
-          </section>
-
-          <footer
-            class="mt-14 flex flex-col gap-5 border-t border-white/5 py-8 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--muted)] md:flex-row md:items-center md:justify-between"
-          >
-            <div class="flex flex-wrap gap-5">
-              @for (action of footerActions; track action) {
-                <span>{{ action }}</span>
-              }
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-sm">shield</span>
-              <span>Provenance preserved across every revision</span>
-            </div>
-          </footer>
-        </div>
-      </div>
-
-      <div class="fixed inset-x-4 bottom-4 z-50 lg:hidden">
-        @if (askPanelExpanded) {
-          <div class="glass-card rounded-[1.75rem] border border-white/10 p-4 shadow-[var(--shadow-elevated)]">
-            <div class="mb-3 flex items-start justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
-                >
-                  <span class="material-symbols-outlined">forum</span>
-                </div>
-                <div class="min-w-0">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                    Ask Living Atlas
-                  </p>
-                  <p class="text-sm font-bold text-[var(--text)]">Ask Living Atlas about this topic</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                (click)="collapseAskPanel()"
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--muted)] transition-colors hover:text-[var(--text)]"
-                aria-label="Collapse ask panel"
-              >
-                <span class="material-symbols-outlined text-base">close</span>
-              </button>
-            </div>
-
-            <div class="theme-input flex items-center gap-3 rounded-[1.35rem] px-4 py-3">
-              <input
-                type="text"
-                placeholder="Ask anything about this page..."
-                class="min-w-0 flex-1 bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-              />
-              <button
-                type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[var(--accent-contrast)]"
-              >
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                  >send</span
-                >
-              </button>
-            </div>
-          </div>
-        } @else {
-          <button
-            type="button"
-            (click)="expandAskPanel()"
-            class="glass-card ml-auto flex items-center gap-3 rounded-full border border-white/10 px-4 py-3 shadow-[var(--shadow-elevated)]"
-            aria-label="Expand ask panel"
-          >
-            <span
-              class="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
-            >
-              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                >forum</span
-              >
-            </span>
-            <span class="text-left">
-              <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
-                Ask Living Atlas
-              </span>
-              <span class="block text-sm font-bold text-[var(--text)]">Ask anything</span>
-            </span>
-          </button>
-        }
-      </div>
-
-      <div class="pointer-events-none fixed bottom-6 right-6 z-50 hidden lg:block">
-        @if (askPanelExpanded) {
-          <div class="pointer-events-auto w-[25rem] xl:w-[27rem]">
-            <div
-              class="glass-card rounded-[2rem] border border-white/10 p-5 shadow-[var(--shadow-elevated)]"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex items-start gap-4">
-                  <div
-                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)]/12 text-[var(--accent)]"
-                  >
-                    <span class="material-symbols-outlined">forum</span>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                      Ask Living Atlas
-                    </p>
-                    <h3 class="mt-2 text-[1.6rem] font-black tracking-[-0.06em] text-[var(--text)]">
-                      Ask Living Atlas about this topic
-                    </h3>
-                    <p class="mt-2 text-sm leading-6 text-[var(--muted)]">
-                      Pull out a simpler explanation, compare notes, or trace the idea back to the
-                      source.
-                    </p>
-                  </div>
-                </div>
+            } @else {
+              @for (topic of topics(); track topic.id) {
                 <button
                   type="button"
-                  (click)="collapseAskPanel()"
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--muted)] transition-colors hover:text-[var(--text)]"
-                  aria-label="Collapse ask panel"
+                  class="glass-card block w-full rounded-[1.5rem] p-5 text-left transition-all hover:-translate-y-0.5"
+                  [class.border-[var(--accent)]]="selectedTopic()?.id === topic.id"
+                  [class.shadow-[0_18px_50px_rgba(59,175,98,0.08)]]="selectedTopic()?.id === topic.id"
+                  (click)="selectTopic(topic.id)"
                 >
-                  <span class="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              <div class="mt-5 flex flex-wrap gap-2">
-                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Summarize this
-                </span>
-                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Compare sources
-                </span>
-                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-                  Explain simply
-                </span>
-              </div>
-
-              <div class="theme-input mt-5 rounded-[1.65rem] p-4">
-                <textarea
-                  rows="4"
-                  placeholder="Ask anything about this page..."
-                  class="min-h-[7.5rem] w-full resize-none bg-transparent text-base leading-7 text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-                ></textarea>
-
-                <div class="mt-4 flex items-center justify-between gap-4">
-                  <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-                    Ask anything
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <h3 class="truncate text-lg font-black tracking-[-0.04em] text-[var(--text)]">{{ topic.name }}</h3>
+                      <p class="mt-2 line-clamp-3 text-sm leading-7 text-[var(--muted)]">{{ topic.summary }}</p>
+                    </div>
+                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                      {{ topic.entry_ids.length }} entries
+                    </span>
+                  </div>
+                  <p class="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--muted)]">
+                    Updated {{ formatDate(topic.last_updated) }}
                   </p>
-                  <button
-                    type="button"
-                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-[var(--accent-contrast)] transition-transform duration-200 hover:scale-105"
-                  >
-                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                      >send</span
-                    >
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        } @else {
-          <div class="pointer-events-auto">
-            <button
-              type="button"
-              (click)="expandAskPanel()"
-              class="glass-card flex items-center gap-3 rounded-full border border-white/10 px-4 py-3 shadow-[var(--shadow-elevated)] transition-transform duration-200 hover:-translate-y-0.5"
-              aria-label="Expand ask panel"
-            >
-              <span
-                class="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
-              >
-                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1"
-                  >forum</span
-                >
-              </span>
-              <span class="text-left">
-                <span class="block text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
-                  Ask Living Atlas
-                </span>
-                <span class="block text-sm font-bold text-[var(--text)]">
-                  Ask Living Atlas about this topic
-                </span>
-              </span>
-            </button>
-          </div>
-        }
-      </div>
+                </button>
+              }
+            }
+          </section>
 
+          <section>
+            @if (selectedTopic(); as topic) {
+              <article class="glass-card rounded-[2rem] p-6 md:p-8">
+                <div class="border-b border-white/5 pb-6">
+                  <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">Knowledge synthesis</p>
+                  <h1 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ topic.name }}</h1>
+                  <p class="mt-5 max-w-3xl text-base leading-8 text-[var(--muted)]">{{ topic.summary }}</p>
+                </div>
+
+                <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_20rem]">
+                  <div>
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                      <h2 class="text-2xl font-black tracking-[-0.04em] text-[var(--text)]">Knowledge Entries</h2>
+                      <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                        {{ topicEntries().length }} total
+                      </span>
+                    </div>
+
+                    @if (isLoadingEntries()) {
+                      <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-[var(--muted)]">Loading topic entries...</div>
+                    } @else {
+                      <div class="space-y-3">
+                        @for (entry of topicEntries(); track entry.id) {
+                          <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                            <p class="text-base leading-8 text-[var(--text)]">{{ entry.claim }}</p>
+                            <div class="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
+                              <span class="rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1 text-[var(--accent)]">
+                                p.{{ entry.source.page }} · L{{ entry.source.line_start }}-{{ entry.source.line_end }}
+                              </span>
+                              @for (related of entry.related_topics; track related) {
+                                <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[var(--muted)]">{{ related }}</span>
+                              }
+                            </div>
+                          </article>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <div class="space-y-4">
+                    <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                      <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Documents</p>
+                      <div class="mt-4 space-y-3">
+                        @for (document of sourceDocuments(); track document.id) {
+                          <div class="rounded-[1rem] border border-white/10 bg-white/5 p-4">
+                            <p class="truncate text-sm font-bold text-[var(--text)]">{{ documentLabel(document) }}</p>
+                            <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                              {{ document.file_type }} · {{ formatDate(document.uploaded_at) }}
+                            </p>
+                          </div>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                      <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Ask This Topic</p>
+                      <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                        Use New Chat to ask a scoped question with this topic as the knowledge surface.
+                      </p>
+                      <a routerLink="/chat" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Go to New Chat</a>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            } @else {
+              <article class="glass-card rounded-[2rem] p-8 text-center">
+                <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">No topic selected</h2>
+                <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
+                  Choose a topic from the left once your library has been indexed.
+                </p>
+              </article>
+            }
+          </section>
+        </div>
+      </div>
     </main>
   </div>
 </div>

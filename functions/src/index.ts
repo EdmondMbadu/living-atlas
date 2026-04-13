@@ -1,0 +1,179 @@
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import { logger } from 'firebase-functions';
+import { db } from './firebase';
+import { geminiApiKey } from './gemini';
+import { clientTimestamp, loadDocumentRecord, newDocumentRecord, processStoredDocument, processUrlDocument, runAtlasQuery } from './pipeline';
+import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './utils';
+
+const region = 'us-central1';
+
+export const prepareDocumentUpload = onCall({ region }, async (request) => {
+  if (!request.auth?.uid) {
+    throw new HttpsError('unauthenticated', 'Authentication is required.');
+  }
+
+  const filename = String(request.data?.filename ?? '').trim();
+  const mimeType = String(request.data?.mimeType ?? '').trim() || null;
+  const fileSize = Number(request.data?.fileSize ?? 0);
+
+  if (!filename) {
+    throw new HttpsError('invalid-argument', 'filename is required.');
+  }
+
+  let fileType;
+  try {
+    fileType = detectFileType(filename, mimeType);
+  } catch (error) {
+    throw new HttpsError(
+      'invalid-argument',
+      error instanceof Error ? error.message : 'Unsupported file type.',
+    );
+  }
+
+  const documentRef = db.collection('documents').doc();
+  const storagePath = buildStoragePath(request.auth.uid, documentRef.id, filename);
+
+  await documentRef.set(
+    newDocumentRecord({
+      userId: request.auth.uid,
+      filename,
+      fileType,
+      storagePath,
+      sourceType: 'file',
+      mimeType,
+      fileSize: Number.isFinite(fileSize) ? fileSize : null,
+    }),
+  );
+
+  return {
+    documentId: documentRef.id,
+    storagePath,
+    fileType,
+    createdAt: clientTimestamp().toMillis(),
+  };
+});
+
+export const submitUrlDocument = onCall(
+  { region },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    const url = String(request.data?.url ?? '').trim();
+    if (!url) {
+      throw new HttpsError('invalid-argument', 'url is required.');
+    }
+
+    try {
+      new URL(url);
+    } catch {
+      throw new HttpsError('invalid-argument', 'Enter a valid URL.');
+    }
+
+    const documentRef = db.collection('documents').doc();
+    await documentRef.set(
+      newDocumentRecord({
+        userId: request.auth.uid,
+        filename: url,
+        fileType: 'url',
+        storagePath: null,
+        sourceType: 'url',
+        sourceUrl: url,
+        title: url,
+      }),
+    );
+
+    return { documentId: documentRef.id };
+  },
+);
+
+export const askAtlas = onCall(
+  { region, timeoutSeconds: 180, memory: '1GiB', secrets: [geminiApiKey] },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    const question = String(request.data?.question ?? '').trim();
+    const topicIds = Array.isArray(request.data?.topicIds)
+      ? request.data.topicIds.map((value: unknown) => String(value)).filter(Boolean)
+      : undefined;
+
+    if (!question) {
+      throw new HttpsError('invalid-argument', 'question is required.');
+    }
+
+    try {
+      return await runAtlasQuery({
+        userId: request.auth.uid,
+        question,
+        topicIds,
+      });
+    } catch (error) {
+      logger.error('askAtlas failed', error);
+      throw new HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to answer question.',
+      );
+    }
+  },
+);
+
+export const ingestUploadedDocument = onObjectFinalized(
+  { region, timeoutSeconds: 540, memory: '1GiB', secrets: [geminiApiKey] },
+  async (event) => {
+    const storagePath = event.data.name;
+    if (!storagePath || !storagePath.startsWith('users/')) {
+      return;
+    }
+
+    const documentId = extractDocumentIdFromPath(storagePath);
+    if (!documentId) {
+      logger.warn('Ignoring storage object without a Living Atlas document path', { storagePath });
+      return;
+    }
+
+    try {
+      const document = await loadDocumentRecord(documentId);
+      if (document.storage_path !== storagePath || document.status === 'indexed') {
+        return;
+      }
+
+      await processStoredDocument(documentId);
+    } catch (error) {
+      logger.error('ingestUploadedDocument failed', { storagePath, error });
+      throw error;
+    }
+  },
+);
+
+export const ingestSubmittedUrl = onDocumentCreated(
+  {
+    region,
+    document: 'documents/{documentId}',
+    timeoutSeconds: 540,
+    memory: '1GiB',
+    secrets: [geminiApiKey],
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) {
+      return;
+    }
+
+    const data = snapshot.data();
+    if (!data || data.source_type !== 'url' || data.status !== 'pending') {
+      return;
+    }
+
+    try {
+      await processUrlDocument(snapshot.id);
+    } catch (error) {
+      logger.error('ingestSubmittedUrl failed', { documentId: snapshot.id, error });
+      throw error;
+    }
+  },
+);

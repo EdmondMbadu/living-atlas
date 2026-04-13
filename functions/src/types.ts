@@ -1,0 +1,120 @@
+export const SUPPORTED_FILE_TYPES = [
+  'pdf',
+  'doc',
+  'docx',
+  'ppt',
+  'pptx',
+  'txt',
+  'md',
+  'png',
+  'jpg',
+  'jpeg',
+  'url',
+] as const;
+
+export type SupportedFileType = (typeof SUPPORTED_FILE_TYPES)[number];
+
+export type DocumentStatus =
+  | 'pending'
+  | 'processing'
+  | 'indexed'
+  | 'failed'
+  | 'deleted';
+
+export interface DocumentRecord {
+  user_id: string;
+  filename: string;
+  file_type: SupportedFileType;
+  storage_path: string | null;
+  source_type: 'file' | 'url';
+  source_url: string | null;
+  status: DocumentStatus;
+  page_count: number;
+  wiki_pages_generated: number;
+  citation_count: number;
+  collection_id: string | null;
+  uploaded_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  indexed_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
+  deleted_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
+  visible: boolean;
+  mime_type: string | null;
+  file_size: number | null;
+  title: string | null;
+  error_message?: string | null;
+}
+
+export interface ExtractBlock {
+  page: number;
+  lineStart: number;
+  lineEnd: number;
+  text: string;
+}
+
+export interface KnowledgeEntryDraft {
+  claim: string;
+  topic: string;
+  related_topics: string[];
+  source: {
+    page: number;
+    line_start: number;
+    line_end: number;
+  };
+}
+
+export interface KnowledgeEntryRecord {
+  claim: string;
+  topic: string;
+  related_topics: string[];
+  document_id: string;
+  user_id: string;
+  source: {
+    page: number;
+    line_start: number;
+    line_end: number;
+  };
+  orphaned: boolean;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  last_updated: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
+export interface WikiTopicRecord {
+  name: string;
+  summary: string;
+  entry_ids: string[];
+  document_ids: string[];
+  user_id: string;
+  last_updated: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
+export interface QueryCitationSnapshot {
+  entry_id: string;
+  text: string;
+  filename: string;
+  page: number;
+  line_start: number;
+  line_end: number;
+}
+
+export interface QueryRecord {
+  user_id: string;
+  question: string;
+  answer: string;
+  cited_entry_ids: string[];
+  cited_passages: QueryCitationSnapshot[];
+  knowledge_gap?: boolean;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
+export interface PreparedUpload {
+  documentId: string;
+  storagePath: string;
+  fileType: SupportedFileType;
+}
+
+export interface AskAtlasResponse {
+  answer: string;
+  citedEntryIds: string[];
+  citedPassages: QueryCitationSnapshot[];
+  scopedTopicIds: string[];
+  knowledgeGap: boolean;
+}

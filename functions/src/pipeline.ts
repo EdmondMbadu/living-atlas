@@ -1,0 +1,487 @@
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions';
+import { answerQuestion, compileKnowledgeEntries, summarizeTopic } from './gemini';
+import { db, storage } from './firebase';
+import { extractBlocksFromBuffer, extractBlocksFromUrl } from './extractors';
+import {
+  chunkExtractBlocks,
+  compact,
+  dedupeStrings,
+  generateId,
+  makeExtractId,
+  normalizeRelatedTopics,
+  normalizeTopicName,
+  topicDocumentId,
+} from './utils';
+import type {
+  DocumentRecord,
+  ExtractBlock,
+  KnowledgeEntryDraft,
+  KnowledgeEntryRecord,
+  QueryCitationSnapshot,
+} from './types';
+
+const documentsCollection = db.collection('documents');
+const rawExtractsCollection = db.collection('raw_extracts');
+const knowledgeEntriesCollection = db.collection('knowledge_entries');
+const wikiTopicsCollection = db.collection('wiki_topics');
+const queriesCollection = db.collection('queries');
+
+export async function loadDocumentRecord(documentId: string): Promise<DocumentRecord & { id: string }> {
+  const snapshot = await documentsCollection.doc(documentId).get();
+  if (!snapshot.exists) {
+    throw new Error(`Document ${documentId} does not exist.`);
+  }
+
+  return { id: snapshot.id, ...(snapshot.data() as DocumentRecord) };
+}
+
+export async function processStoredDocument(documentId: string): Promise<void> {
+  const document = await loadDocumentRecord(documentId);
+  if (!document.storage_path) {
+    throw new Error(`Document ${documentId} is missing a storage path.`);
+  }
+
+  const [buffer] = await storage.bucket().file(document.storage_path).download();
+  await processDocument({
+    document,
+    extraction: extractBlocksFromBuffer(document.file_type, buffer),
+  });
+}
+
+export async function processUrlDocument(documentId: string): Promise<void> {
+  const document = await loadDocumentRecord(documentId);
+  if (!document.source_url) {
+    throw new Error(`Document ${documentId} is missing source_url.`);
+  }
+
+  await processDocument({
+    document,
+    extraction: extractBlocksFromUrl(document.source_url),
+  });
+}
+
+async function processDocument(params: {
+  document: DocumentRecord & { id: string };
+  extraction: Promise<{ blocks: ExtractBlock[]; title?: string | null }>;
+}): Promise<void> {
+  const { document } = params;
+  const documentRef = documentsCollection.doc(document.id);
+
+  await documentRef.set(
+    {
+      status: 'processing',
+      error_message: null,
+    },
+    { merge: true },
+  );
+
+  try {
+    const extraction = await params.extraction;
+    const blocks = extraction.blocks.filter((block) => block.text.trim().length > 0);
+
+    if (blocks.length === 0) {
+      throw new Error('No extractable text found in the document.');
+    }
+
+    await writeRawExtracts(document.id, document.user_id, blocks);
+    const entries = await buildKnowledgeEntries(document.id, document.user_id, blocks);
+    await writeKnowledgeEntries(entries);
+    await refreshWikiTopics(document.user_id, document.id, entries);
+
+    await documentRef.set(
+      {
+        status: 'indexed',
+        page_count: Math.max(...blocks.map((block) => block.page)),
+        wiki_pages_generated: new Set(entries.map((entry) => entry.topic)).size,
+        citation_count: entries.length,
+        indexed_at: FieldValue.serverTimestamp(),
+        error_message: null,
+        title: extraction.title ?? document.title ?? null,
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    logger.error('Document ingestion failed', { documentId: document.id, error });
+    await documentRef.set(
+      {
+        status: 'failed',
+        error_message: error instanceof Error ? error.message : 'Unknown ingestion failure.',
+      },
+      { merge: true },
+    );
+    throw error;
+  }
+}
+
+async function writeRawExtracts(
+  documentId: string,
+  userId: string,
+  blocks: ExtractBlock[],
+): Promise<void> {
+  const writeOperations = blocks.map((block) => ({
+    ref: rawExtractsCollection.doc(
+      makeExtractId(documentId, block.page, block.lineStart, block.lineEnd),
+    ),
+    data: {
+      document_id: documentId,
+      user_id: userId,
+      page: block.page,
+      line_start: block.lineStart,
+      line_end: block.lineEnd,
+      text: block.text,
+      created_at: FieldValue.serverTimestamp(),
+    },
+  }));
+
+  await commitSetOperations(writeOperations);
+}
+
+async function buildKnowledgeEntries(
+  documentId: string,
+  userId: string,
+  blocks: ExtractBlock[],
+): Promise<Array<KnowledgeEntryRecord & { id: string }>> {
+  const blockMap = new Map(
+    blocks.map((block) => [
+      `${block.page}:${block.lineStart}:${block.lineEnd}`,
+      block,
+    ]),
+  );
+  const chunks = chunkExtractBlocks(blocks);
+  const drafts: KnowledgeEntryDraft[] = [];
+
+  for (const chunk of chunks) {
+    const compiled = await compileKnowledgeEntries(chunk);
+    drafts.push(...compiled);
+  }
+
+  const validated = drafts
+    .map((draft) => {
+      const key = `${draft.source.page}:${draft.source.line_start}:${draft.source.line_end}`;
+      return blockMap.has(key) ? draft : null;
+    });
+
+  return compact(validated).map((draft) => ({
+    id: generateId('entry'),
+    claim: draft.claim,
+    topic: normalizeTopicName(draft.topic),
+    related_topics: normalizeRelatedTopics(draft.related_topics),
+    document_id: documentId,
+    user_id: userId,
+    source: draft.source,
+    orphaned: false,
+    created_at: FieldValue.serverTimestamp(),
+    last_updated: FieldValue.serverTimestamp(),
+  }));
+}
+
+async function writeKnowledgeEntries(
+  entries: Array<KnowledgeEntryRecord & { id: string }>,
+): Promise<void> {
+  await commitSetOperations(
+    entries.map((entry) => ({
+      ref: knowledgeEntriesCollection.doc(entry.id),
+      data: entry,
+    })),
+  );
+}
+
+async function refreshWikiTopics(
+  userId: string,
+  documentId: string,
+  entries: Array<KnowledgeEntryRecord & { id: string }>,
+): Promise<void> {
+  const topicMap = new Map<string, Array<KnowledgeEntryRecord & { id: string }>>();
+
+  for (const entry of entries) {
+    const existing = topicMap.get(entry.topic) ?? [];
+    existing.push(entry);
+    topicMap.set(entry.topic, existing);
+  }
+
+  for (const [topicName, topicEntries] of topicMap.entries()) {
+    const topicId = topicDocumentId(userId, topicName);
+    const existingSnapshot = await wikiTopicsCollection.doc(topicId).get();
+    const existing = existingSnapshot.exists ? existingSnapshot.data() : null;
+    const summary = await summarizeTopic(
+      topicName,
+      topicEntries.map((entry) => entry.claim),
+    );
+
+    await wikiTopicsCollection.doc(topicId).set(
+      {
+        name: topicName,
+        summary,
+        entry_ids: dedupeStrings([
+          ...(existing?.entry_ids ?? []),
+          ...topicEntries.map((entry) => entry.id),
+        ]),
+        document_ids: dedupeStrings([...(existing?.document_ids ?? []), documentId]),
+        user_id: userId,
+        last_updated: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+}
+
+export async function runAtlasQuery(params: {
+  userId: string;
+  question: string;
+  topicIds?: string[];
+  scopeTopicName?: string | null;
+}): Promise<{
+  answer: string;
+  citedEntryIds: string[];
+  citedPassages: QueryCitationSnapshot[];
+  scopedTopicIds: string[];
+  knowledgeGap: boolean;
+}> {
+  const trimmedQuestion = params.question.trim();
+  if (!trimmedQuestion) {
+    throw new Error('Question is required.');
+  }
+
+  const topics = await loadCandidateTopics(params.userId, trimmedQuestion, params.topicIds);
+  const topicNames = topics.map((topic) => topic.name);
+
+  const entrySnapshots = await Promise.all(
+    topics.flatMap((topic) =>
+      topic.entry_ids.slice(0, 30).map((entryId) => knowledgeEntriesCollection.doc(entryId).get()),
+    ),
+  );
+
+  const uniqueEntries = dedupeById(
+    compact(
+      entrySnapshots
+        .filter((snapshot) => snapshot.exists)
+        .map((snapshot) => ({
+          id: snapshot.id,
+          ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
+        })),
+    ),
+  ).slice(0, 80);
+
+  if (uniqueEntries.length === 0) {
+    return {
+      answer:
+        "This topic isn't in your knowledge base yet. Upload source material so Living Atlas can answer it with citations.",
+      citedEntryIds: [],
+      citedPassages: [],
+      scopedTopicIds: topics.map((topic) => topic.id),
+      knowledgeGap: true,
+    };
+  }
+
+  const response = await answerQuestion({
+    question: trimmedQuestion,
+    topicNames,
+    entries: uniqueEntries.map((entry) => ({
+      id: entry.id,
+      claim: entry.claim,
+      topic: entry.topic,
+      source: entry.source,
+    })),
+  });
+
+  const citedEntryIds = response.cited_entry_ids.filter((entryId) =>
+    uniqueEntries.some((entry) => entry.id === entryId),
+  );
+  const citedPassages = await hydrateCitationSnapshots(params.userId, uniqueEntries, citedEntryIds);
+
+  await queriesCollection.add({
+    user_id: params.userId,
+    question: trimmedQuestion,
+    answer: response.answer,
+    cited_entry_ids: citedEntryIds,
+    cited_passages: citedPassages,
+    knowledge_gap: response.knowledge_gap,
+    created_at: FieldValue.serverTimestamp(),
+  });
+
+  return {
+    answer: response.answer,
+    citedEntryIds,
+    citedPassages,
+    scopedTopicIds: topics.map((topic) => topic.id),
+    knowledgeGap: response.knowledge_gap,
+  };
+}
+
+async function loadCandidateTopics(
+  userId: string,
+  question: string,
+  forcedTopicIds?: string[],
+): Promise<Array<{ id: string; name: string; entry_ids: string[] }>> {
+  if (forcedTopicIds && forcedTopicIds.length > 0) {
+    const snapshots = await Promise.all(forcedTopicIds.map((topicId) => wikiTopicsCollection.doc(topicId).get()));
+    return compact(
+      snapshots.map((snapshot) =>
+        snapshot.exists && snapshot.data()?.user_id === userId
+          ? {
+              id: snapshot.id,
+              name: snapshot.data()?.name as string,
+              entry_ids: (snapshot.data()?.entry_ids as string[]) ?? [],
+            }
+          : null,
+      ),
+    );
+  }
+
+  const snapshot = await wikiTopicsCollection
+    .where('user_id', '==', userId)
+    .orderBy('last_updated', 'desc')
+    .limit(40)
+    .get();
+
+  const tokens = tokenize(question);
+  const scored = snapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      const haystack = `${data.name ?? ''} ${data.summary ?? ''}`.toLowerCase();
+      const score = tokens.reduce(
+        (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
+        0,
+      );
+
+      return {
+        id: doc.id,
+        name: data.name as string,
+        entry_ids: (data.entry_ids as string[]) ?? [],
+        score,
+      };
+    })
+    .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
+
+  const selected = scored.filter((topic) => topic.score > 0).slice(0, 6);
+  return (selected.length > 0 ? selected : scored.slice(0, 6)).map((topic) => ({
+    id: topic.id,
+    name: topic.name,
+    entry_ids: topic.entry_ids,
+  }));
+}
+
+async function hydrateCitationSnapshots(
+  userId: string,
+  entries: Array<{
+    id: string;
+    claim: string;
+    document_id: string;
+    source: { page: number; line_start: number; line_end: number };
+  }>,
+  citedEntryIds: string[],
+): Promise<QueryCitationSnapshot[]> {
+  const documentsCache = new Map<string, string>();
+  const snapshots: QueryCitationSnapshot[] = [];
+
+  for (const entryId of citedEntryIds) {
+    const entry = entries.find((candidate) => candidate.id === entryId);
+    if (!entry) {
+      continue;
+    }
+
+    const extractId = makeExtractId(
+      entry.document_id,
+      entry.source.page,
+      entry.source.line_start,
+      entry.source.line_end,
+    );
+    const extractSnapshot = await rawExtractsCollection.doc(extractId).get();
+    const extractText = extractSnapshot.exists ? (extractSnapshot.data()?.text as string) : entry.claim;
+
+    if (!documentsCache.has(entry.document_id)) {
+      const documentSnapshot = await documentsCollection.doc(entry.document_id).get();
+      documentsCache.set(
+        entry.document_id,
+        (documentSnapshot.data()?.filename as string | undefined) ?? 'Unknown document',
+      );
+    }
+
+    snapshots.push({
+      entry_id: entryId,
+      text: extractText,
+      filename: documentsCache.get(entry.document_id) ?? 'Unknown document',
+      page: entry.source.page,
+      line_start: entry.source.line_start,
+      line_end: entry.source.line_end,
+    });
+  }
+
+  return snapshots.filter((snapshot) => snapshot.text.length > 0);
+}
+
+async function commitSetOperations(
+  operations: Array<{ ref: FirebaseFirestore.DocumentReference; data: FirebaseFirestore.DocumentData }>,
+): Promise<void> {
+  for (let index = 0; index < operations.length; index += 400) {
+    const batch = db.batch();
+    for (const operation of operations.slice(index, index + 400)) {
+      batch.set(operation.ref, operation.data, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+function dedupeById<T extends { id: string }>(values: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  for (const value of values) {
+    if (seen.has(value.id)) {
+      continue;
+    }
+    seen.add(value.id);
+    result.push(value);
+  }
+
+  return result;
+}
+
+function tokenize(value: string): string[] {
+  return dedupeStrings(
+    value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3),
+  );
+}
+
+export function newDocumentRecord(params: {
+  userId: string;
+  filename: string;
+  fileType: DocumentRecord['file_type'];
+  storagePath: string | null;
+  sourceType: 'file' | 'url';
+  sourceUrl?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  title?: string | null;
+}): DocumentRecord {
+  return {
+    user_id: params.userId,
+    filename: params.filename,
+    file_type: params.fileType,
+    storage_path: params.storagePath,
+    source_type: params.sourceType,
+    source_url: params.sourceUrl ?? null,
+    status: 'pending',
+    page_count: 0,
+    wiki_pages_generated: 0,
+    citation_count: 0,
+    collection_id: null,
+    uploaded_at: FieldValue.serverTimestamp(),
+    indexed_at: null,
+    deleted_at: null,
+    visible: true,
+    mime_type: params.mimeType ?? null,
+    file_size: params.fileSize ?? null,
+    title: params.title ?? null,
+    error_message: null,
+  };
+}
+
+export function clientTimestamp(): FirebaseFirestore.Timestamp {
+  return Timestamp.now();
+}

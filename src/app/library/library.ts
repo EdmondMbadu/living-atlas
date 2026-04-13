@@ -1,23 +1,37 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import type { DocumentItem } from '../atlas.models';
 import { AuthService } from '../auth.service';
-import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
+import { DocumentsService } from '../documents.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
+import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 
 @Component({
   selector: 'app-library',
-  imports: [RouterLink, ThemeToggleComponent, MobileMenuComponent],
+  imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
   templateUrl: './library.html',
 })
 export class LibraryComponent {
+  @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
+
   private readonly authService = inject(AuthService);
+  private readonly documentsService = inject(DocumentsService);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
 
   readonly isSigningOut = signal(false);
   readonly avatarMenuOpen = signal(false);
+  readonly urlToImport = signal('');
+
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
+  readonly documents = this.documentsService.documents;
+  readonly isLoading = this.documentsService.isLoading;
+  readonly isUploading = this.documentsService.isUploading;
+  readonly uploadError = this.documentsService.uploadError;
+  readonly stats = this.documentsService.stats;
+  readonly uploadProgress = this.documentsService.uploadProgress;
 
   readonly userInitials = () => {
     const name = this.currentUserName();
@@ -30,86 +44,131 @@ export class LibraryComponent {
       .toUpperCase();
   };
 
-  readonly stats = [
-    { value: '142', label: 'Total Documents', valueClass: 'text-[var(--text)]' },
-    { value: '56', label: 'Wiki Pages Generated', valueClass: 'text-[var(--text)]' },
-    { value: '892', label: 'Total Citations', valueClass: 'text-[var(--text)]' },
-    { value: '12', label: 'Knowledge Gaps', valueClass: 'text-[var(--accent)]' },
-  ];
-
-  readonly documents = [
-    {
-      title: 'IRS_Publication_535.pdf',
-      addedOn: 'Apr 3 2025',
-      icon: 'picture_as_pdf',
-      iconClasses: 'bg-[rgba(59,175,98,0.12)] text-[#8fd9a8]',
-      status: 'Indexed',
-      statusClasses:
-        'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      wikiPages: '6 wiki pages',
-      citations: '24 citations',
-    },
-    {
-      title: 'Client_Contract_2024.docx',
-      addedOn: 'Mar 28 2025',
-      icon: 'description',
-      iconClasses: 'bg-sky-500/10 text-sky-400',
-      status: 'Indexed',
-      statusClasses:
-        'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      wikiPages: '3 wiki pages',
-      citations: '8 citations',
-    },
-    {
-      title: 'Q4_Meeting_Notes.md',
-      addedOn: 'Apr 8 2025',
-      icon: 'article',
-      iconClasses: 'bg-teal-400/10 text-teal-300',
-      status: 'Processing',
-      statusClasses:
-        'border border-amber-500/20 bg-amber-500/10 text-amber-400',
-      wikiPages: '-- wiki pages',
-      citations: '-- citations',
-    },
-    {
-      title: 'Freelancer_Guide_2025.pdf',
-      addedOn: 'Apr 1 2025',
-      icon: 'picture_as_pdf',
-      iconClasses: 'bg-[rgba(59,175,98,0.12)] text-[#8fd9a8]',
-      status: 'Indexed',
-      statusClasses:
-        'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      wikiPages: '5 wiki pages',
-      citations: '19 citations',
-    },
-    {
-      title: 'Project_Scope_Template.txt',
-      addedOn: 'Mar 15 2025',
-      icon: 'text_snippet',
-      iconClasses: 'bg-stone-400/10 text-stone-400',
-      status: 'Pending',
-      statusClasses:
-        'border border-white/10 bg-white/5 text-[var(--muted)]',
-      wikiPages: '0 wiki pages',
-      citations: '0 citations',
-    },
-  ];
-
-  readonly knowledgeGaps = [
-    'Contractor liability',
-    'Q4 projections',
-    'Onboarding checklist',
-    'GDPR compliance',
-    'Invoice late fees',
-  ];
-
   toggleAvatarMenu(): void {
     this.avatarMenuOpen.update((open) => !open);
   }
 
+  openFilePicker(): void {
+    this.fileInput?.nativeElement.click();
+  }
+
+  async onFilesSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) {
+      return;
+    }
+
+    await this.documentsService.uploadFiles(input.files);
+    input.value = '';
+  }
+
+  async submitUrl(): Promise<void> {
+    const url = this.urlToImport().trim();
+    if (!url) {
+      return;
+    }
+
+    await this.documentsService.submitUrl(url);
+    this.urlToImport.set('');
+  }
+
+  async downloadDocument(document: DocumentItem): Promise<void> {
+    const downloadUrl = await this.documentsService.getDownloadUrl(document);
+    if (downloadUrl) {
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  iconForDocument(document: DocumentItem): string {
+    switch (document.file_type) {
+      case 'pdf':
+        return 'picture_as_pdf';
+      case 'doc':
+      case 'docx':
+        return 'description';
+      case 'ppt':
+      case 'pptx':
+        return 'slideshow';
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+        return 'image';
+      case 'url':
+        return 'link';
+      case 'md':
+        return 'article';
+      default:
+        return 'text_snippet';
+    }
+  }
+
+  iconClasses(document: DocumentItem): string {
+    switch (document.file_type) {
+      case 'pdf':
+        return 'bg-[rgba(59,175,98,0.12)] text-[#8fd9a8]';
+      case 'doc':
+      case 'docx':
+        return 'bg-sky-500/10 text-sky-400';
+      case 'ppt':
+      case 'pptx':
+        return 'bg-amber-500/10 text-amber-400';
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+        return 'bg-violet-500/10 text-violet-300';
+      case 'url':
+        return 'bg-cyan-500/10 text-cyan-300';
+      case 'md':
+        return 'bg-teal-400/10 text-teal-300';
+      default:
+        return 'bg-stone-400/10 text-stone-400';
+    }
+  }
+
+  statusClasses(document: DocumentItem): string {
+    switch (document.status) {
+      case 'indexed':
+        return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400';
+      case 'processing':
+        return 'border border-amber-500/20 bg-amber-500/10 text-amber-400';
+      case 'failed':
+        return 'border border-rose-500/20 bg-rose-500/10 text-rose-300';
+      default:
+        return 'border border-white/10 bg-white/5 text-[var(--muted)]';
+    }
+  }
+
+  formatStatus(status: DocumentItem['status']): string {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  formatDocumentDate(document: DocumentItem): string {
+    const value = document.uploaded_at;
+    const date =
+      value instanceof Date ? value : typeof value?.toDate === 'function' ? value.toDate() : null;
+
+    if (!date) {
+      return 'Just now';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+  }
+
+  progressForDocument(documentId: string): number | null {
+    return this.uploadProgress()[documentId] ?? null;
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.elementRef.nativeElement.querySelector('.avatar-menu-wrapper')?.contains(event.target as Node)) {
+    if (
+      !this.elementRef.nativeElement
+        .querySelector('.avatar-menu-wrapper')
+        ?.contains(event.target as Node)
+    ) {
       this.avatarMenuOpen.set(false);
     }
   }

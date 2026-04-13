@@ -1,0 +1,71 @@
+export type DocumentStatus =
+  | 'pending'
+  | 'processing'
+  | 'indexed'
+  | 'failed'
+  | 'deleted';
+
+export interface DocumentItem {
+  id: string;
+  user_id: string;
+  filename: string;
+  file_type: string;
+  storage_path: string | null;
+  source_type: 'file' | 'url';
+  source_url: string | null;
+  status: DocumentStatus;
+  page_count: number;
+  wiki_pages_generated: number;
+  citation_count: number;
+  uploaded_at?: { toDate(): Date } | Date | null;
+  indexed_at?: { toDate(): Date } | Date | null;
+  visible: boolean;
+  mime_type?: string | null;
+  file_size?: number | null;
+  title?: string | null;
+  error_message?: string | null;
+}
+
+export interface WikiTopicItem {
+  id: string;
+  name: string;
+  summary: string;
+  entry_ids: string[];
+  document_ids: string[];
+  user_id: string;
+  last_updated?: { toDate(): Date } | Date | null;
+}
+
+export interface KnowledgeEntryItem {
+  id: string;
+  claim: string;
+  topic: string;
+  related_topics: string[];
+  document_id: string;
+  user_id: string;
+  source: {
+    page: number;
+    line_start: number;
+    line_end: number;
+  };
+  orphaned: boolean;
+}
+
+export interface CitationPassage {
+  entry_id: string;
+  text: string;
+  filename: string;
+  page: number;
+  line_start: number;
+  line_end: number;
+}
+
+export interface QueryHistoryItem {
+  id: string;
+  question: string;
+  answer: string;
+  cited_entry_ids: string[];
+  cited_passages: CitationPassage[];
+  knowledge_gap?: boolean;
+  created_at?: { toDate(): Date } | Date | null;
+}

@@ -270,6 +270,19 @@ export class AuthService {
   }
 
   toFriendlyError(error: unknown): string {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error &&
+      typeof error.message === 'string' &&
+      error.message.length > 0
+    ) {
+      const message = error.message.replace(/^Firebase:\s*/i, '').trim();
+      if (message.length > 0 && message !== 'internal') {
+        return message;
+      }
+    }
+
     if (!(error instanceof FirebaseError)) {
       return 'Something went wrong. Please try again.';
     }
