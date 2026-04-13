@@ -219,6 +219,12 @@
                 {{ uploadError() }}
               </div>
             }
+
+            @if (deleteError()) {
+              <div class="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                {{ deleteError() }}
+              </div>
+            }
           </section>
 
           <section id="all-files" class="mt-8 space-y-3">
@@ -262,7 +268,7 @@
                     </div>
                   </div>
 
-                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:gap-8">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:gap-5">
                     <div
                       class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]"
                       [class]="statusClasses(document)"
@@ -278,14 +284,29 @@
                       <span class="text-[11px] text-[var(--muted)]">{{ document.citation_count }} citations</span>
                     </div>
 
-                    <button
-                      type="button"
-                      class="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-white/5 hover:text-[var(--text)]"
-                      (click)="downloadDocument(document)"
-                      [disabled]="!document.storage_path"
-                    >
-                      <span class="material-symbols-outlined">download</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-white/5 hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        (click)="downloadDocument(document)"
+                        [disabled]="!document.storage_path || isDeletingDocument(document.id)"
+                        [attr.aria-label]="'Download ' + (document.title || document.filename)"
+                      >
+                        <span class="material-symbols-outlined">download</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/8 px-4 text-rose-300 transition-colors hover:bg-rose-500/12 disabled:cursor-not-allowed disabled:opacity-50"
+                        (click)="deleteDocument(document)"
+                        [disabled]="isDeletingDocument(document.id)"
+                      >
+                        <span class="material-symbols-outlined text-[1.1rem]">delete</span>
+                        <span class="text-xs font-bold uppercase tracking-[0.16em]">
+                          {{ isDeletingDocument(document.id) ? 'Deleting...' : 'Delete' }}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

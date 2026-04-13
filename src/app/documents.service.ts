@@ -29,6 +29,11 @@ type PrepareDocumentUploadResponse = {
   fileType: string;
 };
 
+type DeleteDocumentResponse = {
+  deletedTopicIds: string[];
+  updatedTopicIds: string[];
+};
+
 @Injectable({ providedIn: 'root' })
 export class DocumentsService {
   private readonly authService = inject(AuthService);
@@ -44,6 +49,8 @@ export class DocumentsService {
   readonly uploadError = signal<string | null>(null);
   readonly uploadProgress = signal<Record<string, number>>({});
   readonly knowledgeGapsCount = signal(0);
+  readonly deleteError = signal<string | null>(null);
+  readonly deletingDocumentIds = signal<Record<string, boolean>>({});
 
   readonly stats = computed(() => {
     const documents = this.documents();
@@ -174,6 +181,32 @@ export class DocumentsService {
     }
 
     return getDownloadURL(ref(this.storage, document.storage_path));
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    if (!this.functions) {
+      return;
+    }
+
+    this.deleteError.set(null);
+    this.deletingDocumentIds.update((value) => ({ ...value, [documentId]: true }));
+
+    try {
+      const deleteDocument = httpsCallable<
+        { documentId: string },
+        DeleteDocumentResponse
+      >(this.functions, 'deleteDocument');
+      await deleteDocument({ documentId });
+    } catch (error) {
+      this.deleteError.set(this.authService.toFriendlyError(error));
+      throw error;
+    } finally {
+      this.deletingDocumentIds.update((value) => {
+        const next = { ...value };
+        delete next[documentId];
+        return next;
+      });
+    }
   }
 
   private async uploadSingleFile(file: File): Promise<void> {

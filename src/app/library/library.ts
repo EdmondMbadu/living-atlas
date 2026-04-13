@@ -30,8 +30,10 @@ export class LibraryComponent {
   readonly isLoading = this.documentsService.isLoading;
   readonly isUploading = this.documentsService.isUploading;
   readonly uploadError = this.documentsService.uploadError;
+  readonly deleteError = this.documentsService.deleteError;
   readonly stats = this.documentsService.stats;
   readonly uploadProgress = this.documentsService.uploadProgress;
+  readonly deletingDocumentIds = this.documentsService.deletingDocumentIds;
 
   readonly userInitials = () => {
     const name = this.currentUserName();
@@ -77,6 +79,19 @@ export class LibraryComponent {
     if (downloadUrl) {
       window.open(downloadUrl, '_blank', 'noopener,noreferrer');
     }
+  }
+
+  async deleteDocument(document: DocumentItem): Promise<void> {
+    const label = document.title || document.filename;
+    const confirmed = window.confirm(
+      `Delete "${label}"?\n\nThis will remove the file, its extracts, its knowledge entries, and update affected wiki topics.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await this.documentsService.deleteDocument(document.id);
   }
 
   iconForDocument(document: DocumentItem): string {
@@ -160,6 +175,10 @@ export class LibraryComponent {
 
   progressForDocument(documentId: string): number | null {
     return this.uploadProgress()[documentId] ?? null;
+  }
+
+  isDeletingDocument(documentId: string): boolean {
+    return this.deletingDocumentIds()[documentId] ?? false;
   }
 
   @HostListener('document:click', ['$event'])

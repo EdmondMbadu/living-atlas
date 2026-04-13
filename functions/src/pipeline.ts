@@ -61,6 +61,99 @@ export async function processUrlDocument(documentId: string): Promise<void> {
   });
 }
 
+export async function deleteDocumentForUser(params: {
+  documentId: string;
+  userId: string;
+}): Promise<{ deletedTopicIds: string[]; updatedTopicIds: string[] }> {
+  const document = await loadDocumentRecord(params.documentId);
+  if (document.user_id !== params.userId) {
+    throw new Error('You do not have access to delete this document.');
+  }
+
+  const topicNames = new Set<string>();
+
+  const knowledgeEntriesSnapshot = await knowledgeEntriesCollection
+    .where('user_id', '==', params.userId)
+    .where('document_id', '==', params.documentId)
+    .get();
+
+  const knowledgeEntries = knowledgeEntriesSnapshot.docs.map((snapshot) => ({
+    id: snapshot.id,
+    ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
+  }));
+
+  for (const entry of knowledgeEntries) {
+    topicNames.add(entry.topic);
+  }
+
+  const rawExtractsSnapshot = await rawExtractsCollection
+    .where('user_id', '==', params.userId)
+    .where('document_id', '==', params.documentId)
+    .get();
+
+  await deleteSnapshotDocs(rawExtractsSnapshot.docs);
+  await deleteSnapshotDocs(knowledgeEntriesSnapshot.docs);
+
+  if (document.storage_path) {
+    try {
+      await storage.bucket().file(document.storage_path).delete({ ignoreNotFound: true });
+    } catch (error) {
+      logger.warn('Storage delete skipped or failed', {
+        documentId: params.documentId,
+        storagePath: document.storage_path,
+        error,
+      });
+    }
+  }
+
+  const updatedTopicIds: string[] = [];
+  const deletedTopicIds: string[] = [];
+
+  for (const topicName of topicNames) {
+    const topicId = topicDocumentId(params.userId, topicName);
+    const remainingEntriesSnapshot = await knowledgeEntriesCollection
+      .where('user_id', '==', params.userId)
+      .where('topic', '==', topicName)
+      .where('orphaned', '==', false)
+      .get();
+
+    if (remainingEntriesSnapshot.empty) {
+      await wikiTopicsCollection.doc(topicId).delete();
+      deletedTopicIds.push(topicId);
+      continue;
+    }
+
+    const remainingEntries = remainingEntriesSnapshot.docs.map((snapshot) => ({
+      id: snapshot.id,
+      ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
+    }));
+    const summary = await summarizeTopic(
+      topicName,
+      remainingEntries.map((entry) => entry.claim),
+    );
+
+    await wikiTopicsCollection.doc(topicId).set(
+      {
+        name: topicName,
+        summary,
+        entry_ids: remainingEntries.map((entry) => entry.id),
+        document_ids: dedupeStrings(remainingEntries.map((entry) => entry.document_id)),
+        user_id: params.userId,
+        last_updated: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    updatedTopicIds.push(topicId);
+  }
+
+  await documentsCollection.doc(params.documentId).delete();
+
+  return {
+    deletedTopicIds,
+    updatedTopicIds,
+  };
+}
+
 async function processDocument(params: {
   document: DocumentRecord & { id: string };
   extraction: Promise<{ blocks: ExtractBlock[]; title?: string | null }>;
@@ -418,6 +511,18 @@ async function commitSetOperations(
     const batch = db.batch();
     for (const operation of operations.slice(index, index + 400)) {
       batch.set(operation.ref, operation.data, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+async function deleteSnapshotDocs(
+  docs: FirebaseFirestore.QueryDocumentSnapshot[],
+): Promise<void> {
+  for (let index = 0; index < docs.length; index += 400) {
+    const batch = db.batch();
+    for (const doc of docs.slice(index, index + 400)) {
+      batch.delete(doc.ref);
     }
     await batch.commit();
   }

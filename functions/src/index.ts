@@ -4,7 +4,15 @@ import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import { logger } from 'firebase-functions';
 import { db } from './firebase';
 import { geminiApiKey } from './gemini';
-import { clientTimestamp, loadDocumentRecord, newDocumentRecord, processStoredDocument, processUrlDocument, runAtlasQuery } from './pipeline';
+import {
+  clientTimestamp,
+  deleteDocumentForUser,
+  loadDocumentRecord,
+  newDocumentRecord,
+  processStoredDocument,
+  processUrlDocument,
+  runAtlasQuery,
+} from './pipeline';
 import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './utils';
 
 const callableRegion = 'us-central1';
@@ -124,6 +132,39 @@ export const askAtlas = onCall(
       throw new HttpsError(
         'internal',
         error instanceof Error ? error.message : 'Failed to answer question.',
+      );
+    }
+  },
+);
+
+export const deleteDocument = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 300,
+    memory: '1GiB',
+    cors: true,
+    secrets: [geminiApiKey],
+  },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    const documentId = String(request.data?.documentId ?? '').trim();
+    if (!documentId) {
+      throw new HttpsError('invalid-argument', 'documentId is required.');
+    }
+
+    try {
+      return await deleteDocumentForUser({
+        documentId,
+        userId: request.auth.uid,
+      });
+    } catch (error) {
+      logger.error('deleteDocument failed', { documentId, error });
+      throw new HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to delete document.',
       );
     }
   },
