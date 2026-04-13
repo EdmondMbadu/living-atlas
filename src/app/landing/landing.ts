@@ -1,6 +1,7 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth.service';
+import { DocumentsService } from '../documents.service';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 
@@ -10,12 +11,17 @@ import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
   templateUrl: './landing.html',
 })
 export class LandingComponent {
+  @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
+
   private readonly authService = inject(AuthService);
+  private readonly documentsService = inject(DocumentsService);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
 
   readonly isSigningOut = signal(false);
   readonly avatarMenuOpen = signal(false);
+  readonly isUploading = this.documentsService.isUploading;
+  readonly uploadError = this.documentsService.uploadError;
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
   readonly userAvatar = '/assets/living-atlas-logo.png';
@@ -40,6 +46,20 @@ export class LandingComponent {
     if (!this.elementRef.nativeElement.querySelector('.avatar-menu-wrapper')?.contains(event.target as Node)) {
       this.avatarMenuOpen.set(false);
     }
+  }
+
+  openFilePicker(): void {
+    this.fileInput?.nativeElement.click();
+  }
+
+  async onFilesSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.length) {
+      return;
+    }
+
+    await this.documentsService.uploadFiles(input.files);
+    input.value = '';
   }
 
   async signOut(): Promise<void> {
