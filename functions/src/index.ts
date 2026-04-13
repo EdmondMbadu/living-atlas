@@ -7,9 +7,10 @@ import { geminiApiKey } from './gemini';
 import { clientTimestamp, loadDocumentRecord, newDocumentRecord, processStoredDocument, processUrlDocument, runAtlasQuery } from './pipeline';
 import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './utils';
 
-const region = 'us-central1';
+const callableRegion = 'us-central1';
+const storageTriggerRegion = 'us-west1';
 
-export const prepareDocumentUpload = onCall({ region }, async (request) => {
+export const prepareDocumentUpload = onCall({ region: callableRegion }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Authentication is required.');
   }
@@ -56,7 +57,7 @@ export const prepareDocumentUpload = onCall({ region }, async (request) => {
 });
 
 export const submitUrlDocument = onCall(
-  { region },
+  { region: callableRegion },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -91,7 +92,12 @@ export const submitUrlDocument = onCall(
 );
 
 export const askAtlas = onCall(
-  { region, timeoutSeconds: 180, memory: '1GiB', secrets: [geminiApiKey] },
+  {
+    region: callableRegion,
+    timeoutSeconds: 180,
+    memory: '1GiB',
+    secrets: [geminiApiKey],
+  },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -123,7 +129,12 @@ export const askAtlas = onCall(
 );
 
 export const ingestUploadedDocument = onObjectFinalized(
-  { region, timeoutSeconds: 540, memory: '1GiB', secrets: [geminiApiKey] },
+  {
+    region: storageTriggerRegion,
+    timeoutSeconds: 540,
+    memory: '1GiB',
+    secrets: [geminiApiKey],
+  },
   async (event) => {
     const storagePath = event.data.name;
     if (!storagePath || !storagePath.startsWith('users/')) {
@@ -152,7 +163,7 @@ export const ingestUploadedDocument = onObjectFinalized(
 
 export const ingestSubmittedUrl = onDocumentCreated(
   {
-    region,
+    region: callableRegion,
     document: 'documents/{documentId}',
     timeoutSeconds: 540,
     memory: '1GiB',
