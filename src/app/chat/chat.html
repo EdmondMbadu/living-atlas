@@ -165,40 +165,55 @@
                       </div>
                     </div>
                   } @else {
-                    <div class="flex gap-4">
-                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[rgba(59,175,98,0.25)] bg-[rgba(59,175,98,0.08)] text-[var(--accent)]">
-                        <span class="material-symbols-outlined text-[1.1rem]" style="font-variation-settings: 'FILL' 1">auto_awesome</span>
+                    <div class="assistant-message flex gap-4">
+                      <div class="assistant-message__avatar" [class.assistant-message__avatar--pending]="msg.pending">
+                        <img src="/assets/living-atlas-logo.png" alt="Living Atlas" class="assistant-message__logo" />
                       </div>
                       <div class="min-w-0 flex-1 pt-1">
-                        @if (msg.pending) {
-                          <div class="flex items-center gap-3 text-sm text-[var(--muted)]">
-                            <span class="relative flex h-2 w-2">
-                              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-60"></span>
-                              <span class="relative inline-flex h-2 w-2 rounded-full bg-[var(--accent)]"></span>
-                            </span>
-                            <span class="italic">{{ currentThinkingLabel() }}…</span>
-                          </div>
-                        } @else {
-                          @if (msg.knowledgeGap) {
-                            <p class="mb-3 text-xs font-bold italic text-[var(--muted)]">This topic is not strongly covered in the current knowledge base yet.</p>
-                          }
-                          <p class="whitespace-pre-wrap text-base leading-8 text-[var(--text)]">{{ msg.text }}</p>
-                          @if (msg.citations && msg.citations.length > 0) {
-                            <div class="mt-5 flex flex-wrap gap-2">
-                              @for (citation of msg.citations; track citation.entry_id; let i = $index) {
-                                <button
-                                  type="button"
-                                  class="inline-flex items-center gap-1.5 rounded-full border border-[rgba(59,175,98,0.2)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent)] transition-colors hover:bg-[rgba(59,175,98,0.14)]"
-                                  (click)="openCitation(citation)"
-                                >
-                                  <span class="opacity-70">[{{ i + 1 }}]</span>
-                                  <span class="truncate max-w-[14rem]">{{ citation.filename }}</span>
-                                  <span class="opacity-70">p.{{ citation.page }}</span>
-                                </button>
-                              }
+                        <div class="assistant-message__card px-5 py-4">
+                          <div class="assistant-message__header">
+                            <div class="assistant-message__badge">
+                              <span class="assistant-message__badge-dot" [class.assistant-message__badge-dot--live]="msg.pending"></span>
+                              <span>Living Atlas</span>
                             </div>
+                            @if (msg.pending) {
+                              <div class="assistant-message__thinking" aria-hidden="true">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                              </div>
+                            }
+                          </div>
+                          @if (msg.pending) {
+                            <div class="flex items-center gap-3 text-sm text-[var(--muted)]">
+                              <span class="relative flex h-2 w-2">
+                                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-60"></span>
+                                <span class="relative inline-flex h-2 w-2 rounded-full bg-[var(--accent)]"></span>
+                              </span>
+                              <span class="italic">{{ currentThinkingLabel() }}…</span>
+                            </div>
+                          } @else {
+                            @if (msg.knowledgeGap) {
+                              <p class="mb-3 text-xs font-bold italic text-[var(--muted)]">This topic is not strongly covered in the current knowledge base yet.</p>
+                            }
+                            <p class="whitespace-pre-wrap text-base leading-8 text-[var(--text)]">{{ msg.text }}</p>
+                            @if (msg.citations && msg.citations.length > 0) {
+                              <div class="mt-5 flex flex-wrap gap-2">
+                                @for (citation of msg.citations; track citation.entry_id; let i = $index) {
+                                  <button
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 rounded-full border border-[rgba(59,175,98,0.2)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent)] transition-colors hover:bg-[rgba(59,175,98,0.14)]"
+                                    (click)="openCitation(citation)"
+                                  >
+                                    <span class="opacity-70">[{{ i + 1 }}]</span>
+                                    <span class="truncate max-w-[14rem]">{{ citation.filename }}</span>
+                                    <span class="opacity-70">p.{{ citation.page }}</span>
+                                  </button>
+                                }
+                              </div>
+                            }
                           }
-                        }
+                        </div>
                       </div>
                     </div>
                   }

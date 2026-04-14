@@ -11,6 +11,7 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
   selector: 'app-library',
   imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
   templateUrl: './library.html',
+  styleUrl: './library.css',
 })
 export class LibraryComponent {
   @ViewChild('fileInput') private fileInput?: ElementRef<HTMLInputElement>;
@@ -26,6 +27,7 @@ export class LibraryComponent {
 
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
+  readonly atlasLogo = '/assets/living-atlas-logo.png';
   readonly documents = this.documentsService.documents;
   readonly isLoading = this.documentsService.isLoading;
   readonly isUploading = this.documentsService.isUploading;

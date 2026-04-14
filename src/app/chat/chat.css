@@ -1,0 +1,188 @@
+.assistant-message {
+  align-items: flex-start;
+}
+
+.assistant-message__avatar {
+  position: relative;
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 175, 98, 0.24);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.82) 45%, rgba(143, 217, 168, 0.24) 100%);
+  box-shadow:
+    0 12px 28px rgba(59, 175, 98, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+:root[data-theme='dark'] .assistant-message__avatar {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(28, 31, 32, 0.98), rgba(20, 22, 24, 0.95) 50%, rgba(59, 175, 98, 0.2) 100%);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(59, 175, 98, 0.08);
+}
+
+.assistant-message__avatar::before,
+.assistant-message__avatar::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.assistant-message__avatar::before {
+  inset: -0.3rem;
+  border: 1px solid rgba(59, 175, 98, 0.24);
+}
+
+.assistant-message__avatar::after {
+  inset: -0.55rem;
+  border: 1px solid rgba(59, 175, 98, 0.14);
+}
+
+.assistant-message__avatar--pending::before {
+  opacity: 1;
+  animation: atlas-pulse 1.8s ease-out infinite;
+}
+
+.assistant-message__avatar--pending::after {
+  opacity: 1;
+  animation: atlas-pulse 1.8s ease-out 0.35s infinite;
+}
+
+.assistant-message__logo {
+  width: 1.55rem;
+  height: 1.55rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(59, 175, 98, 0.2));
+}
+
+.assistant-message__avatar--pending .assistant-message__logo {
+  animation: atlas-float 2.2s ease-in-out infinite;
+}
+
+.assistant-message__card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, white 12%), var(--surface-strong));
+  box-shadow: var(--shadow-floating);
+}
+
+.assistant-message__card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent), rgba(143, 217, 168, 0.28));
+}
+
+:root[data-theme='dark'] .assistant-message__card {
+  background:
+    linear-gradient(180deg, rgba(20, 23, 24, 0.94), rgba(15, 16, 18, 0.98));
+}
+
+.assistant-message__header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+  color: var(--muted);
+}
+
+.assistant-message__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 175, 98, 0.16);
+  background: rgba(59, 175, 98, 0.08);
+  padding: 0.28rem 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.assistant-message__badge-dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.assistant-message__badge-dot--live {
+  animation: atlas-blink 1s ease-in-out infinite;
+}
+
+.assistant-message__thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  margin-left: 0.15rem;
+}
+
+.assistant-message__thinking span {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgba(59, 175, 98, 0.72);
+  animation: atlas-bounce 1.2s ease-in-out infinite;
+}
+
+.assistant-message__thinking span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.assistant-message__thinking span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes atlas-pulse {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.16);
+    opacity: 0;
+  }
+}
+
+@keyframes atlas-float {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.03);
+  }
+}
+
+@keyframes atlas-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-0.18rem);
+    opacity: 1;
+  }
+}
+
+@keyframes atlas-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}

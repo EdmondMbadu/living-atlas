@@ -59,6 +59,10 @@ export class LandingComponent {
 
     await this.documentsService.uploadFiles(input.files);
     input.value = '';
+
+    if (!this.uploadError()) {
+      await this.router.navigateByUrl('/library');
+    }
   }
 
   async signOut(): Promise<void> {

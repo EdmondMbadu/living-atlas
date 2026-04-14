@@ -27,6 +27,7 @@ const THINKING_STAGES = [
   selector: 'app-chat',
   imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
   templateUrl: './chat.html',
+  styleUrl: './chat.css',
 })
 export class ChatComponent implements AfterViewChecked {
   private readonly authService = inject(AuthService);
