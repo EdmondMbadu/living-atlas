@@ -26,6 +26,13 @@
   --success-bg: rgba(16, 185, 129, 0.14);
   --success-border: rgba(52, 211, 153, 0.24);
   --success-text: #a7f3d0;
+  --cite-bg: rgba(59, 175, 98, 0.08);
+  --cite-border: rgba(59, 175, 98, 0.22);
+  --cite-text: #8fd9a8;
+  --cite-meta: #cdeed7;
+  --danger-text: #fb7185;
+  --danger-text-strong: #fda4af;
+  --danger-bg: rgba(244, 63, 94, 0.1);
   --error-bg: rgba(190, 24, 93, 0.14);
   --error-border: rgba(244, 63, 94, 0.28);
   --error-text: #fecdd3;
@@ -60,6 +67,13 @@
   --success-bg: rgba(16, 185, 129, 0.1);
   --success-border: rgba(5, 150, 105, 0.2);
   --success-text: #065f46;
+  --cite-bg: rgba(22, 163, 74, 0.14);
+  --cite-border: rgba(21, 128, 61, 0.28);
+  --cite-text: #166534;
+  --cite-meta: #14532d;
+  --danger-text: #be123c;
+  --danger-text-strong: #9f1239;
+  --danger-bg: rgba(225, 29, 72, 0.12);
   --error-bg: rgba(190, 24, 93, 0.08);
   --error-border: rgba(225, 29, 72, 0.24);
   --error-text: #881337;
@@ -119,6 +133,43 @@
 
   .error-text {
     color: var(--error-text);
+  }
+
+  .danger-action {
+    color: var(--danger-text);
+    transition: color 0.18s ease, background-color 0.18s ease;
+  }
+
+  .danger-action:hover {
+    color: var(--danger-text-strong);
+    background-color: var(--danger-bg);
+  }
+
+  .citation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 999px;
+    border: 1px solid var(--cite-border);
+    background: var(--cite-bg);
+    color: var(--cite-text);
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  }
+
+  .citation-chip:hover {
+    background: color-mix(in srgb, var(--cite-bg) 78%, var(--cite-text) 22%);
+    border-color: color-mix(in srgb, var(--cite-border) 72%, var(--cite-text) 28%);
+  }
+
+  .citation-chip__index,
+  .citation-chip__meta {
+    color: var(--cite-meta);
+  }
+
+  .citation-badge {
+    border: 1px solid var(--cite-border);
+    background: var(--cite-bg);
+    color: var(--cite-text);
   }
 
   .primary-btn {

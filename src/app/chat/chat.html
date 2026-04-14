@@ -79,7 +79,7 @@
       </div>
 
       <div class="mt-4 border-t border-white/5 pt-4">
-        <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-400/80 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-400" [disabled]="isSigningOut()" (click)="signOut()">
+        <button type="button" class="danger-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
           <span class="material-symbols-outlined text-[1.2rem]">logout</span>
           <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
         </button>
@@ -116,7 +116,7 @@
                   <p class="mt-0.5 text-xs text-[var(--muted)] truncate">{{ currentUserEmail() }}</p>
                 </div>
                 <div class="py-1.5">
-                  <button type="button" role="menuitem" class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-400 transition-colors duration-150 hover:bg-rose-500/10" [disabled]="isSigningOut()" (click)="signOut()">
+                  <button type="button" role="menuitem" class="danger-action flex w-full items-center gap-3 px-4 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
                     <span class="material-symbols-outlined text-base">logout</span>
                     {{ isSigningOut() ? 'Signing out...' : 'Sign out' }}
                   </button>
@@ -196,12 +196,12 @@
                                 @for (citation of msg.citations; track citation.entry_id; let i = $index) {
                                   <button
                                     type="button"
-                                    class="inline-flex items-center gap-1.5 rounded-full border border-[rgba(59,175,98,0.2)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent)] transition-colors hover:bg-[rgba(59,175,98,0.14)]"
+                                    class="citation-chip px-3 py-1.5 text-[11px] font-bold"
                                     (click)="openCitation(citation)"
                                   >
-                                    <span class="opacity-70">[{{ i + 1 }}]</span>
+                                    <span class="citation-chip__index">[{{ i + 1 }}]</span>
                                     <span class="truncate max-w-[14rem]">{{ citation.filename }}</span>
-                                    <span class="opacity-70">p.{{ citation.page }}</span>
+                                    <span class="citation-chip__meta">p.{{ citation.page }}</span>
                                   </button>
                                 }
                               </div>
@@ -284,7 +284,7 @@
           </button>
         </div>
 
-        <p class="mt-4 inline-block rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
+        <p class="citation-badge mt-4 inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
           p.{{ citation.page }} · L{{ citation.line_start }}-{{ citation.line_end }}
         </p>
         <p class="mt-4 max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{{ citation.text }}</p>

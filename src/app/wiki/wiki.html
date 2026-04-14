@@ -37,7 +37,7 @@
       </nav>
 
       <div class="mt-auto space-y-1 border-t border-white/5 pt-6">
-        <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-400/80 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-400" [disabled]="isSigningOut()" (click)="signOut()">
+        <button type="button" class="danger-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
           <span class="material-symbols-outlined text-[1.2rem]">logout</span>
           <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
         </button>
@@ -74,7 +74,7 @@
                   <p class="mt-0.5 text-xs text-[var(--muted)] truncate">{{ currentUserEmail() }}</p>
                 </div>
                 <div class="py-1.5">
-                  <button type="button" role="menuitem" class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-rose-400 transition-colors duration-150 hover:bg-rose-500/10" [disabled]="isSigningOut()" (click)="signOut()">
+                  <button type="button" role="menuitem" class="danger-action flex w-full items-center gap-3 px-4 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
                     <span class="material-symbols-outlined text-base">logout</span>
                     {{ isSigningOut() ? 'Signing out...' : 'Sign out' }}
                   </button>
@@ -175,7 +175,7 @@
                           <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
                             <p class="text-base leading-8 text-[var(--text)]">{{ entry.claim }}</p>
                             <div class="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
-                              <span class="rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1 text-[var(--accent)]">
+                              <span class="citation-badge rounded-full px-3 py-1">
                                 p.{{ entry.source.page }} · L{{ entry.source.line_start }}-{{ entry.source.line_end }}
                               </span>
                               @for (related of entry.related_topics; track related) {
