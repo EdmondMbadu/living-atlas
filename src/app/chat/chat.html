@@ -8,7 +8,7 @@
 
   <div class="relative flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
     <aside class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col">
-      <div class="mb-10 px-2">
+      <div class="mb-8 px-2">
         <a routerLink="/" class="flex items-center gap-3">
           <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1 shadow-[0_0_24px_rgba(59,175,98,0.08)]">
             <img src="/assets/living-atlas-logo.png" alt="Living Atlas logo" class="h-full w-full object-contain" />
@@ -17,10 +17,19 @@
         </a>
       </div>
 
-      <nav class="flex-1 space-y-1 text-sm">
-        <a routerLink="/chat" class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]">
+      <button
+        type="button"
+        class="mb-6 flex items-center justify-center gap-2 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 text-sm font-bold text-[var(--accent)] transition-colors hover:bg-white/10"
+        (click)="newChat()"
+      >
+        <span class="material-symbols-outlined text-[1.1rem]">edit_square</span>
+        <span>New chat</span>
+      </button>
+
+      <nav class="space-y-1 text-sm">
+        <a routerLink="/chat" class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)]">
           <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">chat</span>
-          <span>New Chat</span>
+          <span>Chat</span>
         </a>
         <a routerLink="/home" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
           <span class="material-symbols-outlined">neurology</span>
@@ -36,19 +45,45 @@
         </a>
       </nav>
 
-      <section class="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4">
-        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">Recent Queries</p>
-        <div class="mt-4 space-y-2">
-          @for (item of queryHistory().slice(0, 6); track item.id) {
-            <div class="rounded-[1rem] border border-white/10 bg-white/5 px-3 py-3">
-              <p class="line-clamp-2 text-sm font-semibold text-[var(--text)]">{{ item.question }}</p>
-              <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                {{ formatDate(item.created_at) }}
-              </p>
-            </div>
+      <div class="mt-6 flex min-h-0 flex-1 flex-col">
+        <p class="px-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Chats</p>
+        <div class="mt-3 flex-1 min-h-0 space-y-1 overflow-y-auto pr-1">
+          @if (queryHistory().length === 0) {
+            <p class="px-2 text-xs leading-6 text-[var(--muted)]">No chats yet.</p>
+          } @else {
+            @for (item of visibleHistory(); track item.id) {
+              <button
+                type="button"
+                class="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-white/5"
+                [class.bg-white/5]="activeHistoryId() === item.id"
+                [class.text-[var(--text)]]="activeHistoryId() === item.id"
+                [class.text-[var(--muted)]]="activeHistoryId() !== item.id"
+                (click)="loadHistoryItem(item)"
+              >
+                <span class="material-symbols-outlined mt-0.5 text-[1rem] opacity-60">chat_bubble</span>
+                <span class="min-w-0 flex-1 truncate">{{ truncate(item.question, 40) }}</span>
+              </button>
+            }
+            @if (queryHistory().length > 6) {
+              <button
+                type="button"
+                class="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-bold text-[var(--muted)] transition-colors hover:bg-white/5 hover:text-[var(--text)]"
+                (click)="toggleHistoryExpanded()"
+              >
+                <span class="material-symbols-outlined text-[1rem]">{{ historyExpanded() ? 'expand_less' : 'expand_more' }}</span>
+                <span>{{ historyExpanded() ? 'Show less' : 'Show more (' + (queryHistory().length - 6) + ')' }}</span>
+              </button>
+            }
           }
         </div>
-      </section>
+      </div>
+
+      <div class="mt-4 border-t border-white/5 pt-4">
+        <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-rose-400/80 transition-colors duration-200 hover:bg-rose-500/10 hover:text-rose-400" [disabled]="isSigningOut()" (click)="signOut()">
+          <span class="material-symbols-outlined text-[1.2rem]">logout</span>
+          <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
+        </button>
+      </div>
     </aside>
 
     <main class="theme-shell relative flex min-w-0 flex-1 flex-col">
@@ -56,12 +91,18 @@
         <div class="flex min-w-0 items-center gap-3 md:gap-8">
           <app-mobile-menu activePage="chat"></app-mobile-menu>
           <div>
-            <h1 class="text-2xl font-black tracking-[-0.06em] text-[var(--text)]">New Chat</h1>
+            <h1 class="text-2xl font-black tracking-[-0.06em] text-[var(--text)]">Chat</h1>
             <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Query pre-compiled knowledge with citations</p>
           </div>
         </div>
 
         <div class="flex items-center gap-3">
+          @if (selectedTopic(); as topic) {
+            <div class="hidden md:inline-flex items-center gap-2 rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
+              <span class="material-symbols-outlined text-sm">filter_alt</span>
+              <span>Scoped to {{ topic.name }}</span>
+            </div>
+          }
           <app-theme-toggle></app-theme-toggle>
           <div class="avatar-menu-wrapper relative">
             <button
@@ -92,56 +133,20 @@
         </div>
       </header>
 
-      <div class="flex-1 overflow-y-auto">
-        <div class="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 pb-16 md:grid-cols-[minmax(0,1fr)_22rem] md:px-8 lg:px-12">
-          <section class="space-y-6">
-            <div class="glass-card rounded-[2rem] p-6 md:p-8">
-              <div class="space-y-5">
-                <div>
-                  <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">General query</p>
-                  <h2 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">Ask your atlas</h2>
-                  <p class="mt-4 max-w-3xl text-base leading-8 text-[var(--muted)]">
-                    Living Atlas answers from pre-compiled knowledge entries and returns citation passages tied to exact stored source spans.
-                  </p>
-                </div>
+      <div class="relative flex min-h-0 flex-1 flex-col">
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="mx-auto w-full max-w-3xl px-5 py-8 md:px-8">
+            @if (!hasMessages()) {
+              <div class="flex flex-col items-center pt-12 text-center">
+                <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">General query</p>
+                <h2 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">Ask your atlas</h2>
+                <p class="mt-4 max-w-xl text-base leading-8 text-[var(--muted)]">
+                  Living Atlas answers from pre-compiled knowledge entries and returns citation passages tied to exact stored source spans.
+                </p>
 
-                @if (selectedTopic(); as topic) {
-                  <div class="inline-flex items-center gap-2 rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-                    <span class="material-symbols-outlined text-sm">filter_alt</span>
-                    <span>Scoped to {{ topic.name }}</span>
-                  </div>
-                }
-
-                <div class="theme-input rounded-[1.75rem] px-5 py-5 shadow-[var(--shadow-floating)]">
-                  <div class="flex items-start gap-4">
-                    <span class="material-symbols-outlined mt-1 text-[var(--accent)]">chat</span>
-                    <textarea
-                      [ngModel]="question()"
-                      (ngModelChange)="question.set($event)"
-                      rows="5"
-                      placeholder="Ask anything about your uploaded knowledge..."
-                      class="min-h-32 w-full resize-none bg-transparent text-lg leading-8 text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
-                    ></textarea>
-                  </div>
-                  <div class="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-white/5 pt-4">
-                    <p class="text-xs leading-6 text-[var(--muted)]">
-                      Querying compiled wiki topics and knowledge entries.
-                    </p>
-                    <button type="button" class="primary-btn !px-6 !py-3 text-sm" [disabled]="isSubmitting()" (click)="submitQuestion()">
-                      {{ isSubmitting() ? 'Thinking...' : 'Ask' }}
-                    </button>
-                  </div>
-                </div>
-
-                @if (submitError()) {
-                  <div class="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                    {{ submitError() }}
-                  </div>
-                }
-
-                <div class="space-y-3">
+                <div class="mt-10 w-full space-y-3">
                   <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Try asking</p>
-                  <div class="flex flex-wrap gap-2.5">
+                  <div class="flex flex-wrap justify-center gap-2.5">
                     @for (prompt of quickPrompts; track prompt) {
                       <button type="button" class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--muted)] transition-colors hover:text-[var(--text)]" (click)="usePrompt(prompt)">
                         {{ prompt }}
@@ -150,78 +155,131 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            @if (latestAnswer()) {
-              <article #answerSection class="glass-card rounded-[2rem] p-6 md:p-8">
-                <div class="flex items-center justify-between gap-4">
-                  <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Latest answer</p>
-                    @if (knowledgeGap()) {
-                      <p class="mt-2 text-sm font-bold italic text-[var(--muted)]">This topic is not strongly covered in the current knowledge base yet.</p>
-                    }
-                  </div>
-                  <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                    {{ latestCitations().length }} citations
-                  </span>
-                </div>
-
-                <p class="mt-5 whitespace-pre-wrap text-base leading-8 text-[var(--text)]">{{ latestAnswer() }}</p>
-
-                @if (latestCitations().length > 0) {
-                  <div class="mt-6 flex flex-wrap gap-2">
-                    @for (citation of latestCitations(); track citation.entry_id) {
-                      <button
-                        type="button"
-                        class="rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-[var(--accent)]"
-                        (click)="openCitation(citation)"
-                      >
-                        {{ citation.filename }} · p.{{ citation.page }} · L{{ citation.line_start }}-{{ citation.line_end }}
-                      </button>
-                    }
-                  </div>
+            } @else {
+              <div class="space-y-8 pb-6">
+                @for (msg of messages(); track msg.id) {
+                  @if (msg.role === 'user') {
+                    <div class="flex justify-end">
+                      <div class="max-w-[85%] rounded-3xl rounded-tr-lg border border-white/10 bg-white/[0.06] px-5 py-3.5 text-base leading-7 text-[var(--text)]">
+                        {{ msg.text }}
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="flex gap-4">
+                      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[rgba(59,175,98,0.25)] bg-[rgba(59,175,98,0.08)] text-[var(--accent)]">
+                        <span class="material-symbols-outlined text-[1.1rem]" style="font-variation-settings: 'FILL' 1">auto_awesome</span>
+                      </div>
+                      <div class="min-w-0 flex-1 pt-1">
+                        @if (msg.pending) {
+                          <div class="flex items-center gap-3 text-sm text-[var(--muted)]">
+                            <span class="relative flex h-2 w-2">
+                              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-60"></span>
+                              <span class="relative inline-flex h-2 w-2 rounded-full bg-[var(--accent)]"></span>
+                            </span>
+                            <span class="italic">{{ currentThinkingLabel() }}…</span>
+                          </div>
+                        } @else {
+                          @if (msg.knowledgeGap) {
+                            <p class="mb-3 text-xs font-bold italic text-[var(--muted)]">This topic is not strongly covered in the current knowledge base yet.</p>
+                          }
+                          <p class="whitespace-pre-wrap text-base leading-8 text-[var(--text)]">{{ msg.text }}</p>
+                          @if (msg.citations && msg.citations.length > 0) {
+                            <div class="mt-5 flex flex-wrap gap-2">
+                              @for (citation of msg.citations; track citation.entry_id; let i = $index) {
+                                <button
+                                  type="button"
+                                  class="inline-flex items-center gap-1.5 rounded-full border border-[rgba(59,175,98,0.2)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent)] transition-colors hover:bg-[rgba(59,175,98,0.14)]"
+                                  (click)="openCitation(citation)"
+                                >
+                                  <span class="opacity-70">[{{ i + 1 }}]</span>
+                                  <span class="truncate max-w-[14rem]">{{ citation.filename }}</span>
+                                  <span class="opacity-70">p.{{ citation.page }}</span>
+                                </button>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    </div>
+                  }
                 }
-              </article>
-            }
-          </section>
-
-          <aside class="space-y-5">
-            <div class="glass-card rounded-[1.75rem] p-5">
-              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">History</p>
-              <div class="mt-4 space-y-3">
-                @for (item of queryHistory(); track item.id) {
-                  <article class="rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
-                    <p class="text-sm font-semibold text-[var(--text)]">{{ item.question }}</p>
-                    <p class="mt-2 line-clamp-3 text-sm leading-7 text-[var(--muted)]">{{ item.answer }}</p>
-                    <p class="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                      {{ formatDate(item.created_at) }}
-                    </p>
-                  </article>
-                }
+                <div #transcriptEnd></div>
               </div>
-            </div>
+            }
 
-            @if (selectedCitation(); as citation) {
-              <div class="glass-card rounded-[1.75rem] p-5">
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Citation Viewer</p>
-                    <h3 class="mt-2 text-lg font-black tracking-[-0.04em] text-[var(--text)]">{{ citation.filename }}</h3>
-                  </div>
-                  <button type="button" class="rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)]" (click)="closeCitation()">
-                    <span class="material-symbols-outlined text-base">close</span>
-                  </button>
-                </div>
+            @if (submitError() && !hasMessages()) {
+              <div class="mt-6 rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                {{ submitError() }}
+              </div>
+            }
+          </div>
+        </div>
 
-                <p class="mt-4 rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
-                  p.{{ citation.page }} · L{{ citation.line_start }}-{{ citation.line_end }}
+        <div class="border-t border-white/5 bg-[var(--bg)]/80 backdrop-blur-xl">
+          <div class="mx-auto w-full max-w-3xl px-5 py-4 md:px-8">
+            <div class="theme-input rounded-[1.5rem] px-4 py-3 shadow-[var(--shadow-floating)]">
+              <textarea
+                [ngModel]="question()"
+                (ngModelChange)="question.set($event)"
+                (keydown)="onComposerKeydown($event)"
+                rows="1"
+                placeholder="Message Living Atlas..."
+                class="max-h-48 min-h-[2.5rem] w-full resize-none bg-transparent text-base leading-7 text-[var(--text)] placeholder:text-[var(--muted)]/60 focus:outline-none"
+              ></textarea>
+              <div class="mt-2 flex items-center justify-between gap-3 pt-2">
+                <p class="text-[11px] text-[var(--muted)]">
+                  <kbd class="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px]">⌘</kbd>
+                  <kbd class="ml-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px]">↵</kbd>
+                  to send
                 </p>
-                <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{{ citation.text }}</p>
+                <button
+                  type="button"
+                  class="primary-btn !px-5 !py-2.5 text-sm"
+                  [disabled]="isSubmitting() || !question().trim()"
+                  (click)="submitQuestion()"
+                >
+                  @if (isSubmitting()) {
+                    <span class="flex items-center gap-2">
+                      <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                      <span>Thinking</span>
+                    </span>
+                  } @else {
+                    <span class="flex items-center gap-1.5">
+                      <span>Send</span>
+                      <span class="material-symbols-outlined text-base">arrow_upward</span>
+                    </span>
+                  }
+                </button>
               </div>
+            </div>
+            @if (submitError() && hasMessages()) {
+              <p class="mt-2 text-xs text-rose-300">{{ submitError() }}</p>
             }
-          </aside>
+          </div>
         </div>
       </div>
     </main>
   </div>
+
+  @if (selectedCitation(); as citation) {
+    <div class="fixed inset-0 z-50 flex items-end justify-end p-4 md:items-center md:justify-center md:p-8">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeCitation()"></div>
+      <div class="relative w-full max-w-xl rounded-[1.75rem] border border-white/10 bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)]">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Citation</p>
+            <h3 class="mt-2 truncate text-lg font-black tracking-[-0.04em] text-[var(--text)]">{{ citation.filename }}</h3>
+          </div>
+          <button type="button" class="rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)]" (click)="closeCitation()">
+            <span class="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+
+        <p class="mt-4 inline-block rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">
+          p.{{ citation.page }} · L{{ citation.line_start }}-{{ citation.line_end }}
+        </p>
+        <p class="mt-4 max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{{ citation.text }}</p>
+      </div>
+    </div>
+  }
 </div>

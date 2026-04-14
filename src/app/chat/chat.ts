@@ -1,19 +1,34 @@
-import { Component, ElementRef, HostListener, inject, signal, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import type { CitationPassage } from '../atlas.models';
+import type { CitationPassage, QueryHistoryItem } from '../atlas.models';
 import { AuthService } from '../auth.service';
 import { ChatService } from '../chat.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { WikiService } from '../wiki.service';
 
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  citations?: CitationPassage[];
+  pending?: boolean;
+  knowledgeGap?: boolean;
+}
+
+const THINKING_STAGES = [
+  'Searching knowledge base',
+  'Reading relevant entries',
+  'Synthesizing answer',
+];
+
 @Component({
   selector: 'app-chat',
   imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
   templateUrl: './chat.html',
 })
-export class ChatComponent {
+export class ChatComponent implements AfterViewChecked {
   private readonly authService = inject(AuthService);
   private readonly chatService = inject(ChatService);
   private readonly wikiService = inject(WikiService);
@@ -24,18 +39,30 @@ export class ChatComponent {
   readonly avatarMenuOpen = signal(false);
   readonly question = signal('');
   readonly selectedCitation = signal<CitationPassage | null>(null);
+  readonly messages = signal<ChatMessage[]>([]);
+  readonly thinkingStage = signal(0);
+  readonly historyExpanded = signal(false);
+  readonly activeHistoryId = signal<string | null>(null);
 
-  @ViewChild('answerSection') answerSection?: ElementRef<HTMLElement>;
+  @ViewChild('transcriptEnd') transcriptEnd?: ElementRef<HTMLElement>;
+
+  private shouldScrollToEnd = false;
+  private thinkingInterval: ReturnType<typeof setInterval> | null = null;
 
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
   readonly queryHistory = this.chatService.queryHistory;
-  readonly latestAnswer = this.chatService.latestAnswer;
-  readonly latestCitations = this.chatService.latestCitations;
   readonly isSubmitting = this.chatService.isSubmitting;
   readonly submitError = this.chatService.submitError;
-  readonly knowledgeGap = this.chatService.knowledgeGap;
   readonly selectedTopic = this.wikiService.selectedTopic;
+
+  readonly visibleHistory = computed(() => {
+    const all = this.queryHistory();
+    return this.historyExpanded() ? all : all.slice(0, 6);
+  });
+
+  readonly hasMessages = computed(() => this.messages().length > 0);
+  readonly currentThinkingLabel = computed(() => THINKING_STAGES[this.thinkingStage()] ?? THINKING_STAGES[0]);
 
   readonly quickPrompts = [
     'What does my knowledge base say about transformer architecture?',
@@ -56,18 +83,64 @@ export class ChatComponent {
 
   async submitQuestion(): Promise<void> {
     const question = this.question().trim();
-    if (!question) {
+    if (!question || this.isSubmitting()) {
       return;
     }
+
+    this.activeHistoryId.set(null);
+    this.question.set('');
+
+    const userId = `u-${Date.now()}`;
+    const pendingId = `a-${Date.now()}`;
+    this.messages.update((msgs) => [
+      ...msgs,
+      { id: userId, role: 'user', text: question },
+      { id: pendingId, role: 'assistant', text: '', pending: true },
+    ]);
+    this.shouldScrollToEnd = true;
+    this.startThinkingRotation();
 
     await this.chatService.ask(
       question,
       this.selectedTopic() ? [this.selectedTopic()!.id] : undefined,
     );
 
-    setTimeout(() => {
-      this.answerSection?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    this.stopThinkingRotation();
+
+    const err = this.submitError();
+    if (err) {
+      this.messages.update((msgs) =>
+        msgs.map((m) =>
+          m.id === pendingId ? { ...m, pending: false, text: err } : m,
+        ),
+      );
+    } else {
+      const answer = this.chatService.latestAnswer() ?? '';
+      const citations = this.chatService.latestCitations();
+      const gap = this.chatService.knowledgeGap();
+      this.messages.update((msgs) =>
+        msgs.map((m) =>
+          m.id === pendingId
+            ? { ...m, pending: false, text: answer, citations, knowledgeGap: gap }
+            : m,
+        ),
+      );
+    }
+    this.shouldScrollToEnd = true;
+  }
+
+  private startThinkingRotation(): void {
+    this.thinkingStage.set(0);
+    this.thinkingInterval = setInterval(() => {
+      this.thinkingStage.update((s) => Math.min(s + 1, THINKING_STAGES.length - 1));
+    }, 1400);
+  }
+
+  private stopThinkingRotation(): void {
+    if (this.thinkingInterval) {
+      clearInterval(this.thinkingInterval);
+      this.thinkingInterval = null;
+    }
   }
 
   usePrompt(prompt: string): void {
@@ -82,6 +155,45 @@ export class ChatComponent {
     this.selectedCitation.set(null);
   }
 
+  newChat(): void {
+    this.messages.set([]);
+    this.question.set('');
+    this.selectedCitation.set(null);
+    this.activeHistoryId.set(null);
+  }
+
+  loadHistoryItem(item: QueryHistoryItem): void {
+    this.activeHistoryId.set(item.id);
+    this.selectedCitation.set(null);
+    this.messages.set([
+      { id: `${item.id}-q`, role: 'user', text: item.question },
+      {
+        id: `${item.id}-a`,
+        role: 'assistant',
+        text: item.answer,
+        citations: item.cited_passages ?? [],
+        knowledgeGap: !!item.knowledge_gap,
+      },
+    ]);
+    this.shouldScrollToEnd = true;
+  }
+
+  toggleHistoryExpanded(): void {
+    this.historyExpanded.update((v) => !v);
+  }
+
+  onComposerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      this.submitQuestion();
+    }
+  }
+
+  truncate(text: string, max = 48): string {
+    if (!text) return '';
+    return text.length > max ? `${text.slice(0, max).trim()}...` : text;
+  }
+
   formatDate(value: { toDate(): Date } | Date | null | undefined): string {
     const date = value instanceof Date ? value : typeof value?.toDate === 'function' ? value.toDate() : null;
     if (!date) {
@@ -92,6 +204,13 @@ export class ChatComponent {
       month: 'short',
       day: 'numeric',
     }).format(date);
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScrollToEnd) {
+      this.shouldScrollToEnd = false;
+      this.transcriptEnd?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }
 
   toggleAvatarMenu(): void {

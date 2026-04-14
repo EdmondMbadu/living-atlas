@@ -34,10 +34,6 @@ export class ThemeService {
     return this.currentTheme() === 'dark' ? 'Light mode' : 'Dark mode';
   }
 
-  themeIcon(): string {
-    return this.currentTheme() === 'dark' ? 'light_mode' : 'dark_mode';
-  }
-
   private getInitialTheme(): Theme {
     if (!this.isBrowser) {
       return 'dark';
