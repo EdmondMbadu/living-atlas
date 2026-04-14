@@ -23,6 +23,9 @@
   --line-strong: rgba(255, 255, 255, 0.14);
   --ambient-1: rgba(59, 175, 98, 0.16);
   --ambient-2: rgba(143, 217, 168, 0.12);
+  --success-bg: rgba(16, 185, 129, 0.14);
+  --success-border: rgba(52, 211, 153, 0.24);
+  --success-text: #a7f3d0;
   --error-bg: rgba(190, 24, 93, 0.14);
   --error-border: rgba(244, 63, 94, 0.28);
   --error-text: #fecdd3;
@@ -54,6 +57,9 @@
   --line-strong: rgba(15, 23, 42, 0.14);
   --ambient-1: transparent;
   --ambient-2: transparent;
+  --success-bg: rgba(16, 185, 129, 0.1);
+  --success-border: rgba(5, 150, 105, 0.2);
+  --success-text: #065f46;
   --error-bg: rgba(190, 24, 93, 0.08);
   --error-border: rgba(225, 29, 72, 0.24);
   --error-text: #881337;

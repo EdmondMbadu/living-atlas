@@ -145,7 +145,7 @@ export class LibraryComponent {
   statusClasses(document: DocumentItem): string {
     switch (document.status) {
       case 'indexed':
-        return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400';
+        return 'border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success-text)]';
       case 'processing':
         return 'border border-amber-500/20 bg-amber-500/10 text-amber-400';
       case 'failed':
