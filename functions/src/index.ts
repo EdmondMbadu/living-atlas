@@ -7,6 +7,7 @@ import { geminiApiKey } from './gemini';
 import {
   clientTimestamp,
   deleteDocumentForUser,
+  getWikiTopicDetailsForUser,
   loadDocumentRecord,
   newDocumentRecord,
   processWikiTopicSummaryJob,
@@ -166,6 +167,38 @@ export const deleteDocument = onCall(
       throw new HttpsError(
         'internal',
         error instanceof Error ? error.message : 'Failed to delete document.',
+      );
+    }
+  },
+);
+
+export const getWikiTopicDetails = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 120,
+    memory: '512MiB',
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    const topicId = String(request.data?.topicId ?? '').trim();
+    if (!topicId) {
+      throw new HttpsError('invalid-argument', 'topicId is required.');
+    }
+
+    try {
+      return await getWikiTopicDetailsForUser({
+        userId: request.auth.uid,
+        topicId,
+      });
+    } catch (error) {
+      logger.error('getWikiTopicDetails failed', { topicId, error });
+      throw new HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to load topic details.',
       );
     }
   },

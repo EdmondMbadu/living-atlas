@@ -2,17 +2,16 @@ import { isPlatformBrowser } from '@angular/common';
 import { computed, effect, inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import {
   collection,
-  doc,
-  getDoc,
   onSnapshot,
   orderBy,
   query,
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import type { DocumentItem, KnowledgeEntryItem, WikiTopicItem } from './atlas.models';
 import { AuthService } from './auth.service';
-import { getFirebaseFirestore } from './firebase.client';
+import { getFirebaseFirestore, getFirebaseFunctions } from './firebase.client';
 
 @Injectable({ providedIn: 'root' })
 export class WikiService {
@@ -20,6 +19,7 @@ export class WikiService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly firestore = this.isBrowser ? getFirebaseFirestore() : null;
+  private readonly functions = this.isBrowser ? getFirebaseFunctions() : null;
 
   readonly topics = signal<WikiTopicItem[]>([]);
   readonly selectedTopicId = signal<string | null>(null);
@@ -72,72 +72,61 @@ export class WikiService {
     effect((onCleanup) => {
       const uid = this.authService.uid();
       const topic = this.selectedTopic();
+      let cancelled = false;
 
-      if (!this.firestore || !uid || !topic) {
+      if (!this.firestore || !this.functions || !uid || !topic) {
         this.topicEntries.set([]);
         this.sourceDocuments.set([]);
         this.entriesError.set(null);
+        this.isLoadingEntries.set(false);
         return;
       }
 
       this.isLoadingEntries.set(true);
       this.entriesError.set(null);
-      const entriesQuery = query(
-        collection(this.firestore, 'knowledge_entries'),
-        where('user_id', '==', uid),
-        where('topic', '==', topic.name),
-        orderBy('created_at', 'desc'),
-      );
 
-      const unsubscribe: Unsubscribe = onSnapshot(
-        entriesQuery,
-        async (snapshot) => {
-          try {
-            const entries = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...(doc.data() as Omit<KnowledgeEntryItem, 'id'>),
-            }));
-            this.topicEntries.set(entries);
-            this.sourceDocuments.set(await this.loadDocuments(entries.map((entry) => entry.document_id)));
-            this.entriesError.set(null);
-          } catch (error) {
-            this.sourceDocuments.set([]);
-            this.entriesError.set(
-              error instanceof Error ? error.message : 'Failed to load topic details.',
-            );
-          } finally {
+      void (async () => {
+        try {
+          const getWikiTopicDetails = httpsCallable<
+            { topicId: string },
+            { entries: KnowledgeEntryItem[]; sourceDocuments: DocumentItem[] }
+          >(this.functions!, 'getWikiTopicDetails');
+          const { data } = await getWikiTopicDetails({ topicId: topic.id });
+
+          if (cancelled) {
+            return;
+          }
+
+          this.topicEntries.set(
+            (data.entries ?? []).filter((entry) => entry.user_id === uid && !entry.orphaned),
+          );
+          this.sourceDocuments.set(
+            (data.sourceDocuments ?? []).filter((document) => document.user_id === uid),
+          );
+          this.entriesError.set(null);
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          this.topicEntries.set([]);
+          this.sourceDocuments.set([]);
+          this.entriesError.set(
+            error instanceof Error ? error.message : 'Failed to load topic details.',
+          );
+        } finally {
+          if (!cancelled) {
             this.isLoadingEntries.set(false);
           }
-        },
-        (error) => {
-          this.entriesError.set(error.message || 'Failed to load topic entries.');
-          this.isLoadingEntries.set(false);
-        },
-      );
+        }
+      })();
 
-      onCleanup(() => unsubscribe());
+      onCleanup(() => {
+        cancelled = true;
+      });
     });
   }
 
   selectTopic(topicId: string): void {
     this.selectedTopicId.set(topicId);
-  }
-
-  private async loadDocuments(documentIds: string[]): Promise<DocumentItem[]> {
-    if (!this.firestore || documentIds.length === 0) {
-      return [];
-    }
-
-    const uniqueIds = Array.from(new Set(documentIds)).slice(0, 30);
-    const snapshots = await Promise.all(
-      uniqueIds.map((documentId) => getDoc(doc(this.firestore!, 'documents', documentId))),
-    );
-
-    return snapshots
-      .filter((snapshot) => snapshot.exists())
-      .map((snapshot) => ({
-        id: snapshot.id,
-        ...(snapshot.data() as Omit<DocumentItem, 'id'>),
-      }));
   }
 }

@@ -14,8 +14,8 @@ import {
   topicDocumentId,
 } from './utils';
 import type {
-  DocumentAiUsage,
   DocumentRecord,
+  DocumentAiUsage,
   ExtractBlock,
   KnowledgeEntryDraft,
   KnowledgeEntryRecord,
@@ -491,6 +491,62 @@ export async function runAtlasQuery(params: {
   };
 }
 
+export async function getWikiTopicDetailsForUser(params: {
+  userId: string;
+  topicId: string;
+}): Promise<{
+  entries: Array<Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'> & { id: string }>;
+  sourceDocuments: Array<DocumentRecord & { id: string }>;
+}> {
+  const topicSnapshot = await wikiTopicsCollection.doc(params.topicId).get();
+  if (!topicSnapshot.exists) {
+    throw new Error('Topic not found.');
+  }
+
+  const topic = topicSnapshot.data();
+  if (!topic || topic.user_id !== params.userId) {
+    throw new Error('You do not have access to this topic.');
+  }
+
+  const entryIds = ((topic.entry_ids as string[] | undefined) ?? []).slice(0, 250);
+  if (entryIds.length === 0) {
+    return { entries: [], sourceDocuments: [] };
+  }
+
+  const entrySnapshots = await Promise.all(
+    entryIds.map((entryId) => knowledgeEntriesCollection.doc(entryId).get()),
+  );
+
+  const entries = compact(
+    entrySnapshots.map((snapshot) =>
+      snapshot.exists
+        ? {
+            id: snapshot.id,
+            ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
+          }
+        : null,
+    ),
+  ).filter((entry) => entry.user_id === params.userId && !entry.orphaned);
+
+  const documentIds = dedupeStrings(entries.map((entry) => entry.document_id)).slice(0, 30);
+  const documentSnapshots = await Promise.all(
+    documentIds.map((documentId) => documentsCollection.doc(documentId).get()),
+  );
+
+  const sourceDocuments = compact(
+    documentSnapshots.map((snapshot) =>
+      snapshot.exists
+        ? {
+            id: snapshot.id,
+            ...(snapshot.data() as DocumentRecord),
+          }
+        : null,
+    ),
+  ).filter((document) => document.user_id === params.userId);
+
+  return { entries, sourceDocuments };
+}
+
 async function loadCandidateTopics(
   userId: string,
   question: string,
@@ -518,20 +574,85 @@ async function loadCandidateTopics(
     .get();
 
   const tokens = tokenize(question);
-  const scored = snapshot.docs
-    .map((doc) => {
+  const topicMap = new Map<string, {
+    id: string;
+    name: string;
+    entry_ids: string[];
+    topicScore: number;
+    entryScore: number;
+  }>(
+    snapshot.docs.map((doc) => {
       const data = doc.data();
-      const haystack = `${data.name ?? ''} ${data.summary ?? ''}`.toLowerCase();
-      const score = tokens.reduce(
-        (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
-        0,
-      );
+      return [
+        doc.id,
+        {
+          id: doc.id,
+          name: data.name as string,
+          entry_ids: (data.entry_ids as string[]) ?? [],
+          topicScore: 0,
+          entryScore: 0,
+        },
+      ];
+    }),
+  );
 
+  for (const topic of topicMap.values()) {
+    const topicDoc = snapshot.docs.find((doc) => doc.id === topic.id);
+    const data = topicDoc?.data();
+    const haystack = `${data?.name ?? ''} ${data?.summary ?? ''}`.toLowerCase();
+    topic.topicScore = tokens.reduce(
+      (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
+      0,
+    );
+  }
+
+  const entrySnapshot = await knowledgeEntriesCollection
+    .where('user_id', '==', userId)
+    .limit(400)
+    .get();
+
+  for (const doc of entrySnapshot.docs) {
+    const data = doc.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>;
+    if (data.orphaned) {
+      continue;
+    }
+
+    const haystack = `${data.topic ?? ''} ${(data.related_topics ?? []).join(' ')} ${data.claim ?? ''}`.toLowerCase();
+    const score = tokens.reduce(
+      (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
+      0,
+    );
+
+    if (score <= 0) {
+      continue;
+    }
+
+    const topicId = topicDocumentId(userId, data.topic);
+    const existing = topicMap.get(topicId);
+
+    if (existing) {
+      existing.entryScore += score;
+      if (!existing.entry_ids.includes(doc.id)) {
+        existing.entry_ids.push(doc.id);
+      }
+    } else {
+      topicMap.set(topicId, {
+        id: topicId,
+        name: data.topic,
+        entry_ids: [doc.id],
+        topicScore: 0,
+        entryScore: score,
+      });
+    }
+  }
+
+  const scored = Array.from(topicMap.values())
+    .map((doc) => {
       return {
         id: doc.id,
-        name: data.name as string,
-        entry_ids: (data.entry_ids as string[]) ?? [],
-        score,
+        name: doc.name,
+        entry_ids: dedupeStrings(doc.entry_ids),
+        score: doc.topicScore * 2 + doc.entryScore,
       };
     })
     .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
