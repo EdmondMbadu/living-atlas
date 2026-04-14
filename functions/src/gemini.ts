@@ -298,11 +298,7 @@ export async function answerQuestion(params: {
       },
     });
 
-    return parseJsonResponse<{
-      answer: string;
-      cited_entry_ids: string[];
-      knowledge_gap: boolean;
-    }>(response.text ?? '{}');
+    return normalizeAnswerResponse(parseJsonResponse<unknown>(response.text ?? '{}'), response.text ?? '');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const looksLikeJsonParseFailure =
@@ -334,11 +330,7 @@ export async function answerQuestion(params: {
       },
     });
 
-    return parseJsonResponse<{
-      answer: string;
-      cited_entry_ids: string[];
-      knowledge_gap: boolean;
-    }>(retryResponse.text ?? '{}');
+    return normalizeAnswerResponse(parseJsonResponse<unknown>(retryResponse.text ?? '{}'), retryResponse.text ?? '');
   }
 }
 
@@ -368,4 +360,53 @@ export async function transcribeImageToLines(params: {
 
   const parsed = parseJsonResponse<string[]>(response.text ?? '[]');
   return parsed.map((line) => line.trim()).filter((line) => line.length > 0);
+}
+
+function normalizeAnswerResponse(
+  parsed: unknown,
+  fallbackText: string,
+): { answer: string; cited_entry_ids: string[]; knowledge_gap: boolean } {
+  const value = (parsed && typeof parsed === 'object' ? parsed : {}) as {
+    answer?: unknown;
+    cited_entry_ids?: unknown;
+    knowledge_gap?: unknown;
+  };
+
+  const answer =
+    typeof value.answer === 'string' && value.answer.trim().length > 0
+      ? value.answer.trim()
+      : extractFallbackAnswerText(fallbackText);
+
+  return {
+    answer,
+    cited_entry_ids: Array.isArray(value.cited_entry_ids)
+      ? value.cited_entry_ids.map((entryId) => String(entryId).trim()).filter(Boolean)
+      : [],
+    knowledge_gap:
+      typeof value.knowledge_gap === 'boolean'
+        ? value.knowledge_gap
+        : answer.length === 0,
+  };
+}
+
+function extractFallbackAnswerText(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return 'I could not safely parse the model response for this question.';
+  }
+
+  const withoutCodeFence = trimmed
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  const firstBrace = withoutCodeFence.indexOf('{');
+  if (firstBrace === -1) {
+    return withoutCodeFence.slice(0, 4000);
+  }
+
+  return withoutCodeFence
+    .slice(0, firstBrace)
+    .trim() || 'I could not safely parse the model response for this question.';
 }

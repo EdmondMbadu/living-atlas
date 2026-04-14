@@ -520,28 +520,33 @@ export async function runAtlasQuery(params: {
     })),
   });
 
-  const citedEntryIds = response.cited_entry_ids.filter((entryId) =>
+  const citedEntryIds = (Array.isArray(response.cited_entry_ids) ? response.cited_entry_ids : []).filter((entryId) =>
     uniqueEntries.some((entry) => entry.id === entryId),
   );
   const citedPassages = await hydrateCitationSnapshots(params.userId, uniqueEntries, citedEntryIds);
+  const safeAnswer =
+    typeof response.answer === 'string' && response.answer.trim().length > 0
+      ? response.answer.trim()
+      : 'I could not generate a reliable answer for this question from the current knowledge base.';
+  const knowledgeGap = typeof response.knowledge_gap === 'boolean' ? response.knowledge_gap : citedEntryIds.length === 0;
 
   await queriesCollection.add({
     user_id: params.userId,
     question: trimmedQuestion,
-    answer: response.answer,
+    answer: safeAnswer,
     cited_entry_ids: citedEntryIds,
     cited_passages: citedPassages,
-    knowledge_gap: response.knowledge_gap,
+    knowledge_gap: knowledgeGap,
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
   });
 
   return {
-    answer: response.answer,
+    answer: safeAnswer,
     citedEntryIds,
     citedPassages,
     scopedTopicIds: topics.map((topic) => topic.id),
-    knowledgeGap: response.knowledge_gap,
+    knowledgeGap: knowledgeGap,
   };
 }
 
