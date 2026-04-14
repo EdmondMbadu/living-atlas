@@ -1,7 +1,7 @@
 import { AfterViewChecked, Component, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import type { CitationPassage, QueryHistoryItem } from '../atlas.models';
+import type { ChatHistoryItem, ChatStoredMessage, CitationPassage } from '../atlas.models';
 import { AuthService } from '../auth.service';
 import { ChatService } from '../chat.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
@@ -51,8 +51,9 @@ export class ChatComponent implements AfterViewChecked {
   readonly thinkingStage = signal(0);
   readonly historyExpanded = signal(false);
   readonly activeHistoryId = signal<string | null>(null);
+  readonly activeThreadId = signal<string | null>(null);
   readonly messageActionMenuId = signal<string | null>(null);
-  readonly pendingDeleteHistoryItem = signal<QueryHistoryItem | null>(null);
+  readonly pendingDeleteHistoryItem = signal<ChatHistoryItem | null>(null);
   readonly copiedTarget = signal<string | null>(null);
 
   @ViewChild('transcriptEnd') transcriptEnd?: ElementRef<HTMLElement>;
@@ -94,7 +95,10 @@ export class ChatComponent implements AfterViewChecked {
       return;
     }
 
-    this.activeHistoryId.set(null);
+    const submittedThreadId = this.activeThreadId();
+    if (!submittedThreadId) {
+      this.activeHistoryId.set(null);
+    }
     this.question.set('');
 
     const now = new Date();
@@ -108,7 +112,7 @@ export class ChatComponent implements AfterViewChecked {
     this.shouldScrollToEnd = true;
     this.startThinkingRotation();
 
-    await this.chatService.ask(question);
+    const response = await this.chatService.ask(question, undefined, submittedThreadId);
 
     this.stopThinkingRotation();
 
@@ -128,24 +132,46 @@ export class ChatComponent implements AfterViewChecked {
         ),
       );
     } else {
-      const answer = this.chatService.latestAnswer() ?? '';
-      const citations = this.normalizeCitations(this.chatService.latestCitations());
-      const gap = this.chatService.knowledgeGap();
-      this.messages.update((msgs) =>
-        msgs.map((message) =>
-          message.id === pendingId
-            ? {
-                ...message,
-                pending: false,
-                text: answer,
-                html: formatAssistantMessageHtml(answer),
-                citations,
-                knowledgeGap: gap,
-                updatedAt: new Date(),
-              }
-            : message,
-        ),
-      );
+      const answer = response?.answer ?? this.chatService.latestAnswer() ?? '';
+      const citations = this.normalizeCitations(response?.citedPassages ?? this.chatService.latestCitations());
+      const gap = response?.knowledgeGap ?? this.chatService.knowledgeGap();
+      const returnedThreadId = response?.threadId ?? submittedThreadId;
+
+      if (returnedThreadId && submittedThreadId && returnedThreadId !== submittedThreadId) {
+        this.messages.set([
+          { id: userId, role: 'user', text: question, createdAt: now, updatedAt: now },
+          {
+            id: pendingId,
+            role: 'assistant',
+            text: answer,
+            html: formatAssistantMessageHtml(answer),
+            citations,
+            knowledgeGap: gap,
+            pending: false,
+            createdAt: now,
+            updatedAt: new Date(),
+          },
+        ]);
+      } else {
+        this.messages.update((msgs) =>
+          msgs.map((message) =>
+            message.id === pendingId
+              ? {
+                  ...message,
+                  pending: false,
+                  text: answer,
+                  html: formatAssistantMessageHtml(answer),
+                  citations,
+                  knowledgeGap: gap,
+                  updatedAt: new Date(),
+                }
+              : message,
+          ),
+        );
+      }
+
+      this.activeThreadId.set(returnedThreadId ?? null);
+      this.activeHistoryId.set(returnedThreadId ?? null);
     }
 
     this.shouldScrollToEnd = true;
@@ -168,33 +194,18 @@ export class ChatComponent implements AfterViewChecked {
     this.question.set('');
     this.selectedCitation.set(null);
     this.activeHistoryId.set(null);
+    this.activeThreadId.set(null);
     this.messageActionMenuId.set(null);
     this.pendingDeleteHistoryItem.set(null);
   }
 
-  loadHistoryItem(item: QueryHistoryItem): void {
+  async loadHistoryItem(item: ChatHistoryItem): Promise<void> {
     this.activeHistoryId.set(item.id);
     this.selectedCitation.set(null);
     this.messageActionMenuId.set(null);
-    this.messages.set([
-      {
-        id: `${item.id}-q`,
-        role: 'user',
-        text: item.question,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at ?? item.created_at,
-      },
-      {
-        id: `${item.id}-a`,
-        role: 'assistant',
-        text: item.answer,
-        html: formatAssistantMessageHtml(item.answer),
-        citations: this.normalizeCitations(item.cited_passages ?? []),
-        knowledgeGap: !!item.knowledge_gap,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at ?? item.created_at,
-      },
-    ]);
+    this.activeThreadId.set(item.kind === 'thread' ? item.id : null);
+    const storedMessages = await this.chatService.loadHistoryMessages(item);
+    this.messages.set(storedMessages.map((message) => this.mapStoredMessage(message)));
     this.shouldScrollToEnd = true;
   }
 
@@ -282,7 +293,7 @@ export class ChatComponent implements AfterViewChecked {
     this.messageActionMenuId.update((current) => (current === messageId ? null : messageId));
   }
 
-  confirmDeleteHistoryItem(item: QueryHistoryItem, event?: MouseEvent): void {
+  confirmDeleteHistoryItem(item: ChatHistoryItem, event?: MouseEvent): void {
     event?.stopPropagation();
     this.pendingDeleteHistoryItem.set(item);
   }
@@ -396,6 +407,22 @@ export class ChatComponent implements AfterViewChecked {
     return lines.join('\n');
   }
 
+  historyTitle(item: ChatHistoryItem): string {
+    return item.kind === 'thread' ? item.title : item.question;
+  }
+
+  historyUpdatedAt(item: ChatHistoryItem): { toDate(): Date } | Date | null | undefined {
+    return item.updated_at ?? item.created_at;
+  }
+
+  historyTurnsLabel(item: ChatHistoryItem): string {
+    if (item.kind === 'thread') {
+      const turns = Math.max(1, item.user_turn_count || Math.ceil((item.message_count || 0) / 2));
+      return `${turns} turn${turns === 1 ? '' : 's'}`;
+    }
+    return '1 turn';
+  }
+
   private normalizeCitations(citations: CitationPassage[]): CitationPassage[] {
     const deduped = new Map<string, CitationPassage>();
 
@@ -457,5 +484,18 @@ export class ChatComponent implements AfterViewChecked {
     this.copyFeedbackTimeout = setTimeout(() => {
       this.copiedTarget.set(null);
     }, 1800);
+  }
+
+  private mapStoredMessage(message: ChatStoredMessage): ChatMessage {
+    return {
+      id: message.id,
+      role: message.role,
+      text: message.text,
+      html: message.role === 'assistant' ? formatAssistantMessageHtml(message.text) : undefined,
+      citations: this.normalizeCitations(message.cited_passages ?? []),
+      knowledgeGap: !!message.knowledge_gap,
+      createdAt: message.created_at,
+      updatedAt: message.created_at,
+    };
   }
 }

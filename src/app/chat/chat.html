@@ -46,10 +46,10 @@
       </nav>
 
       <div class="mt-6 flex min-h-0 flex-1 flex-col">
-        <p class="px-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Chats</p>
+        <p class="px-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Threads</p>
         <div class="mt-3 flex-1 min-h-0 space-y-1 overflow-y-auto pr-1">
           @if (queryHistory().length === 0) {
-            <p class="px-2 text-xs leading-6 text-[var(--muted)]">No chats yet.</p>
+            <p class="px-2 text-xs leading-6 text-[var(--muted)]">No threads yet.</p>
           } @else {
             @for (item of visibleHistory(); track item.id) {
               <div
@@ -65,9 +65,9 @@
                 >
                   <span class="material-symbols-outlined mt-0.5 text-[1rem] opacity-60">chat_bubble</span>
                   <span class="min-w-0 flex-1">
-                    <span class="block truncate">{{ truncate(item.question, 34) }}</span>
+                    <span class="block truncate">{{ truncate(historyTitle(item), 34) }}</span>
                     <span class="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
-                      {{ formatRelativeDateShort(item.updated_at ?? item.created_at) }}
+                      {{ historyTurnsLabel(item) }} · {{ formatRelativeDateShort(historyUpdatedAt(item)) }}
                     </span>
                   </span>
                 </button>
@@ -76,7 +76,7 @@
                   class="danger-action rounded-full p-1.5 text-[var(--muted)] opacity-0 transition-opacity hover:bg-white/5 group-hover:opacity-100"
                   [class.opacity-100]="activeHistoryId() === item.id"
                   [disabled]="isDeletingHistory()"
-                  [attr.aria-label]="'Delete chat ' + truncate(item.question, 34)"
+                  [attr.aria-label]="'Delete thread ' + truncate(historyTitle(item), 34)"
                   (click)="confirmDeleteHistoryItem(item, $event)"
                 >
                   <span class="material-symbols-outlined text-[1rem]">delete</span>
@@ -383,22 +383,22 @@
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
       <div class="absolute inset-0 bg-black/45 backdrop-blur-sm" (click)="cancelDeleteHistoryItem()"></div>
       <div class="relative w-full max-w-md rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)]">
-        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--error-text)]">Delete chat</p>
+        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--error-text)]">Delete thread</p>
         <h3 class="mt-3 text-2xl font-black tracking-[-0.05em] text-[var(--text)]">Are you sure?</h3>
         <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
           This will permanently remove
-          <span class="font-semibold text-[var(--text)]">"{{ truncate(item.question, 64) }}"</span>
-          from your saved chats.
+          <span class="font-semibold text-[var(--text)]">"{{ truncate(historyTitle(item), 64) }}"</span>
+          from your saved threads.
         </p>
         <p class="mt-3 text-xs text-[var(--muted)]">
-          Created {{ formatDateTime(item.created_at) }}
+          Updated {{ formatDateTime(historyUpdatedAt(item)) }}
         </p>
         <div class="mt-6 flex items-center justify-end gap-3">
           <button type="button" class="ghost-btn !px-4 !py-2.5 text-sm" [disabled]="isDeletingHistory()" (click)="cancelDeleteHistoryItem()">
             Cancel
           </button>
           <button type="button" class="danger-action rounded-full px-4 py-2.5 text-sm font-semibold" [disabled]="isDeletingHistory()" (click)="deleteHistoryItem()">
-            {{ isDeletingHistory() ? 'Deleting...' : 'Delete chat' }}
+            {{ isDeletingHistory() ? 'Deleting...' : 'Delete thread' }}
           </button>
         </div>
       </div>

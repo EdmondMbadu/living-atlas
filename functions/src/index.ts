@@ -6,6 +6,7 @@ import { db } from './firebase';
 import { geminiApiKey } from './gemini';
 import {
   clientTimestamp,
+  deleteChatEntityForUser,
   deleteDocumentForUser,
   getWikiTopicDetailsForUser,
   loadDocumentRecord,
@@ -115,6 +116,7 @@ export const askAtlas = onCall(
     }
 
     const question = String(request.data?.question ?? '').trim();
+    const threadId = String(request.data?.threadId ?? '').trim() || null;
     const topicIds = Array.isArray(request.data?.topicIds)
       ? request.data.topicIds.map((value: unknown) => String(value)).filter(Boolean)
       : undefined;
@@ -128,6 +130,7 @@ export const askAtlas = onCall(
         userId: request.auth.uid,
         question,
         topicIds,
+        threadId,
       });
     } catch (error) {
       logger.error('askAtlas failed', error);
@@ -221,19 +224,21 @@ export const deleteQuery = onCall(
       throw new HttpsError('invalid-argument', 'queryId is required.');
     }
 
-    const queryRef = db.collection('queries').doc(queryId);
-    const snapshot = await queryRef.get();
-
-    if (!snapshot.exists) {
-      throw new HttpsError('not-found', 'Chat not found.');
+    try {
+      return await deleteChatEntityForUser({
+        chatId: queryId,
+        userId: request.auth.uid,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete chat.';
+      if (message === 'Chat not found.') {
+        throw new HttpsError('not-found', message);
+      }
+      if (message === 'You do not have access to this chat.') {
+        throw new HttpsError('permission-denied', message);
+      }
+      throw new HttpsError('internal', message);
     }
-
-    if (snapshot.data()?.user_id !== request.auth.uid) {
-      throw new HttpsError('permission-denied', 'You do not have access to this chat.');
-    }
-
-    await queryRef.delete();
-    return { deleted: true, queryId };
   },
 );
 

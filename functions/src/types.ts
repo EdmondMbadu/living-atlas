@@ -160,6 +160,27 @@ export interface QueryRecord {
   updated_at?: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
 }
 
+export interface ChatThreadRecord {
+  user_id: string;
+  title: string;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  updated_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  last_question: string;
+  last_answer_preview: string;
+  message_count: number;
+  user_turn_count: number;
+}
+
+export interface ChatMessageRecord {
+  thread_id: string;
+  user_id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  cited_passages?: QueryCitationSnapshot[];
+  knowledge_gap?: boolean;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
 export interface PreparedUpload {
   documentId: string;
   storagePath: string;
@@ -172,4 +193,5 @@ export interface AskAtlasResponse {
   citedPassages: QueryCitationSnapshot[];
   scopedTopicIds: string[];
   knowledgeGap: boolean;
+  threadId: string;
 }

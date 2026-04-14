@@ -86,8 +86,21 @@ export interface CitationPassage {
   line_end: number;
 }
 
+export interface ChatThreadItem {
+  id: string;
+  kind: 'thread';
+  title: string;
+  last_question: string;
+  last_answer_preview: string;
+  message_count: number;
+  user_turn_count: number;
+  created_at?: { toDate(): Date } | Date | null;
+  updated_at?: { toDate(): Date } | Date | null;
+}
+
 export interface QueryHistoryItem {
   id: string;
+  kind?: 'legacy';
   question: string;
   answer: string;
   cited_entry_ids: string[];
@@ -95,4 +108,17 @@ export interface QueryHistoryItem {
   knowledge_gap?: boolean;
   created_at?: { toDate(): Date } | Date | null;
   updated_at?: { toDate(): Date } | Date | null;
+}
+
+export type ChatHistoryItem = ChatThreadItem | QueryHistoryItem;
+
+export interface ChatStoredMessage {
+  id: string;
+  thread_id: string;
+  user_id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  cited_passages?: CitationPassage[];
+  knowledge_gap?: boolean;
+  created_at?: { toDate(): Date } | Date | null;
 }

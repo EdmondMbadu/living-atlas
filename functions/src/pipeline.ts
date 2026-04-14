@@ -19,6 +19,8 @@ import {
   topicDocumentId,
 } from './utils';
 import type {
+  ChatMessageRecord,
+  ChatThreadRecord,
   DocumentRecord,
   DocumentAiUsage,
   ExtractBlock,
@@ -35,6 +37,8 @@ const rawExtractsCollection = db.collection('raw_extracts');
 const knowledgeEntriesCollection = db.collection('knowledge_entries');
 const wikiTopicsCollection = db.collection('wiki_topics');
 const queriesCollection = db.collection('queries');
+const chatThreadsCollection = db.collection('chat_threads');
+const chatMessagesCollection = db.collection('chat_messages');
 const wikiTopicJobsCollection = db.collection('wiki_topic_jobs');
 
 const compileChunkConcurrency = 6;
@@ -43,6 +47,8 @@ const minAnswerEntries = 18;
 const maxAnswerEntries = 48;
 const broadQuestionMinAnswerEntries = 30;
 const broadQuestionMaxAnswerEntries = 72;
+const maxUserTurnsPerThread = 8;
+const maxHistoryMessagesForAnswer = 6;
 
 export async function loadDocumentRecord(documentId: string): Promise<DocumentRecord & { id: string }> {
   const snapshot = await documentsCollection.doc(documentId).get();
@@ -170,6 +176,40 @@ export async function deleteDocumentForUser(params: {
     deletedTopicIds,
     updatedTopicIds,
   };
+}
+
+export async function deleteChatEntityForUser(params: {
+  chatId: string;
+  userId: string;
+}): Promise<{ deleted: boolean; chatId: string }> {
+  const legacyQueryRef = queriesCollection.doc(params.chatId);
+  const legacyQuerySnapshot = await legacyQueryRef.get();
+
+  if (legacyQuerySnapshot.exists) {
+    if (legacyQuerySnapshot.data()?.user_id !== params.userId) {
+      throw new Error('You do not have access to this chat.');
+    }
+    await legacyQueryRef.delete();
+    return { deleted: true, chatId: params.chatId };
+  }
+
+  const threadRef = chatThreadsCollection.doc(params.chatId);
+  const threadSnapshot = await threadRef.get();
+  if (!threadSnapshot.exists) {
+    throw new Error('Chat not found.');
+  }
+
+  const thread = threadSnapshot.data() as ChatThreadRecord;
+  if (thread.user_id !== params.userId) {
+    throw new Error('You do not have access to this chat.');
+  }
+
+  const messagesSnapshot = await chatMessagesCollection
+    .where('thread_id', '==', params.chatId)
+    .get();
+  await deleteSnapshotDocs(messagesSnapshot.docs);
+  await threadRef.delete();
+  return { deleted: true, chatId: params.chatId };
 }
 
 async function processDocument(params: {
@@ -444,6 +484,7 @@ export async function runAtlasQuery(params: {
   userId: string;
   question: string;
   topicIds?: string[];
+  threadId?: string | null;
   scopeTopicName?: string | null;
 }): Promise<{
   answer: string;
@@ -451,6 +492,7 @@ export async function runAtlasQuery(params: {
   citedPassages: QueryCitationSnapshot[];
   scopedTopicIds: string[];
   knowledgeGap: boolean;
+  threadId: string;
 }> {
   const trimmedQuestion = params.question.trim();
   if (!trimmedQuestion) {
@@ -458,7 +500,11 @@ export async function runAtlasQuery(params: {
   }
 
   const broadQuestion = isBroadSynthesisQuestion(trimmedQuestion);
-  const topics = await loadCandidateTopics(params.userId, trimmedQuestion, params.topicIds);
+  const thread = await ensureActiveChatThread(params.userId, params.threadId ?? null, trimmedQuestion);
+  const threadHistory = thread.reusedExisting
+    ? await loadRecentChatThreadMessages(thread.id, maxHistoryMessagesForAnswer)
+    : [];
+  const topics = await loadCandidateTopics(params.userId, trimmedQuestion, params.topicIds, broadQuestion);
   const tokens = tokenize(trimmedQuestion);
   const entryLimit = broadQuestion ? broadQuestionMaxAnswerEntries : maxAnswerEntries;
   const minEntries = broadQuestion ? broadQuestionMinAnswerEntries : minAnswerEntries;
@@ -505,6 +551,7 @@ export async function runAtlasQuery(params: {
       citedPassages: [],
       scopedTopicIds: topics.map((topic) => topic.id),
       knowledgeGap: true,
+      threadId: thread.id,
     };
   }
 
@@ -517,6 +564,7 @@ export async function runAtlasQuery(params: {
 
   const response = await answerQuestion({
     question: trimmedQuestion,
+    history: threadHistory.map((message) => ({ role: message.role, text: message.text })),
     entries: uniqueEntries.map((entry) => ({
       id: entry.id,
       claim: entry.claim,
@@ -535,15 +583,14 @@ export async function runAtlasQuery(params: {
       : 'I could not generate a reliable answer for this question from the current knowledge base.';
   const knowledgeGap = typeof response.knowledge_gap === 'boolean' ? response.knowledge_gap : citedEntryIds.length === 0;
 
-  await queriesCollection.add({
-    user_id: params.userId,
+  await recordChatThreadExchange({
+    threadId: thread.id,
+    userId: params.userId,
     question: trimmedQuestion,
     answer: safeAnswer,
-    cited_entry_ids: citedEntryIds,
-    cited_passages: citedPassages,
-    knowledge_gap: knowledgeGap,
-    created_at: FieldValue.serverTimestamp(),
-    updated_at: FieldValue.serverTimestamp(),
+    citedPassages,
+    knowledgeGap,
+    questionCountIncrement: 1,
   });
 
   return {
@@ -552,6 +599,7 @@ export async function runAtlasQuery(params: {
     citedPassages,
     scopedTopicIds: topics.map((topic) => topic.id),
     knowledgeGap: knowledgeGap,
+    threadId: thread.id,
   };
 }
 
@@ -611,10 +659,107 @@ export async function getWikiTopicDetailsForUser(params: {
   return { entries, sourceDocuments };
 }
 
+async function ensureActiveChatThread(
+  userId: string,
+  threadId: string | null,
+  seedQuestion: string,
+): Promise<{ id: string; reusedExisting: boolean }> {
+  if (threadId) {
+    const existingSnapshot = await chatThreadsCollection.doc(threadId).get();
+    if (existingSnapshot.exists) {
+      const existing = existingSnapshot.data() as ChatThreadRecord;
+      if (existing.user_id === userId && Number(existing.user_turn_count ?? 0) < maxUserTurnsPerThread) {
+        return { id: threadId, reusedExisting: true };
+      }
+    }
+  }
+
+  const threadRef = chatThreadsCollection.doc();
+  await threadRef.set({
+    user_id: userId,
+    title: threadTitleFromQuestion(seedQuestion),
+    created_at: FieldValue.serverTimestamp(),
+    updated_at: FieldValue.serverTimestamp(),
+    last_question: seedQuestion,
+    last_answer_preview: '',
+    message_count: 0,
+    user_turn_count: 0,
+  } satisfies ChatThreadRecord);
+
+  return { id: threadRef.id, reusedExisting: false };
+}
+
+async function loadRecentChatThreadMessages(
+  threadId: string,
+  limitCount: number,
+): Promise<Array<ChatMessageRecord & { id: string }>> {
+  const snapshot = await chatMessagesCollection
+    .where('thread_id', '==', threadId)
+    .orderBy('created_at', 'desc')
+    .limit(limitCount)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as ChatMessageRecord),
+    }))
+    .reverse()
+    .sort((left, right) => compareStoredChatMessages(left, right));
+}
+
+async function recordChatThreadExchange(params: {
+  threadId: string;
+  userId: string;
+  question: string;
+  answer: string;
+  citedPassages: QueryCitationSnapshot[];
+  knowledgeGap: boolean;
+  questionCountIncrement: number;
+}): Promise<void> {
+  const createdAt = FieldValue.serverTimestamp();
+  await commitSetOperations([
+    {
+      ref: chatMessagesCollection.doc(generateId('chatmsg')),
+      data: {
+        thread_id: params.threadId,
+        user_id: params.userId,
+        role: 'user',
+        text: params.question,
+        created_at: createdAt,
+      } satisfies ChatMessageRecord,
+    },
+    {
+      ref: chatMessagesCollection.doc(generateId('chatmsg')),
+      data: {
+        thread_id: params.threadId,
+        user_id: params.userId,
+        role: 'assistant',
+        text: params.answer,
+        cited_passages: params.citedPassages,
+        knowledge_gap: params.knowledgeGap,
+        created_at: createdAt,
+      } satisfies ChatMessageRecord,
+    },
+  ]);
+
+  await chatThreadsCollection.doc(params.threadId).set(
+    {
+      updated_at: FieldValue.serverTimestamp(),
+      last_question: params.question,
+      last_answer_preview: params.answer.slice(0, 260),
+      message_count: FieldValue.increment(2),
+      user_turn_count: FieldValue.increment(params.questionCountIncrement),
+    },
+    { merge: true },
+  );
+}
+
 async function loadCandidateTopics(
   userId: string,
   question: string,
   forcedTopicIds?: string[],
+  broadQuestion = false,
 ): Promise<Array<{ id: string; name: string; entry_ids: string[]; retrieval_entries?: TopicEntryPreview[]; score: number }>> {
   if (forcedTopicIds && forcedTopicIds.length > 0) {
     const snapshots = await Promise.all(forcedTopicIds.map((topicId) => wikiTopicsCollection.doc(topicId).get()));
@@ -686,7 +831,7 @@ async function loadCandidateTopics(
       }))
       .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
 
-    const selectedFromCache = cachedScored.filter((topic) => topic.score > 0).slice(0, 6);
+    const selectedFromCache = cachedScored.filter((topic) => topic.score > 0).slice(0, broadQuestion ? 10 : 6);
     if (selectedFromCache.length > 0) {
       return selectedFromCache.map((topic) => ({
         id: topic.id,
@@ -748,8 +893,8 @@ async function loadCandidateTopics(
     })
     .sort((left, right) => right.score - left.score || left.name.localeCompare(right.name));
 
-  const selected = scored.filter((topic) => topic.score > 0).slice(0, 6);
-  return (selected.length > 0 ? selected : scored.slice(0, 6)).map((topic) => ({
+  const selected = scored.filter((topic) => topic.score > 0).slice(0, broadQuestion ? 10 : 6);
+  return (selected.length > 0 ? selected : scored.slice(0, broadQuestion ? 10 : 6)).map((topic) => ({
     id: topic.id,
     name: topic.name,
     entry_ids: topic.entry_ids,
@@ -1182,6 +1327,38 @@ function isBroadSynthesisQuestion(question: string): boolean {
     'topics',
     'across my sources',
   ].some((pattern) => value.includes(pattern));
+}
+
+function threadTitleFromQuestion(question: string): string {
+  const trimmed = question.trim();
+  if (!trimmed) {
+    return 'New thread';
+  }
+  return trimmed.length > 72 ? `${trimmed.slice(0, 72).trim()}...` : trimmed;
+}
+
+function compareStoredChatMessages(
+  left: Pick<ChatMessageRecord, 'created_at' | 'role'>,
+  right: Pick<ChatMessageRecord, 'created_at' | 'role'>,
+): number {
+  const leftTime = left.created_at instanceof Timestamp
+    ? left.created_at.toMillis()
+    : left.created_at instanceof Date
+      ? left.created_at.getTime()
+      : 0;
+  const rightTime = right.created_at instanceof Timestamp
+    ? right.created_at.toMillis()
+    : right.created_at instanceof Date
+      ? right.created_at.getTime()
+      : 0;
+
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+  if (left.role === right.role) {
+    return 0;
+  }
+  return left.role === 'user' ? -1 : 1;
 }
 
 async function commitSetOperations(

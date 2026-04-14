@@ -253,6 +253,7 @@ export async function summarizeTopic(
 
 export async function answerQuestion(params: {
   question: string;
+  history?: Array<{ role: 'user' | 'assistant'; text: string }>;
   entries: Array<{
     id: string;
     claim: string;
@@ -261,6 +262,9 @@ export async function answerQuestion(params: {
   }>;
 }): Promise<{ answer: string; cited_entry_ids: string[]; knowledge_gap: boolean }> {
   const broadQuestion = isBroadSynthesisQuestion(params.question);
+  const serializedHistory = JSON.stringify(
+    (params.history ?? []).slice(-6).map((message) => [message.role, message.text.slice(0, 1400)] as const),
+  );
   const serializedEntries = JSON.stringify(
     params.entries.map((entry) => [
       entry.id,
@@ -272,10 +276,12 @@ export async function answerQuestion(params: {
     ] as const),
   );
   const baseInstructions = [
-    'Answer the question using only the provided knowledge entries.',
+    'You are answering a question against a curated personal knowledge base.',
+    'Use only the provided knowledge entries.',
     'Entry format: [id, topic, claim, page, line_start, line_end].',
+    'Use the recent conversation history only to resolve references like "they", "that", or follow-up questions.',
+    'Do not invent context that is not supported by the provided history and entries.',
     'Give a useful, concrete answer with enough detail to be meaningful.',
-    'Be concise relative to the evidence, but do not be terse or fragmentary.',
     'If the evidence is incomplete or weak, say so clearly and set knowledge_gap to true.',
     'Prefer citing multiple strong supporting entry ids when the evidence allows it.',
     'Only cite entry ids that are present in the provided entries.',
@@ -294,7 +300,8 @@ export async function answerQuestion(params: {
     ...baseInstructions,
     ...styleInstructions,
     '',
-    JSON.stringify({ question: params.question }),
+    JSON.stringify({ question: params.question, history: params.history?.length ? 'provided' : 'empty' }),
+    serializedHistory,
     serializedEntries,
   ].join('\n');
 
@@ -337,7 +344,8 @@ export async function answerQuestion(params: {
     'Escape internal quotes. Use \\n for line breaks.',
     'Do not output markdown fences. Do not output any prose outside the JSON object.',
     '',
-    JSON.stringify({ question: params.question }),
+    JSON.stringify({ question: params.question, history: params.history?.length ? 'provided' : 'empty' }),
+    serializedHistory,
     serializedEntries,
   ].join('\n');
 
