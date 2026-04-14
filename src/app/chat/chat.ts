@@ -6,7 +6,6 @@ import { AuthService } from '../auth.service';
 import { ChatService } from '../chat.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
-import { WikiService } from '../wiki.service';
 
 interface ChatMessage {
   id: string;
@@ -32,7 +31,6 @@ const THINKING_STAGES = [
 export class ChatComponent implements AfterViewChecked {
   private readonly authService = inject(AuthService);
   private readonly chatService = inject(ChatService);
-  private readonly wikiService = inject(WikiService);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
 
@@ -55,7 +53,6 @@ export class ChatComponent implements AfterViewChecked {
   readonly queryHistory = this.chatService.queryHistory;
   readonly isSubmitting = this.chatService.isSubmitting;
   readonly submitError = this.chatService.submitError;
-  readonly selectedTopic = this.wikiService.selectedTopic;
 
   readonly visibleHistory = computed(() => {
     const all = this.queryHistory();
@@ -103,7 +100,6 @@ export class ChatComponent implements AfterViewChecked {
 
     await this.chatService.ask(
       question,
-      this.selectedTopic() ? [this.selectedTopic()!.id] : undefined,
     );
 
     this.stopThinkingRotation();

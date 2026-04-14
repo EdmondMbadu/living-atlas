@@ -97,12 +97,6 @@
         </div>
 
         <div class="flex items-center gap-3">
-          @if (selectedTopic(); as topic) {
-            <div class="hidden md:inline-flex items-center gap-2 rounded-full border border-[rgba(59,175,98,0.18)] bg-[rgba(59,175,98,0.08)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]">
-              <span class="material-symbols-outlined text-sm">filter_alt</span>
-              <span>Scoped to {{ topic.name }}</span>
-            </div>
-          }
           <app-theme-toggle></app-theme-toggle>
           <div class="avatar-menu-wrapper relative">
             <button
