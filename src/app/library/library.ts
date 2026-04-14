@@ -147,7 +147,7 @@ export class LibraryComponent {
       case 'processing':
         return 'border border-amber-500/20 bg-amber-500/10 text-amber-400';
       case 'failed':
-        return 'border border-rose-500/20 bg-rose-500/10 text-rose-300';
+        return 'border border-[var(--error-border)] bg-[var(--error-bg)] text-[var(--error-text)]';
       default:
         return 'border border-white/10 bg-white/5 text-[var(--muted)]';
     }

@@ -312,7 +312,7 @@
 
                       <button
                         type="button"
-                        class="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-rose-500/20 bg-rose-500/8 px-4 text-rose-300 transition-colors hover:bg-rose-500/12 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[var(--error-border)] bg-[var(--error-bg)] px-4 text-[var(--error-text)] transition-colors hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                         (click)="deleteDocument(document)"
                         [disabled]="isDeletingDocument(document.id)"
                       >
