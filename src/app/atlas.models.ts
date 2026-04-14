@@ -25,9 +25,24 @@ export interface DocumentAiUsage {
   summary_call_count: number;
 }
 
+export interface AtlasItem {
+  id: string;
+  user_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_public: boolean;
+  logo_url: string | null;
+  hero_url: string | null;
+  cover_color: string | null;
+  created_at?: { toDate(): Date } | Date | null;
+  updated_at?: { toDate(): Date } | Date | null;
+}
+
 export interface DocumentItem {
   id: string;
   user_id: string;
+  atlas_id?: string | null;
   filename: string;
   file_type: string;
   storage_path: string | null;

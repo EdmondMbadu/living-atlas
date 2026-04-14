@@ -4,10 +4,11 @@ import { AuthService } from '../auth.service';
 import { DocumentsService } from '../documents.service';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
+import { AtlasSwitcherComponent } from '../atlas-switcher/atlas-switcher';
 
 @Component({
   selector: 'app-landing',
-  imports: [RouterLink, ThemeToggleComponent, MobileMenuComponent],
+  imports: [RouterLink, ThemeToggleComponent, MobileMenuComponent, AtlasSwitcherComponent],
   templateUrl: './landing.html',
 })
 export class LandingComponent {

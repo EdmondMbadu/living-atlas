@@ -10,12 +10,14 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import type { DocumentItem, KnowledgeEntryItem, WikiTopicItem } from './atlas.models';
+import { AtlasService } from './atlas.service';
 import { AuthService } from './auth.service';
 import { getFirebaseFirestore, getFirebaseFunctions } from './firebase.client';
 
 @Injectable({ providedIn: 'root' })
 export class WikiService {
   private readonly authService = inject(AuthService);
+  private readonly atlasService = inject(AtlasService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly firestore = this.isBrowser ? getFirebaseFirestore() : null;
@@ -35,6 +37,7 @@ export class WikiService {
   constructor() {
     effect((onCleanup) => {
       const uid = this.authService.uid();
+      const atlasId = this.atlasService.activeAtlasId();
       if (!this.firestore || !uid) {
         this.topics.set([]);
         this.selectedTopicId.set(null);
@@ -43,11 +46,18 @@ export class WikiService {
       }
 
       this.isLoadingTopics.set(true);
-      const topicsQuery = query(
-        collection(this.firestore, 'wiki_topics'),
-        where('user_id', '==', uid),
-        orderBy('last_updated', 'desc'),
-      );
+      const topicsQuery = atlasId
+        ? query(
+            collection(this.firestore, 'wiki_topics'),
+            where('user_id', '==', uid),
+            where('atlas_id', '==', atlasId),
+            orderBy('last_updated', 'desc'),
+          )
+        : query(
+            collection(this.firestore, 'wiki_topics'),
+            where('user_id', '==', uid),
+            orderBy('last_updated', 'desc'),
+          );
 
       const unsubscribe: Unsubscribe = onSnapshot(
         topicsQuery,

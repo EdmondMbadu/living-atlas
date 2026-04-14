@@ -6,6 +6,7 @@ import { AuthService } from '../auth.service';
 import { ChatService } from '../chat.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
+import { AtlasSwitcherComponent } from '../atlas-switcher/atlas-switcher';
 import { formatAssistantMessageHtml } from './message-format.util';
 
 interface ChatMessage {
@@ -28,7 +29,7 @@ const THINKING_STAGES = [
 
 @Component({
   selector: 'app-chat',
-  imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
+  imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent, AtlasSwitcherComponent],
   templateUrl: './chat.html',
   styleUrl: './chat.css',
 })

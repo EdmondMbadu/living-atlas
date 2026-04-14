@@ -168,7 +168,7 @@ export async function deleteDocumentForUser(params: {
     topicsToRefresh.push(topicName);
   }
 
-  await enqueueWikiTopicSummaryJobs(params.userId, topicsToRefresh, params.documentId);
+  await enqueueWikiTopicSummaryJobs(params.userId, document.atlas_id ?? null, topicsToRefresh, params.documentId);
 
   await documentsCollection.doc(params.documentId).delete();
 
@@ -257,13 +257,14 @@ async function processDocument(params: {
       page_count: pageCount,
     });
 
-    await writeRawExtracts(document.id, document.user_id, blocks);
+    const atlasId = document.atlas_id ?? null;
+    await writeRawExtracts(document.id, document.user_id, atlasId, blocks);
 
     await setDocumentProcessingState(documentRef, {
       processing_stage: 'compiling_knowledge',
     });
 
-    const compilation = await buildKnowledgeEntries(document.id, document.user_id, blocks, chunks, async (completed) => {
+    const compilation = await buildKnowledgeEntries(document.id, document.user_id, atlasId, blocks, chunks, async (completed) => {
       await setDocumentProcessingState(documentRef, {
         processing_stage: 'compiling_knowledge',
         processed_chunks: completed,
@@ -294,8 +295,8 @@ async function processDocument(params: {
       processing_stage: 'queuing_topics',
     });
 
-    const topicNames = await upsertWikiTopics(document.user_id, document.id, entries);
-    await enqueueWikiTopicSummaryJobs(document.user_id, topicNames, document.id);
+    const topicNames = await upsertWikiTopics(document.user_id, atlasId, document.id, entries);
+    await enqueueWikiTopicSummaryJobs(document.user_id, atlasId, topicNames, document.id);
 
     await documentRef.set(
       {
@@ -333,6 +334,7 @@ async function processDocument(params: {
 async function writeRawExtracts(
   documentId: string,
   userId: string,
+  atlasId: string | null,
   blocks: ExtractBlock[],
 ): Promise<void> {
   const writeOperations = blocks.map((block) => ({
@@ -342,6 +344,7 @@ async function writeRawExtracts(
     data: {
       document_id: documentId,
       user_id: userId,
+      atlas_id: atlasId,
       page: block.page,
       line_start: block.lineStart,
       line_end: block.lineEnd,
@@ -356,6 +359,7 @@ async function writeRawExtracts(
 async function buildKnowledgeEntries(
   documentId: string,
   userId: string,
+  atlasId: string | null,
   blocks: ExtractBlock[],
   chunks: ExtractBlock[][],
   onChunkComplete?: (completed: number) => Promise<void> | void,
@@ -396,6 +400,7 @@ async function buildKnowledgeEntries(
       related_topics: normalizeRelatedTopics(draft.related_topics),
       document_id: documentId,
       user_id: userId,
+      atlas_id: atlasId,
       source: draft.source,
       orphaned: false,
       created_at: FieldValue.serverTimestamp(),
@@ -418,6 +423,7 @@ async function writeKnowledgeEntries(
 
 async function upsertWikiTopics(
   userId: string,
+  atlasId: string | null,
   documentId: string,
   entries: Array<KnowledgeEntryRecord & { id: string }>,
 ): Promise<string[]> {
@@ -470,6 +476,7 @@ async function upsertWikiTopics(
           ]),
           document_ids: dedupeStrings([...(existing?.document_ids ?? []), documentId]),
           user_id: userId,
+          atlas_id: atlasId,
           last_updated: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -482,6 +489,7 @@ async function upsertWikiTopics(
 
 export async function runAtlasQuery(params: {
   userId: string;
+  atlasId: string | null;
   question: string;
   topicIds?: string[];
   threadId?: string | null;
@@ -500,7 +508,7 @@ export async function runAtlasQuery(params: {
   }
 
   const broadQuestion = isBroadSynthesisQuestion(trimmedQuestion);
-  const thread = await ensureActiveChatThread(params.userId, params.threadId ?? null, trimmedQuestion);
+  const thread = await ensureActiveChatThread(params.userId, params.atlasId, params.threadId ?? null, trimmedQuestion);
   const threadHistory = thread.reusedExisting
     ? await loadRecentChatThreadMessages(thread.id, maxHistoryMessagesForAnswer)
     : [];
@@ -586,6 +594,7 @@ export async function runAtlasQuery(params: {
   await recordChatThreadExchange({
     threadId: thread.id,
     userId: params.userId,
+    atlasId: params.atlasId,
     question: trimmedQuestion,
     answer: safeAnswer,
     citedPassages,
@@ -661,6 +670,7 @@ export async function getWikiTopicDetailsForUser(params: {
 
 async function ensureActiveChatThread(
   userId: string,
+  atlasId: string | null,
   threadId: string | null,
   seedQuestion: string,
 ): Promise<{ id: string; reusedExisting: boolean }> {
@@ -677,6 +687,7 @@ async function ensureActiveChatThread(
   const threadRef = chatThreadsCollection.doc();
   await threadRef.set({
     user_id: userId,
+    atlas_id: atlasId,
     title: threadTitleFromQuestion(seedQuestion),
     created_at: FieldValue.serverTimestamp(),
     updated_at: FieldValue.serverTimestamp(),
@@ -711,6 +722,7 @@ async function loadRecentChatThreadMessages(
 async function recordChatThreadExchange(params: {
   threadId: string;
   userId: string;
+  atlasId: string | null;
   question: string;
   answer: string;
   citedPassages: QueryCitationSnapshot[];
@@ -724,6 +736,7 @@ async function recordChatThreadExchange(params: {
       data: {
         thread_id: params.threadId,
         user_id: params.userId,
+        atlas_id: params.atlasId,
         role: 'user',
         text: params.question,
         created_at: createdAt,
@@ -734,6 +747,7 @@ async function recordChatThreadExchange(params: {
       data: {
         thread_id: params.threadId,
         user_id: params.userId,
+        atlas_id: params.atlasId,
         role: 'assistant',
         text: params.answer,
         cited_passages: params.citedPassages,
@@ -1069,6 +1083,7 @@ export async function processWikiTopicSummaryJob(jobId: string): Promise<void> {
         entry_ids: entries.map((entry) => entry.id),
         document_ids: dedupeStrings(entries.map((entry) => entry.document_id)),
         user_id: job.user_id,
+        atlas_id: job.atlas_id ?? null,
         last_updated: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -1414,6 +1429,7 @@ export function newDocumentRecord(params: {
   mimeType?: string | null;
   fileSize?: number | null;
   title?: string | null;
+  atlasId?: string | null;
 }): DocumentRecord {
   return {
     user_id: params.userId,
@@ -1430,6 +1446,7 @@ export function newDocumentRecord(params: {
     wiki_pages_generated: 0,
     citation_count: 0,
     collection_id: null,
+    atlas_id: params.atlasId ?? null,
     uploaded_at: FieldValue.serverTimestamp(),
     indexed_at: null,
     deleted_at: null,
@@ -1450,6 +1467,7 @@ export function clientTimestamp(): FirebaseFirestore.Timestamp {
 
 async function enqueueWikiTopicSummaryJobs(
   userId: string,
+  atlasId: string | null,
   topicNames: string[],
   documentId: string,
 ): Promise<void> {
@@ -1462,6 +1480,7 @@ async function enqueueWikiTopicSummaryJobs(
       ref: wikiTopicJobsCollection.doc(generateId('topicjob')),
       data: {
         user_id: userId,
+        atlas_id: atlasId,
         topic_id: topicDocumentId(userId, topicName),
         topic_name: topicName,
         triggered_by_document_id: documentId,

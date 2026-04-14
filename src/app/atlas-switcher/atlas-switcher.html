@@ -1,0 +1,63 @@
+@if (showCreate()) {
+  <form (submit)="submitCreate($event)" class="px-2 mb-4 space-y-2">
+    <input
+      type="text"
+      [value]="newName()"
+      (input)="onNameInput($event)"
+      placeholder="Atlas name"
+      class="theme-input w-full rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)]/50"
+      autofocus
+    />
+    <div class="flex gap-2">
+      <button
+        type="submit"
+        [disabled]="creating() || !newName().trim()"
+        class="flex-1 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-[var(--accent-contrast)] disabled:opacity-50"
+      >{{ creating() ? 'Creating...' : 'Create' }}</button>
+      <button
+        type="button"
+        (click)="cancelCreate()"
+        class="rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--text)]"
+      >Cancel</button>
+    </div>
+  </form>
+} @else {
+  <div class="relative px-2 mb-4">
+    <button
+      type="button"
+      (click)="toggleMenu()"
+      class="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--soft-fill)] px-3 py-2 text-left text-sm text-[var(--text)] hover:border-[var(--accent)]/30 transition-colors"
+      [attr.aria-expanded]="menuOpen()"
+    >
+      <span class="flex items-center gap-2 min-w-0">
+        <span class="material-symbols-outlined text-[var(--accent)] text-[1.1rem]">public</span>
+        <span class="truncate font-semibold">{{ activeAtlas()?.name ?? 'Select atlas' }}</span>
+      </span>
+      <span class="material-symbols-outlined text-[var(--muted)] text-[1.1rem]">{{ menuOpen() ? 'expand_less' : 'expand_more' }}</span>
+    </button>
+
+    @if (menuOpen()) {
+      <div class="absolute left-2 right-2 top-full mt-1 z-20 rounded-xl border border-[var(--line)] bg-[var(--bg)] shadow-lg py-1 max-h-64 overflow-auto">
+        @for (atlas of atlases(); track atlas.id) {
+          <button
+            type="button"
+            (click)="select(atlas.id)"
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--text)] hover:bg-white/5"
+            [class.text-\[var\(--accent\)\]]="atlas.id === activeAtlas()?.id"
+          >
+            <span class="material-symbols-outlined text-[1rem]">{{ atlas.id === activeAtlas()?.id ? 'check' : 'public' }}</span>
+            <span class="truncate">{{ atlas.name }}</span>
+          </button>
+        }
+        <button
+          type="button"
+          (click)="openCreate()"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--accent)] hover:bg-white/5 border-t border-[var(--line)]"
+        >
+          <span class="material-symbols-outlined text-[1rem]">add</span>
+          <span>New atlas</span>
+        </button>
+      </div>
+    }
+  </div>
+}

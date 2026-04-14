@@ -6,10 +6,11 @@ import { AuthService } from '../auth.service';
 import { DocumentsService } from '../documents.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
+import { AtlasSwitcherComponent } from '../atlas-switcher/atlas-switcher';
 
 @Component({
   selector: 'app-library',
-  imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent],
+  imports: [FormsModule, RouterLink, ThemeToggleComponent, MobileMenuComponent, AtlasSwitcherComponent],
   templateUrl: './library.html',
   styleUrl: './library.css',
 })

@@ -59,6 +59,7 @@ export interface DocumentRecord {
   wiki_pages_generated: number;
   citation_count: number;
   collection_id: string | null;
+  atlas_id: string | null;
   uploaded_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   indexed_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
   deleted_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
@@ -96,6 +97,7 @@ export interface KnowledgeEntryRecord {
   related_topics: string[];
   document_id: string;
   user_id: string;
+  atlas_id: string | null;
   source: {
     page: number;
     line_start: number;
@@ -127,6 +129,7 @@ export interface WikiTopicRecord {
   entry_ids: string[];
   document_ids: string[];
   user_id: string;
+  atlas_id: string | null;
   last_updated: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   summary_status?: 'pending' | 'ready' | 'failed';
   summary_error?: string | null;
@@ -134,6 +137,7 @@ export interface WikiTopicRecord {
 
 export interface WikiTopicJobRecord {
   user_id: string;
+  atlas_id: string | null;
   topic_id: string;
   topic_name: string;
   triggered_by_document_id: string | null;
@@ -151,6 +155,7 @@ export interface QueryCitationSnapshot {
 
 export interface QueryRecord {
   user_id: string;
+  atlas_id: string | null;
   question: string;
   answer: string;
   cited_entry_ids: string[];
@@ -162,6 +167,7 @@ export interface QueryRecord {
 
 export interface ChatThreadRecord {
   user_id: string;
+  atlas_id: string | null;
   title: string;
   created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   updated_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
@@ -174,6 +180,7 @@ export interface ChatThreadRecord {
 export interface ChatMessageRecord {
   thread_id: string;
   user_id: string;
+  atlas_id: string | null;
   role: 'user' | 'assistant';
   text: string;
   cited_passages?: QueryCitationSnapshot[];
@@ -185,6 +192,19 @@ export interface PreparedUpload {
   documentId: string;
   storagePath: string;
   fileType: SupportedFileType;
+}
+
+export interface AtlasRecord {
+  user_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_public: boolean;
+  logo_url: string | null;
+  hero_url: string | null;
+  cover_color: string | null;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  updated_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
 export interface AskAtlasResponse {

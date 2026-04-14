@@ -21,6 +21,14 @@ import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './u
 const callableRegion = 'us-central1';
 const storageTriggerRegion = 'us-west1';
 
+function normalizeAtlasId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export const prepareDocumentUpload = onCall({ region: callableRegion, cors: true }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -29,6 +37,7 @@ export const prepareDocumentUpload = onCall({ region: callableRegion, cors: true
   const filename = String(request.data?.filename ?? '').trim();
   const mimeType = String(request.data?.mimeType ?? '').trim() || null;
   const fileSize = Number(request.data?.fileSize ?? 0);
+  const atlasId = normalizeAtlasId(request.data?.atlasId);
 
   if (!filename) {
     throw new HttpsError('invalid-argument', 'filename is required.');
@@ -56,6 +65,7 @@ export const prepareDocumentUpload = onCall({ region: callableRegion, cors: true
       sourceType: 'file',
       mimeType,
       fileSize: Number.isFinite(fileSize) ? fileSize : null,
+      atlasId,
     }),
   );
 
@@ -75,6 +85,7 @@ export const submitUrlDocument = onCall(
     }
 
     const url = String(request.data?.url ?? '').trim();
+    const atlasId = normalizeAtlasId(request.data?.atlasId);
     if (!url) {
       throw new HttpsError('invalid-argument', 'url is required.');
     }
@@ -95,6 +106,7 @@ export const submitUrlDocument = onCall(
         sourceType: 'url',
         sourceUrl: url,
         title: url,
+        atlasId,
       }),
     );
 
@@ -117,6 +129,7 @@ export const askAtlas = onCall(
 
     const question = String(request.data?.question ?? '').trim();
     const threadId = String(request.data?.threadId ?? '').trim() || null;
+    const atlasId = normalizeAtlasId(request.data?.atlasId);
     const topicIds = Array.isArray(request.data?.topicIds)
       ? request.data.topicIds.map((value: unknown) => String(value)).filter(Boolean)
       : undefined;
@@ -128,6 +141,7 @@ export const askAtlas = onCall(
     try {
       return await runAtlasQuery({
         userId: request.auth.uid,
+        atlasId,
         question,
         topicIds,
         threadId,

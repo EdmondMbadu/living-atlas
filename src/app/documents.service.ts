@@ -16,6 +16,7 @@ import {
   type UploadTaskSnapshot,
 } from 'firebase/storage';
 import type { DocumentItem } from './atlas.models';
+import { AtlasService } from './atlas.service';
 import { AuthService } from './auth.service';
 import {
   getFirebaseFirestore,
@@ -37,6 +38,7 @@ type DeleteDocumentResponse = {
 @Injectable({ providedIn: 'root' })
 export class DocumentsService {
   private readonly authService = inject(AuthService);
+  private readonly atlasService = inject(AtlasService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly firestore = this.isBrowser ? getFirebaseFirestore() : null;
@@ -71,6 +73,7 @@ export class DocumentsService {
   constructor() {
     effect((onCleanup) => {
       const uid = this.authService.uid();
+      const atlasId = this.atlasService.activeAtlasId();
 
       if (!this.firestore || !uid) {
         this.documents.set([]);
@@ -79,12 +82,20 @@ export class DocumentsService {
       }
 
       this.isLoading.set(true);
-      const documentsQuery = query(
-        collection(this.firestore, 'documents'),
-        where('user_id', '==', uid),
-        where('visible', '==', true),
-        orderBy('uploaded_at', 'desc'),
-      );
+      const documentsQuery = atlasId
+        ? query(
+            collection(this.firestore, 'documents'),
+            where('user_id', '==', uid),
+            where('atlas_id', '==', atlasId),
+            where('visible', '==', true),
+            orderBy('uploaded_at', 'desc'),
+          )
+        : query(
+            collection(this.firestore, 'documents'),
+            where('user_id', '==', uid),
+            where('visible', '==', true),
+            orderBy('uploaded_at', 'desc'),
+          );
 
       const unsubscribe: Unsubscribe = onSnapshot(
         documentsQuery,
@@ -162,11 +173,11 @@ export class DocumentsService {
     this.uploadError.set(null);
 
     try {
-      const submitUrlDocument = httpsCallable<{ url: string }, { documentId: string }>(
-        this.functions,
-        'submitUrlDocument',
-      );
-      await submitUrlDocument({ url });
+      const submitUrlDocument = httpsCallable<
+        { url: string; atlasId: string | null },
+        { documentId: string }
+      >(this.functions, 'submitUrlDocument');
+      await submitUrlDocument({ url, atlasId: this.atlasService.activeAtlasId() });
     } catch (error) {
       this.uploadError.set(this.authService.toFriendlyError(error));
       throw error;
@@ -215,7 +226,7 @@ export class DocumentsService {
     }
 
     const prepareUpload = httpsCallable<
-      { filename: string; mimeType: string; fileSize: number },
+      { filename: string; mimeType: string; fileSize: number; atlasId: string | null },
       PrepareDocumentUploadResponse
     >(this.functions, 'prepareDocumentUpload');
 
@@ -223,6 +234,7 @@ export class DocumentsService {
       filename: file.name,
       mimeType: file.type,
       fileSize: file.size,
+      atlasId: this.atlasService.activeAtlasId(),
     });
 
     const storageRef = ref(this.storage, data.storagePath);

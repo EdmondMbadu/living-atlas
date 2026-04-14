@@ -17,6 +17,7 @@ import type {
   CitationPassage,
   QueryHistoryItem,
 } from './atlas.models';
+import { AtlasService } from './atlas.service';
 import { AuthService } from './auth.service';
 import { getFirebaseFirestore, getFirebaseFunctions } from './firebase.client';
 
@@ -32,6 +33,7 @@ type AskAtlasResponse = {
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly authService = inject(AuthService);
+  private readonly atlasService = inject(AtlasService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly firestore = this.isBrowser ? getFirebaseFirestore() : null;
@@ -52,6 +54,7 @@ export class ChatService {
   constructor() {
     effect((onCleanup) => {
       const uid = this.authService.uid();
+      const atlasId = this.atlasService.activeAtlasId();
       if (!this.firestore || !uid) {
         this.legacyHistoryItems = [];
         this.threadHistoryItems = [];
@@ -62,16 +65,30 @@ export class ChatService {
 
       this.isLoadingHistory.set(true);
 
-      const threadQuery = query(
-        collection(this.firestore, 'chat_threads'),
-        where('user_id', '==', uid),
-        orderBy('updated_at', 'desc'),
-      );
-      const legacyQuery = query(
-        collection(this.firestore, 'queries'),
-        where('user_id', '==', uid),
-        orderBy('created_at', 'desc'),
-      );
+      const threadQuery = atlasId
+        ? query(
+            collection(this.firestore, 'chat_threads'),
+            where('user_id', '==', uid),
+            where('atlas_id', '==', atlasId),
+            orderBy('updated_at', 'desc'),
+          )
+        : query(
+            collection(this.firestore, 'chat_threads'),
+            where('user_id', '==', uid),
+            orderBy('updated_at', 'desc'),
+          );
+      const legacyQuery = atlasId
+        ? query(
+            collection(this.firestore, 'queries'),
+            where('user_id', '==', uid),
+            where('atlas_id', '==', atlasId),
+            orderBy('created_at', 'desc'),
+          )
+        : query(
+            collection(this.firestore, 'queries'),
+            where('user_id', '==', uid),
+            orderBy('created_at', 'desc'),
+          );
 
       let threadsLoaded = false;
       let legacyLoaded = false;
@@ -131,13 +148,14 @@ export class ChatService {
 
     try {
       const askAtlas = httpsCallable<
-        { question: string; topicIds?: string[]; threadId?: string | null },
+        { question: string; topicIds?: string[]; threadId?: string | null; atlasId: string | null },
         AskAtlasResponse
       >(this.functions, 'askAtlas');
       const { data } = await askAtlas({
         question,
         topicIds,
         threadId: threadId ?? null,
+        atlasId: this.atlasService.activeAtlasId(),
       });
 
       this.latestAnswer.set(data.answer);
