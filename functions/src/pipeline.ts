@@ -14,10 +14,12 @@ import {
   topicDocumentId,
 } from './utils';
 import type {
+  DocumentAiUsage,
   DocumentRecord,
   ExtractBlock,
   KnowledgeEntryDraft,
   KnowledgeEntryRecord,
+  ModelUsage,
   QueryCitationSnapshot,
   WikiTopicJobRecord,
 } from './types';
@@ -208,18 +210,23 @@ async function processDocument(params: {
       processing_stage: 'compiling_knowledge',
     });
 
-    const entries = await buildKnowledgeEntries(document.id, document.user_id, blocks, chunks, async (completed) => {
+    const compilation = await buildKnowledgeEntries(document.id, document.user_id, blocks, chunks, async (completed) => {
       await setDocumentProcessingState(documentRef, {
         processing_stage: 'compiling_knowledge',
         processed_chunks: completed,
         total_chunks: chunks.length,
       });
     });
+    const entries = compilation.entries;
+
+    await addDocumentAiUsage(documentRef, compilation.usage, 'compile');
 
     logger.info('Knowledge compilation completed', {
       documentId: document.id,
       entryCount: entries.length,
       chunkCount: chunks.length,
+      promptTokens: compilation.usage.prompt_tokens,
+      outputTokens: compilation.usage.output_tokens,
       durationMs: Date.now() - startedAt,
     });
 
@@ -299,7 +306,10 @@ async function buildKnowledgeEntries(
   blocks: ExtractBlock[],
   chunks: ExtractBlock[][],
   onChunkComplete?: (completed: number) => Promise<void> | void,
-): Promise<Array<KnowledgeEntryRecord & { id: string }>> {
+): Promise<{
+  entries: Array<KnowledgeEntryRecord & { id: string }>;
+  usage: ModelUsage;
+}> {
   const blockMap = new Map(
     blocks.map((block) => [
       `${block.page}:${block.lineStart}:${block.lineEnd}`,
@@ -313,7 +323,10 @@ async function buildKnowledgeEntries(
     await onChunkComplete?.(completed);
     return compiled;
   });
-  const drafts = compiledChunks.flat();
+  const drafts = compiledChunks.flatMap((compiled) => compiled.entries);
+  const usage = compiledChunks
+    .map((compiled) => compiled.usage)
+    .reduce((total, next) => mergeUsage(total, next), emptyModelUsage());
 
   const validated = drafts
     .map((draft) => {
@@ -321,18 +334,21 @@ async function buildKnowledgeEntries(
       return blockMap.has(key) ? draft : null;
     });
 
-  return compact(validated).map((draft) => ({
-    id: generateId('entry'),
-    claim: draft.claim,
-    topic: normalizeTopicName(draft.topic),
-    related_topics: normalizeRelatedTopics(draft.related_topics),
-    document_id: documentId,
-    user_id: userId,
-    source: draft.source,
-    orphaned: false,
-    created_at: FieldValue.serverTimestamp(),
-    last_updated: FieldValue.serverTimestamp(),
-  }));
+  return {
+    entries: compact(validated).map((draft) => ({
+      id: generateId('entry'),
+      claim: draft.claim,
+      topic: normalizeTopicName(draft.topic),
+      related_topics: normalizeRelatedTopics(draft.related_topics),
+      document_id: documentId,
+      user_id: userId,
+      source: draft.source,
+      orphaned: false,
+      created_at: FieldValue.serverTimestamp(),
+      last_updated: FieldValue.serverTimestamp(),
+    })),
+    usage,
+  };
 }
 
 async function writeKnowledgeEntries(
@@ -602,7 +618,7 @@ export async function processWikiTopicSummaryJob(jobId: string): Promise<void> {
       id: snapshot.id,
       ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
     }));
-    const summary = await summarizeTopic(
+    const summaryResult = await summarizeTopic(
       job.topic_name,
       entries.map((entry) => entry.claim),
     );
@@ -610,7 +626,7 @@ export async function processWikiTopicSummaryJob(jobId: string): Promise<void> {
     await topicRef.set(
       {
         name: job.topic_name,
-        summary,
+        summary: summaryResult.summary,
         summary_status: 'ready',
         summary_error: null,
         entry_ids: entries.map((entry) => entry.id),
@@ -620,6 +636,14 @@ export async function processWikiTopicSummaryJob(jobId: string): Promise<void> {
       },
       { merge: true },
     );
+
+    if (job.triggered_by_document_id) {
+      await addDocumentAiUsage(
+        documentsCollection.doc(job.triggered_by_document_id),
+        summaryResult.usage,
+        'summary',
+      );
+    }
   } catch (error) {
     await topicRef.set(
       {
@@ -718,6 +742,7 @@ export function newDocumentRecord(params: {
     mime_type: params.mimeType ?? null,
     file_size: params.fileSize ?? null,
     title: params.title ?? null,
+    ai_usage: emptyDocumentAiUsage(),
     error_message: null,
     failure_code: null,
   };
@@ -779,6 +804,62 @@ function classifyProcessingFailure(error: unknown): string {
   }
 
   return 'ingestion_failed';
+}
+
+async function addDocumentAiUsage(
+  documentRef: FirebaseFirestore.DocumentReference,
+  usage: ModelUsage,
+  phase: 'compile' | 'summary',
+): Promise<void> {
+  if (usage.call_count <= 0) {
+    return;
+  }
+
+  await documentRef.set(
+    {
+      'ai_usage.model': usage.model,
+      'ai_usage.prompt_tokens': FieldValue.increment(usage.prompt_tokens),
+      'ai_usage.output_tokens': FieldValue.increment(usage.output_tokens),
+      'ai_usage.total_tokens': FieldValue.increment(usage.total_tokens),
+      'ai_usage.call_count': FieldValue.increment(usage.call_count),
+      'ai_usage.compile_call_count': FieldValue.increment(phase === 'compile' ? usage.call_count : 0),
+      'ai_usage.summary_call_count': FieldValue.increment(phase === 'summary' ? usage.call_count : 0),
+      last_heartbeat_at: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+function emptyDocumentAiUsage(): DocumentAiUsage {
+  return {
+    model: 'gemini-3-flash-preview',
+    prompt_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+    call_count: 0,
+    compile_call_count: 0,
+    summary_call_count: 0,
+  };
+}
+
+function emptyModelUsage(): ModelUsage {
+  return {
+    model: 'gemini-3-flash-preview',
+    prompt_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+    call_count: 0,
+  };
+}
+
+function mergeUsage(left: ModelUsage, right: ModelUsage): ModelUsage {
+  return {
+    model: right.model || left.model,
+    prompt_tokens: left.prompt_tokens + right.prompt_tokens,
+    output_tokens: left.output_tokens + right.output_tokens,
+    total_tokens: left.total_tokens + right.total_tokens,
+    call_count: left.call_count + right.call_count,
+  };
 }
 
 async function parallelMapLimit<T, R>(

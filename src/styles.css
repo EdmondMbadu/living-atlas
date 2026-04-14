@@ -23,6 +23,9 @@
   --line-strong: rgba(255, 255, 255, 0.14);
   --ambient-1: rgba(59, 175, 98, 0.16);
   --ambient-2: rgba(143, 217, 168, 0.12);
+  --error-bg: rgba(190, 24, 93, 0.14);
+  --error-border: rgba(244, 63, 94, 0.28);
+  --error-text: #fecdd3;
   --body-background-image: none;
   --shadow-elevated: 0 26px 70px rgba(0, 0, 0, 0.35);
   --shadow-floating: 0 18px 48px rgba(0, 0, 0, 0.28);
@@ -51,6 +54,9 @@
   --line-strong: rgba(15, 23, 42, 0.14);
   --ambient-1: transparent;
   --ambient-2: transparent;
+  --error-bg: rgba(190, 24, 93, 0.08);
+  --error-border: rgba(225, 29, 72, 0.24);
+  --error-text: #881337;
   --body-background-image: none;
   --shadow-elevated: 0 24px 60px rgba(15, 23, 42, 0.08);
   --shadow-floating: 0 16px 40px rgba(15, 23, 42, 0.08);
@@ -97,6 +103,16 @@
     box-shadow: var(--shadow-elevated);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+  }
+
+  .error-banner {
+    border: 1px solid var(--error-border);
+    background: var(--error-bg);
+    color: var(--error-text);
+  }
+
+  .error-text {
+    color: var(--error-text);
   }
 
   .primary-btn {

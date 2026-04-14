@@ -215,6 +215,37 @@ export class LibraryComponent {
     return this.deletingDocumentIds()[documentId] ?? false;
   }
 
+  aiUsageLabel(document: DocumentItem): string | null {
+    const usage = document.ai_usage;
+    if (!usage || usage.call_count <= 0) {
+      return null;
+    }
+
+    return `${this.formatCompactNumber(usage.prompt_tokens)} in · ${this.formatCompactNumber(
+      usage.output_tokens,
+    )} out · ${usage.call_count} calls`;
+  }
+
+  aiModelLabel(document: DocumentItem): string | null {
+    const usage = document.ai_usage;
+    if (!usage || usage.call_count <= 0) {
+      return null;
+    }
+
+    return usage.model;
+  }
+
+  private formatCompactNumber(value: number | null | undefined): string {
+    const numericValue = Number(value ?? 0);
+    if (numericValue >= 1_000_000) {
+      return `${(numericValue / 1_000_000).toFixed(1)}M`;
+    }
+    if (numericValue >= 1_000) {
+      return `${(numericValue / 1_000).toFixed(1)}k`;
+    }
+    return `${numericValue}`;
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     if (

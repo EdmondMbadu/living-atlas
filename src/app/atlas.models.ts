@@ -15,6 +15,16 @@ export type DocumentProcessingStage =
   | 'indexed'
   | 'failed';
 
+export interface DocumentAiUsage {
+  model: string;
+  prompt_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  call_count: number;
+  compile_call_count: number;
+  summary_call_count: number;
+}
+
 export interface DocumentItem {
   id: string;
   user_id: string;
@@ -37,6 +47,7 @@ export interface DocumentItem {
   mime_type?: string | null;
   file_size?: number | null;
   title?: string | null;
+  ai_usage?: DocumentAiUsage | null;
   error_message?: string | null;
   failure_code?: string | null;
 }

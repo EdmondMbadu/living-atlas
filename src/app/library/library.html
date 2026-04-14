@@ -215,13 +215,13 @@
             </div>
 
             @if (uploadError()) {
-              <div class="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+              <div class="error-banner mt-4 rounded-2xl px-4 py-3 text-sm">
                 {{ uploadError() }}
               </div>
             }
 
             @if (deleteError()) {
-              <div class="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+              <div class="error-banner mt-4 rounded-2xl px-4 py-3 text-sm">
                 {{ deleteError() }}
               </div>
             }
@@ -291,6 +291,12 @@
                         {{ document.wiki_pages_generated }} wiki pages
                       </span>
                       <span class="text-[11px] text-[var(--muted)]">{{ document.citation_count }} citations</span>
+                      @if (aiModelLabel(document); as modelLabel) {
+                        <span class="text-[11px] text-[var(--muted)]">{{ modelLabel }}</span>
+                      }
+                      @if (aiUsageLabel(document); as aiLabel) {
+                        <span class="text-[11px] text-[var(--muted)]">{{ aiLabel }}</span>
+                      }
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -329,7 +335,7 @@
                 }
 
                 @if (document.error_message) {
-                  <p class="mt-3 text-sm text-rose-300">{{ document.error_message }}</p>
+                  <p class="error-text mt-3 text-sm">{{ document.error_message }}</p>
                 }
               </article>
             }

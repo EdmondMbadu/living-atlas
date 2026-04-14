@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { defineSecret } from 'firebase-functions/params';
-import type { ExtractBlock, KnowledgeEntryDraft } from './types';
+import type { ExtractBlock, KnowledgeEntryDraft, ModelUsage } from './types';
 import {
   normalizeRelatedTopics,
   normalizeTopicName,
@@ -128,19 +128,53 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function usageFromResponse(response: {
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+}): ModelUsage {
+  const promptTokens = Number(response.usageMetadata?.promptTokenCount ?? 0);
+  const outputTokens = Number(response.usageMetadata?.candidatesTokenCount ?? 0);
+  const totalTokens = Number(response.usageMetadata?.totalTokenCount ?? promptTokens + outputTokens);
+
+  return {
+    model,
+    prompt_tokens: promptTokens,
+    output_tokens: outputTokens,
+    total_tokens: totalTokens,
+    call_count: 1,
+  };
+}
+
+function emptyUsage(): ModelUsage {
+  return {
+    model,
+    prompt_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+    call_count: 0,
+  };
+}
+
 export async function compileKnowledgeEntries(
   blocks: ExtractBlock[],
-): Promise<KnowledgeEntryDraft[]> {
+): Promise<{ entries: KnowledgeEntryDraft[]; usage: ModelUsage }> {
   if (blocks.length === 0) {
-    return [];
+    return { entries: [], usage: emptyUsage() };
   }
 
   const prompt = [
     'You are a knowledge compiler for a personal knowledge base.',
     'Read the provided source excerpts carefully.',
-    'Extract every meaningful claim, fact, definition, rule, or insight.',
+    'Extract only durable knowledge worth retrieving later.',
+    'Prefer fewer, denser entries over exhaustive sentence-by-sentence coverage.',
+    'Merge repetitive nearby facts into one compact claim.',
+    'Skip anecdotes, rhetorical framing, examples, and repeated restatements unless they contain unique facts.',
+    'Usually produce no more than 1 to 3 entries per excerpt block.',
     'Each output item must have:',
-    '- claim: concise rewrite of the knowledge',
+    '- claim: concise rewrite of the knowledge in 1 or 2 sentences max',
     '- topic: short canonical topic name',
     '- related_topics: array of related topic names',
     '- source: exact page, line_start, and line_end copied from one provided excerpt',
@@ -163,38 +197,41 @@ export async function compileKnowledgeEntries(
       responseMimeType: 'application/json',
       responseJsonSchema: knowledgeEntrySchema,
       temperature: 0,
+      maxOutputTokens: 4096,
     },
   });
 
   const parsed = parseJsonResponse<KnowledgeEntryDraft[]>(response.text ?? '[]');
-
-  return parsed
-    .map((entry) => ({
-      claim: entry.claim.trim(),
-      topic: normalizeTopicName(entry.topic),
-      related_topics: normalizeRelatedTopics(entry.related_topics ?? []),
-      source: {
-        page: Number(entry.source?.page ?? 0),
-        line_start: Number(entry.source?.line_start ?? 0),
-        line_end: Number(entry.source?.line_end ?? 0),
-      },
-    }))
-    .filter(
-      (entry) =>
-        entry.claim.length > 0 &&
-        entry.topic.length > 0 &&
-        Number.isFinite(entry.source.page) &&
-        Number.isFinite(entry.source.line_start) &&
-        Number.isFinite(entry.source.line_end),
-    );
+  return {
+    entries: parsed
+      .map((entry) => ({
+        claim: entry.claim.trim(),
+        topic: normalizeTopicName(entry.topic),
+        related_topics: normalizeRelatedTopics(entry.related_topics ?? []),
+        source: {
+          page: Number(entry.source?.page ?? 0),
+          line_start: Number(entry.source?.line_start ?? 0),
+          line_end: Number(entry.source?.line_end ?? 0),
+        },
+      }))
+      .filter(
+        (entry) =>
+          entry.claim.length > 0 &&
+          entry.topic.length > 0 &&
+          Number.isFinite(entry.source.page) &&
+          Number.isFinite(entry.source.line_start) &&
+          Number.isFinite(entry.source.line_end),
+      ),
+    usage: usageFromResponse(response),
+  };
 }
 
 export async function summarizeTopic(
   topicName: string,
   claims: string[],
-): Promise<string> {
+): Promise<{ summary: string; usage: ModelUsage }> {
   if (claims.length === 0) {
-    return '';
+    return { summary: '', usage: emptyUsage() };
   }
 
   const prompt = [
@@ -211,10 +248,14 @@ export async function summarizeTopic(
     contents: prompt,
     config: {
       temperature: 0.2,
+      maxOutputTokens: 512,
     },
   });
 
-  return (response.text ?? '').trim();
+  return {
+    summary: (response.text ?? '').trim(),
+    usage: usageFromResponse(response),
+  };
 }
 
 export async function answerQuestion(params: {
