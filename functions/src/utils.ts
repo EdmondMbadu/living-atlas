@@ -223,13 +223,106 @@ export function groupLinesIntoBlocks(
 }
 
 export function parseJsonResponse<T>(value: string): T {
+  const normalized = normalizeJsonCandidate(value);
+
+  try {
+    return JSON.parse(normalized) as T;
+  } catch {
+    const repaired = repairCommonJsonIssues(normalized);
+    return JSON.parse(repaired) as T;
+  }
+}
+
+function normalizeJsonCandidate(value: string): string {
   const trimmed = value.trim();
   const withoutCodeFence = trimmed
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/\s*```$/, '');
 
-  return JSON.parse(withoutCodeFence) as T;
+  const firstObject = withoutCodeFence.indexOf('{');
+  const firstArray = withoutCodeFence.indexOf('[');
+  const start =
+    firstObject === -1
+      ? firstArray
+      : firstArray === -1
+        ? firstObject
+        : Math.min(firstObject, firstArray);
+
+  if (start === -1) {
+    return withoutCodeFence;
+  }
+
+  const lastObject = withoutCodeFence.lastIndexOf('}');
+  const lastArray = withoutCodeFence.lastIndexOf(']');
+  const end = Math.max(lastObject, lastArray);
+
+  return end >= start ? withoutCodeFence.slice(start, end + 1) : withoutCodeFence.slice(start);
+}
+
+function repairCommonJsonIssues(value: string): string {
+  let repaired = '';
+  let inString = false;
+  let escaped = false;
+  let objectDepth = 0;
+  let arrayDepth = 0;
+
+  for (const character of value) {
+    if (escaped) {
+      repaired += character;
+      escaped = false;
+      continue;
+    }
+
+    if (character === '\\') {
+      repaired += character;
+      escaped = true;
+      continue;
+    }
+
+    if (character === '"') {
+      repaired += character;
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      if (character === '\n') {
+        repaired += '\\n';
+        continue;
+      }
+      if (character === '\r') {
+        continue;
+      }
+      if (character === '\t') {
+        repaired += '\\t';
+        continue;
+      }
+      repaired += character;
+      continue;
+    }
+
+    if (character === '{') {
+      objectDepth += 1;
+    } else if (character === '}') {
+      objectDepth = Math.max(0, objectDepth - 1);
+    } else if (character === '[') {
+      arrayDepth += 1;
+    } else if (character === ']') {
+      arrayDepth = Math.max(0, arrayDepth - 1);
+    }
+
+    repaired += character;
+  }
+
+  if (inString) {
+    repaired += '"';
+  }
+
+  repaired += ']'.repeat(arrayDepth);
+  repaired += '}'.repeat(objectDepth);
+
+  return repaired;
 }
 
 export function textFromClaudeContent(content: Array<{ type: string; text?: string }>): string {

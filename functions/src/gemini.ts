@@ -270,7 +270,7 @@ export async function answerQuestion(params: {
       entry.source.line_end,
     ] as const),
   );
-  const prompt = [
+  const baseInstructions = [
     'Answer the question using only the provided knowledge entries.',
     'Entry format: [id, topic, claim, page, line_start, line_end].',
     'Keep the answer high-signal and concise.',
@@ -278,27 +278,68 @@ export async function answerQuestion(params: {
     'If the evidence is incomplete or weak, say so clearly and set knowledge_gap to true.',
     'Only cite entry ids that are present in the provided entries.',
     'Return only valid JSON matching the schema.',
+  ];
+  const prompt = [
+    ...baseInstructions,
     '',
     JSON.stringify({ question: params.question }),
     serializedEntries,
   ].join('\n');
 
-  const response = await generateContentWithRetry({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseJsonSchema: answerSchema,
-      temperature: 0.1,
-      maxOutputTokens: 640,
-    },
-  });
+  try {
+    const response = await generateContentWithRetry({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseJsonSchema: answerSchema,
+        temperature: 0.1,
+        maxOutputTokens: 640,
+      },
+    });
 
-  return parseJsonResponse<{
-    answer: string;
-    cited_entry_ids: string[];
-    knowledge_gap: boolean;
-  }>(response.text ?? '{}');
+    return parseJsonResponse<{
+      answer: string;
+      cited_entry_ids: string[];
+      knowledge_gap: boolean;
+    }>(response.text ?? '{}');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const looksLikeJsonParseFailure =
+      message.includes('JSON') ||
+      message.includes('Unexpected token') ||
+      message.includes('Unterminated string');
+
+    if (!looksLikeJsonParseFailure) {
+      throw error;
+    }
+
+    const retryPrompt = [
+      ...baseInstructions,
+      'Important: the answer field must be a single plain-text string. Escape internal quotes. Use \\n for line breaks.',
+      'Do not output markdown fences. Do not output any prose outside the JSON object.',
+      '',
+      JSON.stringify({ question: params.question }),
+      serializedEntries,
+    ].join('\n');
+
+    const retryResponse = await generateContentWithRetry({
+      model,
+      contents: retryPrompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseJsonSchema: answerSchema,
+        temperature: 0,
+        maxOutputTokens: 640,
+      },
+    });
+
+    return parseJsonResponse<{
+      answer: string;
+      cited_entry_ids: string[];
+      knowledge_gap: boolean;
+    }>(retryResponse.text ?? '{}');
+  }
 }
 
 export async function transcribeImageToLines(params: {
