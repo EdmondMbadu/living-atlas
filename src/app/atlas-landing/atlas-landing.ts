@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { AtlasService } from '../atlas.service';
-import type { AtlasItem } from '../atlas.models';
+import type { AtlasItem, AtlasUsage } from '../atlas.models';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 
 @Component({
@@ -76,6 +76,10 @@ export class AtlasLandingComponent {
   readonly uploadingLogo = signal(false);
   readonly uploadingHero = signal(false);
 
+  readonly usage = signal<AtlasUsage | null>(null);
+  readonly usageLoading = signal(false);
+  private usageAtlasId: string | null = null;
+
   constructor() {
     effect(() => {
       const slug = this.routeSlug();
@@ -96,7 +100,34 @@ export class AtlasLandingComponent {
         .catch(() => this.publicAtlas.set(null))
         .finally(() => this.publicLookupDone.set(true));
     });
+
+    effect(() => {
+      const atlas = this.atlas();
+      const owner = this.isOwner();
+      if (!atlas || !owner) {
+        this.usage.set(null);
+        this.usageAtlasId = null;
+        return;
+      }
+      if (this.usageAtlasId === atlas.id) return;
+      this.usageAtlasId = atlas.id;
+      this.usageLoading.set(true);
+      void this.atlasService
+        .getAtlasUsage(atlas.id)
+        .then((u) => this.usage.set(u))
+        .catch(() => this.usage.set(null))
+        .finally(() => this.usageLoading.set(false));
+    });
   }
+
+  readonly formattedCreatedAt = computed(() => {
+    const a = this.atlas();
+    const raw = a?.created_at;
+    if (!raw) return null;
+    const date = raw instanceof Date ? raw : raw.toDate?.();
+    if (!date) return null;
+    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  });
 
   readonly userInitials = () => {
     const name = this.currentUserName();
