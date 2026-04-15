@@ -123,7 +123,7 @@ export class AtlasLandingComponent {
 
   openUpload(): void {
     this.activateThisAtlas();
-    void this.router.navigateByUrl('/home');
+    void this.router.navigateByUrl('/upload');
   }
 
   openManage(): void {
