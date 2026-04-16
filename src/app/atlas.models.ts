@@ -12,6 +12,7 @@ export type DocumentProcessingStage =
   | 'compiling_knowledge'
   | 'writing_entries'
   | 'queuing_topics'
+  | 'compiling_articles'
   | 'indexed'
   | 'failed';
 

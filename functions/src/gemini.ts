@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions';
-import type { ExtractBlock, KnowledgeEntryDraft, ModelUsage } from './types';
+import type { ExtractBlock, KnowledgeEntryDraft, ModelUsage, WikiArticleDraft, WikiArticlePlan } from './types';
 import {
   normalizeRelatedTopics,
   normalizeTopicName,
@@ -53,6 +53,64 @@ const answerSchema = {
 const lineArraySchema = {
   type: 'array',
   items: { type: 'string' },
+} as const;
+
+const wikiArticleDraftSchema = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      content: { type: 'string' },
+      summary: { type: 'string' },
+      related_articles: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      source_pages: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string' },
+            page: { type: 'integer' },
+          },
+          required: ['filename', 'page'],
+        },
+      },
+    },
+    required: ['title', 'content', 'summary', 'related_articles', 'source_pages'],
+  },
+} as const;
+
+const wikiArticlePlanSchema = {
+  type: 'object',
+  properties: {
+    update: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          article_id: { type: 'string' },
+          title: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['article_id', 'title', 'reason'],
+      },
+    },
+    create: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          scope: { type: 'string' },
+        },
+        required: ['title', 'scope'],
+      },
+    },
+  },
+  required: ['update', 'create'],
 } as const;
 
 const maxAttempts = 3;
@@ -385,6 +443,314 @@ export async function answerQuestion(params: {
   });
 
   return normalizeAnswerResponse(parseJsonResponse<unknown>(retryResponse.text ?? '{}'), retryResponse.text ?? '');
+}
+
+export async function compileWikiArticles(params: {
+  blocks: ExtractBlock[];
+  filename: string;
+}): Promise<{ articles: WikiArticleDraft[]; usage: ModelUsage }> {
+  if (params.blocks.length === 0) {
+    return { articles: [], usage: emptyUsage() };
+  }
+
+  const serializedBlocks = JSON.stringify(
+    params.blocks.map((block) => [block.page, block.lineStart, block.lineEnd, block.text] as const),
+  );
+
+  const prompt = [
+    `You are compiling a personal wiki from a source document titled "${params.filename}".`,
+    'Input format: [page, line_start, line_end, text] arrays.',
+    '',
+    'Write comprehensive wiki articles that capture ALL important knowledge from this document.',
+    'Each article should cover a coherent topic or section of the source material.',
+    '',
+    'RULES:',
+    '- Write 3-10 articles depending on document length and topic diversity.',
+    '- Each article should be 200-800 words of dense, structured content.',
+    '- Use markdown formatting: headers (##), bold, lists where they improve clarity.',
+    '- Embed inline source citations as [Source: FILENAME, p.PAGE] after key facts.',
+    '- Capture specific numbers, thresholds, percentages, dates, names, and requirements — these are the facts users will query.',
+    '- Do NOT summarize generically. Preserve concrete details: "$100,000 minimum" not "there is a minimum amount".',
+    '- Each article gets a clear, searchable title (e.g. "C-PACE Fee Structure" not "Fees").',
+    '- The summary field should be 1-2 sentences describing what the article covers, written to help a search function decide if this article is relevant to a question.',
+    '- related_articles: list titles of other articles from this batch that are topically connected.',
+    '- source_pages: list every page number referenced in the article content.',
+    '',
+    'Return valid JSON matching the schema.',
+    '',
+    serializedBlocks,
+  ].join('\n');
+
+  const response = await generateContentWithRetry({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: wikiArticleDraftSchema,
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
+  });
+
+  let parsed: WikiArticleDraft[];
+  try {
+    parsed = parseJsonResponse<WikiArticleDraft[]>(response.text ?? '[]');
+  } catch (error) {
+    logger.warn('compileWikiArticles: JSON parse failed', {
+      error: error instanceof Error ? error.message : String(error),
+      responsePreview: (response.text ?? '').slice(0, 200),
+    });
+    return { articles: [], usage: usageFromResponse(response) };
+  }
+
+  if (!Array.isArray(parsed)) {
+    logger.warn('compileWikiArticles: response was not an array');
+    return { articles: [], usage: usageFromResponse(response) };
+  }
+
+  return {
+    articles: parsed
+      .filter(
+        (article): article is WikiArticleDraft =>
+          article != null &&
+          typeof article === 'object' &&
+          typeof article.title === 'string' &&
+          typeof article.content === 'string' &&
+          article.title.trim().length > 0 &&
+          article.content.trim().length > 0,
+      )
+      .map((article) => ({
+        title: article.title.trim(),
+        content: article.content.trim(),
+        summary: (typeof article.summary === 'string' ? article.summary : '').trim(),
+        related_articles: Array.isArray(article.related_articles)
+          ? article.related_articles.filter((value): value is string => typeof value === 'string')
+          : [],
+        source_pages: Array.isArray(article.source_pages)
+          ? article.source_pages.filter(
+              (sp): sp is { filename: string; page: number } =>
+                sp != null && typeof sp === 'object' && typeof sp.page === 'number',
+            )
+          : [],
+      })),
+    usage: usageFromResponse(response),
+  };
+}
+
+export async function planArticleMerge(params: {
+  existingArticles: Array<{ article_id: string; title: string; summary: string }>;
+  newSourceText: string;
+  filename: string;
+}): Promise<{ plan: WikiArticlePlan; usage: ModelUsage }> {
+  const serializedArticles = JSON.stringify(
+    params.existingArticles.map((article) => ({
+      id: article.article_id,
+      title: article.title,
+      summary: article.summary,
+    })),
+  );
+
+  const prompt = [
+    'You are planning how to integrate new source material into an existing wiki.',
+    '',
+    'EXISTING WIKI ARTICLES:',
+    serializedArticles,
+    '',
+    `NEW SOURCE DOCUMENT: "${params.filename}"`,
+    'Preview of new content (first 3000 chars):',
+    params.newSourceText.slice(0, 3000),
+    '',
+    'Decide which existing articles need updating with new information, and which new articles should be created.',
+    'Only mark an article for update if the new source genuinely adds information to that topic.',
+    'Only create new articles for topics not already covered by existing articles.',
+    'Return valid JSON matching the schema.',
+  ].join('\n');
+
+  const response = await generateContentWithRetry({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: wikiArticlePlanSchema,
+      temperature: 0,
+      maxOutputTokens: 1024,
+    },
+  });
+
+  let parsed: WikiArticlePlan;
+  try {
+    parsed = parseJsonResponse<WikiArticlePlan>(response.text ?? '{"update":[],"create":[]}');
+  } catch {
+    return { plan: { update: [], create: [] }, usage: usageFromResponse(response) };
+  }
+
+  return {
+    plan: {
+      update: Array.isArray(parsed.update) ? parsed.update : [],
+      create: Array.isArray(parsed.create) ? parsed.create : [],
+    },
+    usage: usageFromResponse(response),
+  };
+}
+
+export async function mergeWikiArticle(params: {
+  existingArticle: { title: string; content: string };
+  newBlocks: ExtractBlock[];
+  filename: string;
+}): Promise<{ article: WikiArticleDraft; usage: ModelUsage }> {
+  const serializedBlocks = JSON.stringify(
+    params.newBlocks.map((block) => [block.page, block.lineStart, block.lineEnd, block.text] as const),
+  );
+
+  const prompt = [
+    `You are updating the wiki article "${params.existingArticle.title}" with new source material from "${params.filename}".`,
+    '',
+    'RULES:',
+    '1. Every fact currently in the article MUST remain. Do not drop, shorten, or rephrase existing content unless the new source explicitly contradicts it.',
+    '2. Integrate new facts into the appropriate sections. Add new sections if needed.',
+    '3. When new content contradicts existing content, keep BOTH and note the tension: "According to [Source: doc1, p.12]... however [Source: doc2, p.5] states..."',
+    '4. Maintain inline source citations: [Source: FILENAME, p.PAGE]',
+    '5. The article should read as a coherent whole, not "old part" then "new part appended."',
+    '6. Preserve specific numbers, thresholds, dates, names, and requirements from BOTH sources.',
+    '7. The summary should be updated to reflect the expanded scope.',
+    '8. Update source_pages to include pages from both the existing content and new material.',
+    '',
+    'EXISTING ARTICLE:',
+    params.existingArticle.content,
+    '',
+    'NEW SOURCE MATERIAL:',
+    serializedBlocks,
+    '',
+    'Return the updated article as valid JSON matching the schema. Return a single-element array.',
+  ].join('\n');
+
+  const response = await generateContentWithRetry({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: wikiArticleDraftSchema,
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
+  });
+
+  let parsed: WikiArticleDraft[];
+  try {
+    parsed = parseJsonResponse<WikiArticleDraft[]>(response.text ?? '[]');
+  } catch (error) {
+    logger.warn('mergeWikiArticle: JSON parse failed, returning existing article unchanged', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      article: {
+        title: params.existingArticle.title,
+        content: params.existingArticle.content,
+        summary: '',
+        related_articles: [],
+        source_pages: [],
+      },
+      usage: usageFromResponse(response),
+    };
+  }
+
+  const merged = Array.isArray(parsed) && parsed.length > 0 ? parsed[0] : null;
+  if (!merged || typeof merged.content !== 'string' || merged.content.trim().length === 0) {
+    return {
+      article: {
+        title: params.existingArticle.title,
+        content: params.existingArticle.content,
+        summary: '',
+        related_articles: [],
+        source_pages: [],
+      },
+      usage: usageFromResponse(response),
+    };
+  }
+
+  return {
+    article: {
+      title: (typeof merged.title === 'string' ? merged.title : params.existingArticle.title).trim(),
+      content: merged.content.trim(),
+      summary: (typeof merged.summary === 'string' ? merged.summary : '').trim(),
+      related_articles: Array.isArray(merged.related_articles)
+        ? merged.related_articles.filter((value): value is string => typeof value === 'string')
+        : [],
+      source_pages: Array.isArray(merged.source_pages)
+        ? merged.source_pages.filter(
+            (sp): sp is { filename: string; page: number } =>
+              sp != null && typeof sp === 'object' && typeof sp.page === 'number',
+          )
+        : [],
+    },
+    usage: usageFromResponse(response),
+  };
+}
+
+export async function answerFromArticles(params: {
+  question: string;
+  history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  articles: Array<{ article_id: string; title: string; content: string }>;
+}): Promise<{ answer: string; cited_entry_ids: string[]; knowledge_gap: boolean }> {
+  const hasHistory = (params.history ?? []).length > 0;
+  const broadQuestion = isBroadSynthesisQuestion(params.question) || hasHistory;
+  const serializedHistory = JSON.stringify(
+    (params.history ?? []).slice(-6).map((message) => [message.role, message.text.slice(0, 4000)] as const),
+  );
+  const serializedArticles = params.articles
+    .map(
+      (article) =>
+        `--- ARTICLE [${article.article_id}]: ${article.title} ---\n${article.content}\n--- END ARTICLE ---`,
+    )
+    .join('\n\n');
+
+  const baseInstructions = [
+    'You are answering a question using wiki articles from a personal knowledge base.',
+    'Use only the information in the provided articles.',
+    'Articles contain inline citations like [Source: filename, p.PAGE] — preserve and reference these in your answer.',
+    'When citing facts, include the source reference from the article (e.g. "According to [Source: C-PACE Guide, p.29]...").',
+    'Treat the recent conversation history as real context: resolve references (it, that, they), understand follow-ups.',
+    'When the user asks for "other", "more", "additional" items, introduce genuinely new themes not already covered.',
+    'Do not invent information not present in the articles.',
+    'Give a useful, concrete answer with enough detail to be meaningful.',
+    'Include specific numbers, dates, thresholds, and requirements when the articles contain them.',
+    'If the evidence is incomplete or weak, say so clearly and set knowledge_gap to true.',
+    'For cited_entry_ids, return the article_id values of articles you drew information from.',
+    'Return only valid JSON matching the schema.',
+  ];
+  const styleInstructions = broadQuestion
+    ? [
+        'This is a synthesis or exploration question.',
+        'Give a substantive answer: 2-4 solid paragraphs or a list of 4-8 concrete themes.',
+        'For each theme, explain it briefly instead of naming it only.',
+      ]
+    : [
+        'For direct questions, answer in 1-3 compact paragraphs unless a short list is clearly better.',
+      ];
+
+  const prompt = [
+    ...baseInstructions,
+    ...styleInstructions,
+    '',
+    JSON.stringify({ question: params.question, history: params.history?.length ? 'provided' : 'empty' }),
+    serializedHistory,
+    '',
+    serializedArticles,
+  ].join('\n');
+
+  const response = await generateContentWithRetry({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: answerSchema,
+      temperature: 0.1,
+      maxOutputTokens: broadQuestion ? 4096 : 2048,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  return normalizeAnswerResponse(parseJsonResponse<unknown>(response.text ?? '{}'), response.text ?? '');
 }
 
 export async function transcribeImageToLines(params: {

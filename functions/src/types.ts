@@ -28,6 +28,7 @@ export type DocumentProcessingStage =
   | 'compiling_knowledge'
   | 'writing_entries'
   | 'queuing_topics'
+  | 'compiling_articles'
   | 'indexed'
   | 'failed';
 
@@ -214,4 +215,50 @@ export interface AskAtlasResponse {
   scopedTopicIds: string[];
   knowledgeGap: boolean;
   threadId: string;
+}
+
+export interface WikiArticleRecord {
+  user_id: string;
+  atlas_id: string | null;
+  title: string;
+  content: string;
+  summary: string;
+  source_documents: WikiArticleSource[];
+  related_articles: string[];
+  word_count: number;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  last_updated: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
+export interface WikiArticleSource {
+  document_id: string;
+  filename: string;
+  pages: number[];
+}
+
+export interface WikiArticleDraft {
+  title: string;
+  content: string;
+  summary: string;
+  related_articles: string[];
+  source_pages: Array<{ filename: string; page: number }>;
+}
+
+export interface WikiArticlePlan {
+  update: Array<{ article_id: string; title: string; reason: string }>;
+  create: Array<{ title: string; scope: string }>;
+}
+
+export interface WikiIndexEntry {
+  article_id: string;
+  title: string;
+  summary: string;
+  document_ids: string[];
+}
+
+export interface WikiIndexRecord {
+  user_id: string;
+  atlas_id: string | null;
+  entries: WikiIndexEntry[];
+  last_updated: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }

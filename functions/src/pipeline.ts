@@ -1,6 +1,6 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
-import { answerQuestion, compileKnowledgeEntries, summarizeTopic } from './gemini';
+import { answerFromArticles, answerQuestion, compileKnowledgeEntries, compileWikiArticles, mergeWikiArticle, planArticleMerge, summarizeTopic } from './gemini';
 import { db, storage } from './firebase';
 import { extractBlocksFromBuffer, extractBlocksFromUrl } from './extractors';
 import {
@@ -29,6 +29,10 @@ import type {
   ModelUsage,
   QueryCitationSnapshot,
   TopicEntryPreview,
+  WikiArticleDraft,
+  WikiArticleRecord,
+  WikiArticleSource,
+  WikiIndexEntry,
   WikiTopicJobRecord,
 } from './types';
 
@@ -40,6 +44,8 @@ const queriesCollection = db.collection('queries');
 const chatThreadsCollection = db.collection('chat_threads');
 const chatMessagesCollection = db.collection('chat_messages');
 const wikiTopicJobsCollection = db.collection('wiki_topic_jobs');
+const wikiArticlesCollection = db.collection('wiki_articles');
+const wikiIndexCollection = db.collection('wiki_index');
 
 const compileChunkConcurrency = 6;
 const maxTopicPreviewEntries = 12;
@@ -298,6 +304,19 @@ async function processDocument(params: {
     const topicNames = await upsertWikiTopics(document.user_id, atlasId, document.id, entries);
     await enqueueWikiTopicSummaryJobs(document.user_id, atlasId, topicNames, document.id);
 
+    await setDocumentProcessingState(documentRef, {
+      processing_stage: 'compiling_articles',
+    });
+
+    const articleCompilation = await compileAndStoreWikiArticles({
+      userId: document.user_id,
+      atlasId,
+      documentId: document.id,
+      filename: extraction.title ?? document.filename ?? 'Untitled',
+      blocks,
+    });
+    await addDocumentAiUsage(documentRef, articleCompilation.usage, 'compile');
+
     await documentRef.set(
       {
         status: 'indexed',
@@ -305,7 +324,7 @@ async function processDocument(params: {
         processed_chunks: chunks.length,
         total_chunks: chunks.length,
         page_count: Math.max(...blocks.map((block) => block.page)),
-        wiki_pages_generated: new Set(entries.map((entry) => entry.topic)).size,
+        wiki_pages_generated: articleCompilation.articleIds.length || new Set(entries.map((entry) => entry.topic)).size,
         citation_count: entries.length,
         indexed_at: FieldValue.serverTimestamp(),
         last_heartbeat_at: FieldValue.serverTimestamp(),
@@ -489,6 +508,223 @@ async function upsertWikiTopics(
   return topicNames;
 }
 
+export async function compileAndStoreWikiArticles(params: {
+  userId: string;
+  atlasId: string | null;
+  documentId: string;
+  filename: string;
+  blocks: ExtractBlock[];
+}): Promise<{ articleIds: string[]; usage: ModelUsage }> {
+  const { userId, atlasId, documentId, filename, blocks } = params;
+
+  const existingIndex = await loadWikiIndex(userId, atlasId);
+  const existingArticles = existingIndex?.entries ?? [];
+
+  let totalUsage = emptyModelUsage();
+  const writtenArticleIds: string[] = [];
+
+  if (existingArticles.length > 0) {
+    const planResult = await planArticleMerge({
+      existingArticles: existingArticles.map((entry) => ({
+        article_id: entry.article_id,
+        title: entry.title,
+        summary: entry.summary,
+      })),
+      newSourceText: blocks.map((block) => block.text).join('\n'),
+      filename,
+    });
+    totalUsage = mergeUsage(totalUsage, planResult.usage);
+
+    for (const update of planResult.plan.update) {
+      const articleSnapshot = await wikiArticlesCollection.doc(update.article_id).get();
+      if (!articleSnapshot.exists) {
+        continue;
+      }
+
+      const existing = articleSnapshot.data() as WikiArticleRecord;
+      const mergeResult = await mergeWikiArticle({
+        existingArticle: { title: existing.title, content: existing.content },
+        newBlocks: blocks,
+        filename,
+      });
+      totalUsage = mergeUsage(totalUsage, mergeResult.usage);
+
+      const mergedSources = dedupeArticleSources([
+        ...(existing.source_documents ?? []),
+        {
+          document_id: documentId,
+          filename,
+          pages: mergeResult.article.source_pages
+            .filter((sp) => sp.filename === filename)
+            .map((sp) => sp.page),
+        },
+      ]);
+
+      await wikiArticlesCollection.doc(update.article_id).set(
+        {
+          title: mergeResult.article.title,
+          content: mergeResult.article.content,
+          summary: mergeResult.article.summary || existing.summary,
+          source_documents: mergedSources,
+          related_articles: dedupeStrings([
+            ...(existing.related_articles ?? []),
+            ...mergeResult.article.related_articles,
+          ]),
+          word_count: countWords(mergeResult.article.content),
+          last_updated: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      writtenArticleIds.push(update.article_id);
+    }
+
+    const newArticleTitles = planResult.plan.create.map((c) => c.title);
+    if (newArticleTitles.length > 0) {
+      const compileResult = await compileWikiArticles({ blocks, filename });
+      totalUsage = mergeUsage(totalUsage, compileResult.usage);
+
+      const newArticles = compileResult.articles.filter((article) =>
+        newArticleTitles.some(
+          (planned) => planned.toLowerCase() === article.title.toLowerCase(),
+        ),
+      );
+
+      for (const article of newArticles) {
+        const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
+        writtenArticleIds.push(articleId);
+      }
+
+      const unplannedArticles = compileResult.articles.filter(
+        (article) =>
+          !newArticleTitles.some(
+            (planned) => planned.toLowerCase() === article.title.toLowerCase(),
+          ) &&
+          !existingArticles.some(
+            (existing) => existing.title.toLowerCase() === article.title.toLowerCase(),
+          ),
+      );
+      for (const article of unplannedArticles) {
+        const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
+        writtenArticleIds.push(articleId);
+      }
+    }
+  } else {
+    const compileResult = await compileWikiArticles({ blocks, filename });
+    totalUsage = mergeUsage(totalUsage, compileResult.usage);
+
+    for (const article of compileResult.articles) {
+      const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
+      writtenArticleIds.push(articleId);
+    }
+  }
+
+  await rebuildWikiIndex(userId, atlasId);
+
+  logger.info('Wiki article compilation completed', {
+    userId,
+    documentId,
+    articlesWritten: writtenArticleIds.length,
+    existingArticlesMerged: existingArticles.length > 0,
+  });
+
+  return { articleIds: writtenArticleIds, usage: totalUsage };
+}
+
+async function writeWikiArticle(
+  userId: string,
+  atlasId: string | null,
+  documentId: string,
+  filename: string,
+  article: WikiArticleDraft,
+): Promise<string> {
+  const articleId = generateId('article');
+  const sourceDoc: WikiArticleSource = {
+    document_id: documentId,
+    filename,
+    pages: article.source_pages
+      .filter((sp) => sp.filename === filename)
+      .map((sp) => sp.page),
+  };
+
+  await wikiArticlesCollection.doc(articleId).set({
+    user_id: userId,
+    atlas_id: atlasId,
+    title: article.title,
+    content: article.content,
+    summary: article.summary,
+    source_documents: [sourceDoc],
+    related_articles: article.related_articles,
+    word_count: countWords(article.content),
+    created_at: FieldValue.serverTimestamp(),
+    last_updated: FieldValue.serverTimestamp(),
+  } satisfies WikiArticleRecord);
+
+  return articleId;
+}
+
+async function loadWikiIndex(
+  userId: string,
+  atlasId: string | null,
+): Promise<{ entries: WikiIndexEntry[] } | null> {
+  const indexId = wikiIndexDocumentId(userId, atlasId);
+  const snapshot = await wikiIndexCollection.doc(indexId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  const data = snapshot.data();
+  return {
+    entries: Array.isArray(data?.entries) ? data.entries : [],
+  };
+}
+
+async function rebuildWikiIndex(userId: string, atlasId: string | null): Promise<void> {
+  const snapshot = await wikiArticlesCollection
+    .where('user_id', '==', userId)
+    .orderBy('last_updated', 'desc')
+    .limit(200)
+    .get();
+
+  const entries: WikiIndexEntry[] = snapshot.docs.map((doc) => {
+    const data = doc.data() as WikiArticleRecord;
+    return {
+      article_id: doc.id,
+      title: data.title,
+      summary: data.summary,
+      document_ids: (data.source_documents ?? []).map((sd) => sd.document_id),
+    };
+  });
+
+  const indexId = wikiIndexDocumentId(userId, atlasId);
+  await wikiIndexCollection.doc(indexId).set({
+    user_id: userId,
+    atlas_id: atlasId,
+    entries,
+    last_updated: FieldValue.serverTimestamp(),
+  });
+}
+
+function wikiIndexDocumentId(userId: string, atlasId: string | null): string {
+  return atlasId ? `${userId}__${atlasId}` : `${userId}__personal`;
+}
+
+function dedupeArticleSources(sources: WikiArticleSource[]): WikiArticleSource[] {
+  const byDocId = new Map<string, WikiArticleSource>();
+  for (const source of sources) {
+    const existing = byDocId.get(source.document_id);
+    if (existing) {
+      existing.pages = [...new Set([...existing.pages, ...source.pages])].sort((a, b) => a - b);
+      existing.filename = source.filename || existing.filename;
+    } else {
+      byDocId.set(source.document_id, { ...source, pages: [...source.pages] });
+    }
+  }
+  return Array.from(byDocId.values());
+}
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter((word) => word.length > 0).length;
+}
+
 export async function runAtlasQuery(params: {
   userId: string;
   atlasId: string | null;
@@ -514,6 +750,42 @@ export async function runAtlasQuery(params: {
   const threadHistory = thread.reusedExisting
     ? await loadRecentChatThreadMessages(thread.id, maxHistoryMessagesForAnswer)
     : [];
+
+  const articleResult = await tryAnswerFromArticles({
+    userId: params.userId,
+    atlasId: params.atlasId,
+    question: trimmedQuestion,
+    broadQuestion,
+    history: threadHistory.map((message) => ({ role: message.role, text: message.text })),
+  });
+
+  if (articleResult) {
+    logger.info('Atlas query answered from wiki articles', {
+      userId: params.userId,
+      articleCount: articleResult.articleIds.length,
+    });
+
+    await recordChatThreadExchange({
+      threadId: thread.id,
+      userId: params.userId,
+      atlasId: params.atlasId,
+      question: trimmedQuestion,
+      answer: articleResult.answer,
+      citedPassages: articleResult.citedPassages,
+      knowledgeGap: articleResult.knowledgeGap,
+      questionCountIncrement: 1,
+    });
+
+    return {
+      answer: articleResult.answer,
+      citedEntryIds: articleResult.articleIds,
+      citedPassages: articleResult.citedPassages,
+      scopedTopicIds: [],
+      knowledgeGap: articleResult.knowledgeGap,
+      threadId: thread.id,
+    };
+  }
+
   const topics = await loadCandidateTopics(params.userId, trimmedQuestion, params.topicIds, broadQuestion);
   const tokens = tokenize(trimmedQuestion);
   const entryLimit = broadQuestion ? broadQuestionMaxAnswerEntries : maxAnswerEntries;
@@ -565,7 +837,7 @@ export async function runAtlasQuery(params: {
     };
   }
 
-  logger.info('Atlas query candidates selected', {
+  logger.info('Atlas query falling back to knowledge entries', {
     userId: params.userId,
     topicCount: topics.length,
     previewEntryCount: previewEntries.length,
@@ -612,6 +884,171 @@ export async function runAtlasQuery(params: {
     knowledgeGap: knowledgeGap,
     threadId: thread.id,
   };
+}
+
+async function tryAnswerFromArticles(params: {
+  userId: string;
+  atlasId: string | null;
+  question: string;
+  broadQuestion: boolean;
+  history: Array<{ role: 'user' | 'assistant'; text: string }>;
+}): Promise<{
+  answer: string;
+  articleIds: string[];
+  citedPassages: QueryCitationSnapshot[];
+  knowledgeGap: boolean;
+} | null> {
+  const index = await loadWikiIndex(params.userId, params.atlasId);
+  if (!index || index.entries.length === 0) {
+    return null;
+  }
+
+  const tokens = tokenize(params.question);
+  const maxArticles = params.broadQuestion ? 15 : 10;
+
+  const scoredArticles = index.entries
+    .map((entry) => {
+      const titleScore = scoreTextForTokens(entry.title.toLowerCase(), tokens) * 6;
+      const summaryScore = scoreTextForTokens(entry.summary.toLowerCase(), tokens) * 3;
+      const coverage = tokenCoverage(
+        `${entry.title} ${entry.summary}`.toLowerCase(),
+        tokens,
+      ) * 2;
+      return { ...entry, score: titleScore + summaryScore + coverage };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const selected = scoredArticles.filter((a) => a.score > 0).slice(0, maxArticles);
+  if (selected.length === 0) {
+    const fallback = scoredArticles.slice(0, Math.min(3, scoredArticles.length));
+    if (fallback.length === 0) {
+      return null;
+    }
+    selected.push(...fallback);
+  }
+
+  const articleSnapshots = await Promise.all(
+    selected.map((entry) => wikiArticlesCollection.doc(entry.article_id).get()),
+  );
+
+  const articles = compact(
+    articleSnapshots.map((snapshot) => {
+      if (!snapshot.exists) return null;
+      const data = snapshot.data() as WikiArticleRecord;
+      return {
+        article_id: snapshot.id,
+        title: data.title,
+        content: data.content,
+        source_documents: data.source_documents ?? [],
+      };
+    }),
+  );
+
+  if (articles.length === 0) {
+    return null;
+  }
+
+  const response = await answerFromArticles({
+    question: params.question,
+    history: params.history,
+    articles: articles.map((a) => ({
+      article_id: a.article_id,
+      title: a.title,
+      content: a.content,
+    })),
+  });
+
+  const safeAnswer =
+    typeof response.answer === 'string' && response.answer.trim().length > 0
+      ? response.answer.trim()
+      : null;
+
+  if (!safeAnswer) {
+    return null;
+  }
+
+  const citedArticleIds = (response.cited_entry_ids ?? []).filter((id) =>
+    articles.some((a) => a.article_id === id),
+  );
+
+  const citedPassages = buildArticleCitationPassages(articles, citedArticleIds);
+
+  return {
+    answer: safeAnswer,
+    articleIds: citedArticleIds,
+    citedPassages,
+    knowledgeGap: response.knowledge_gap,
+  };
+}
+
+function buildArticleCitationPassages(
+  articles: Array<{
+    article_id: string;
+    title: string;
+    content: string;
+    source_documents: WikiArticleSource[];
+  }>,
+  citedArticleIds: string[],
+): QueryCitationSnapshot[] {
+  const passages: QueryCitationSnapshot[] = [];
+
+  for (const articleId of citedArticleIds) {
+    const article = articles.find((a) => a.article_id === articleId);
+    if (!article) continue;
+
+    const sourceRefs = extractSourceRefsFromContent(article.content);
+    if (sourceRefs.length > 0) {
+      for (const ref of sourceRefs) {
+        passages.push({
+          entry_id: articleId,
+          text: ref.context,
+          filename: ref.filename,
+          page: ref.page,
+          line_start: 0,
+          line_end: 0,
+        });
+      }
+    } else {
+      const primaryDoc = article.source_documents[0];
+      passages.push({
+        entry_id: articleId,
+        text: article.content.slice(0, 500),
+        filename: primaryDoc?.filename ?? article.title,
+        page: primaryDoc?.pages[0] ?? 0,
+        line_start: 0,
+        line_end: 0,
+      });
+    }
+  }
+
+  const deduped = new Map<string, QueryCitationSnapshot>();
+  for (const passage of passages) {
+    const key = `${passage.filename}::${passage.page}`;
+    if (!deduped.has(key)) {
+      deduped.set(key, passage);
+    }
+  }
+  return Array.from(deduped.values());
+}
+
+function extractSourceRefsFromContent(
+  content: string,
+): Array<{ filename: string; page: number; context: string }> {
+  const refs: Array<{ filename: string; page: number; context: string }> = [];
+  const pattern = /\[Source:\s*([^,\]]+),\s*p\.?\s*(\d+)\]/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(content)) !== null) {
+    const filename = match[1].trim();
+    const page = parseInt(match[2], 10);
+    const start = Math.max(0, match.index - 100);
+    const end = Math.min(content.length, match.index + match[0].length + 100);
+    const context = content.slice(start, end).trim();
+
+    refs.push({ filename, page, context });
+  }
+
+  return refs;
 }
 
 export async function getWikiTopicDetailsForUser(params: {

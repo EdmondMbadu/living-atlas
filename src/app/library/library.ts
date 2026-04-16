@@ -181,6 +181,8 @@ export class LibraryComponent {
         return 'Writing knowledge entries';
       case 'queuing_topics':
         return 'Queueing wiki updates';
+      case 'compiling_articles':
+        return 'Compiling wiki articles';
       default:
         return 'Processing';
     }
