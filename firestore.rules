@@ -42,6 +42,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /wiki_articles/{articleId} {
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /wiki_index/{indexId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     match /queries/{queryId} {
       allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
       allow write: if false;

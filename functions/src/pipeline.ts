@@ -308,14 +308,24 @@ async function processDocument(params: {
       processing_stage: 'compiling_articles',
     });
 
-    const articleCompilation = await compileAndStoreWikiArticles({
-      userId: document.user_id,
-      atlasId,
-      documentId: document.id,
-      filename: extraction.title ?? document.filename ?? 'Untitled',
-      blocks,
-    });
-    await addDocumentAiUsage(documentRef, articleCompilation.usage, 'compile');
+    let articleCount = 0;
+    try {
+      const articleCompilation = await compileAndStoreWikiArticles({
+        userId: document.user_id,
+        atlasId,
+        documentId: document.id,
+        filename: extraction.title ?? document.filename ?? 'Untitled',
+        blocks,
+      });
+      await addDocumentAiUsage(documentRef, articleCompilation.usage, 'compile');
+      articleCount = articleCompilation.articleIds.length;
+    } catch (articleError) {
+      logger.error('Wiki article compilation failed, continuing with knowledge entries only', {
+        documentId: document.id,
+        error: articleError instanceof Error ? articleError.message : String(articleError),
+        stack: articleError instanceof Error ? articleError.stack : undefined,
+      });
+    }
 
     await documentRef.set(
       {
@@ -324,7 +334,7 @@ async function processDocument(params: {
         processed_chunks: chunks.length,
         total_chunks: chunks.length,
         page_count: Math.max(...blocks.map((block) => block.page)),
-        wiki_pages_generated: articleCompilation.articleIds.length || new Set(entries.map((entry) => entry.topic)).size,
+        wiki_pages_generated: articleCount || new Set(entries.map((entry) => entry.topic)).size,
         citation_count: entries.length,
         indexed_at: FieldValue.serverTimestamp(),
         last_heartbeat_at: FieldValue.serverTimestamp(),
@@ -517,20 +527,54 @@ export async function compileAndStoreWikiArticles(params: {
 }): Promise<{ articleIds: string[]; usage: ModelUsage }> {
   const { userId, atlasId, documentId, filename, blocks } = params;
 
-  const existingIndex = await loadWikiIndex(userId, atlasId);
-  const existingArticles = existingIndex?.entries ?? [];
-
   let totalUsage = emptyModelUsage();
   const writtenArticleIds: string[] = [];
 
-  if (existingArticles.length > 0) {
+  // Always compile fresh articles from document chunks
+  const articleChunks = chunkBlocksForArticles(blocks);
+  logger.info('Compiling wiki articles from chunks', {
+    documentId,
+    totalBlocks: blocks.length,
+    chunkCount: articleChunks.length,
+    chunkSizes: articleChunks.map((c) => c.length),
+  });
+
+  for (const chunk of articleChunks) {
+    const compileResult = await compileWikiArticles({ blocks: chunk, filename });
+    totalUsage = mergeUsage(totalUsage, compileResult.usage);
+
+    logger.info('Chunk compilation result', {
+      documentId,
+      articlesFromChunk: compileResult.articles.length,
+      titles: compileResult.articles.map((a) => a.title),
+    });
+
+    for (const article of compileResult.articles) {
+      const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
+      writtenArticleIds.push(articleId);
+    }
+  }
+
+  // After writing all articles, check if any existing articles from OTHER documents
+  // should be merged with new content (for incremental multi-doc merging)
+  const existingIndex = await loadWikiIndex(userId, atlasId);
+  const existingArticlesFromOtherDocs = (existingIndex?.entries ?? []).filter(
+    (entry) => !entry.document_ids.includes(documentId),
+  );
+
+  if (existingArticlesFromOtherDocs.length > 0 && writtenArticleIds.length > 0) {
+    logger.info('Checking for merge opportunities with existing articles', {
+      documentId,
+      existingArticleCount: existingArticlesFromOtherDocs.length,
+    });
+
     const planResult = await planArticleMerge({
-      existingArticles: existingArticles.map((entry) => ({
+      existingArticles: existingArticlesFromOtherDocs.map((entry) => ({
         article_id: entry.article_id,
         title: entry.title,
         summary: entry.summary,
       })),
-      newSourceText: blocks.map((block) => block.text).join('\n'),
+      newSourceText: blocks.map((block) => block.text).join('\n').slice(0, 6000),
       filename,
     });
     totalUsage = mergeUsage(totalUsage, planResult.usage);
@@ -575,46 +619,6 @@ export async function compileAndStoreWikiArticles(params: {
         },
         { merge: true },
       );
-      writtenArticleIds.push(update.article_id);
-    }
-
-    const newArticleTitles = planResult.plan.create.map((c) => c.title);
-    if (newArticleTitles.length > 0) {
-      const compileResult = await compileWikiArticles({ blocks, filename });
-      totalUsage = mergeUsage(totalUsage, compileResult.usage);
-
-      const newArticles = compileResult.articles.filter((article) =>
-        newArticleTitles.some(
-          (planned) => planned.toLowerCase() === article.title.toLowerCase(),
-        ),
-      );
-
-      for (const article of newArticles) {
-        const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
-        writtenArticleIds.push(articleId);
-      }
-
-      const unplannedArticles = compileResult.articles.filter(
-        (article) =>
-          !newArticleTitles.some(
-            (planned) => planned.toLowerCase() === article.title.toLowerCase(),
-          ) &&
-          !existingArticles.some(
-            (existing) => existing.title.toLowerCase() === article.title.toLowerCase(),
-          ),
-      );
-      for (const article of unplannedArticles) {
-        const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
-        writtenArticleIds.push(articleId);
-      }
-    }
-  } else {
-    const compileResult = await compileWikiArticles({ blocks, filename });
-    totalUsage = mergeUsage(totalUsage, compileResult.usage);
-
-    for (const article of compileResult.articles) {
-      const articleId = await writeWikiArticle(userId, atlasId, documentId, filename, article);
-      writtenArticleIds.push(articleId);
     }
   }
 
@@ -624,7 +628,6 @@ export async function compileAndStoreWikiArticles(params: {
     userId,
     documentId,
     articlesWritten: writtenArticleIds.length,
-    existingArticlesMerged: existingArticles.length > 0,
   });
 
   return { articleIds: writtenArticleIds, usage: totalUsage };
@@ -677,12 +680,49 @@ async function loadWikiIndex(
   };
 }
 
+function chunkBlocksForArticles(blocks: ExtractBlock[]): ExtractBlock[][] {
+  const maxBlocksPerChunk = 80;
+  const maxCharsPerChunk = 32000;
+  const chunks: ExtractBlock[][] = [];
+  let current: ExtractBlock[] = [];
+  let currentChars = 0;
+
+  for (const block of blocks) {
+    if (current.length >= maxBlocksPerChunk || currentChars + block.text.length > maxCharsPerChunk) {
+      if (current.length > 0) {
+        chunks.push(current);
+      }
+      current = [];
+      currentChars = 0;
+    }
+    current.push(block);
+    currentChars += block.text.length;
+  }
+
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks;
+}
+
 async function rebuildWikiIndex(userId: string, atlasId: string | null): Promise<void> {
-  const snapshot = await wikiArticlesCollection
-    .where('user_id', '==', userId)
-    .orderBy('last_updated', 'desc')
-    .limit(200)
-    .get();
+  let snapshot;
+  try {
+    snapshot = await wikiArticlesCollection
+      .where('user_id', '==', userId)
+      .orderBy('last_updated', 'desc')
+      .limit(200)
+      .get();
+  } catch (error) {
+    logger.warn('rebuildWikiIndex: query failed, attempting without orderBy', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    snapshot = await wikiArticlesCollection
+      .where('user_id', '==', userId)
+      .limit(200)
+      .get();
+  }
 
   const entries: WikiIndexEntry[] = snapshot.docs.map((doc) => {
     const data = doc.data() as WikiArticleRecord;

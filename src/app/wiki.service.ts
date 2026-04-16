@@ -83,7 +83,10 @@ export class WikiService {
           }
           this.isLoadingArticles.set(false);
         },
-        () => this.isLoadingArticles.set(false),
+        (error) => {
+          console.error('Wiki articles snapshot error:', error);
+          this.isLoadingArticles.set(false);
+        },
       );
 
       onCleanup(() => unsubscribe());
