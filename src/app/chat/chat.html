@@ -366,29 +366,46 @@
   @if (selectedCitation(); as citation) {
     <div class="fixed inset-0 z-50 flex items-end justify-end p-4 md:items-center md:justify-center md:p-8">
       <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" (click)="closeCitation()"></div>
-      <div class="relative w-full max-w-xl rounded-[1.75rem] border border-white/10 bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)]">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Citation</p>
+      <div class="relative w-full max-w-xl rounded-[1.75rem] border border-white/10 bg-[var(--surface)] shadow-[var(--shadow-elevated)] overflow-hidden">
+
+        <!-- Header -->
+        <div class="flex items-center gap-3 border-b border-white/5 px-6 py-4">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+            <span class="material-symbols-outlined text-base text-[var(--accent)]">description</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Citation</p>
             <button
               type="button"
-              class="mt-2 flex items-center gap-2 truncate text-lg font-black tracking-[-0.04em] text-[var(--text)] transition-colors hover:text-[var(--accent)]"
-              title="Open document"
+              class="mt-0.5 block w-full truncate text-left text-sm font-bold text-[var(--text)] transition-colors hover:text-[var(--accent)]"
+              [title]="citation.filename"
               (click)="openDocumentFile(citation)"
             >
-              <span>{{ citation.filename }}</span>
-              <span class="material-symbols-outlined text-base text-[var(--muted)]">open_in_new</span>
+              {{ citation.filename }}
             </button>
           </div>
-          <button type="button" class="rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)]" (click)="closeCitation()">
+          <button type="button" class="shrink-0 rounded-full border border-white/10 bg-white/5 p-2 text-[var(--muted)] transition-colors hover:bg-white/10 hover:text-[var(--text)]" (click)="closeCitation()">
             <span class="material-symbols-outlined text-base">close</span>
           </button>
         </div>
 
-        <p class="citation-badge mt-4 inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
-          p.{{ citation.page }} · L{{ citation.line_start }}-{{ citation.line_end }}
-        </p>
-        <p class="mt-4 max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{{ citation.text }}</p>
+        <!-- Location badge -->
+        <div class="flex items-center gap-2 px-6 pt-4">
+          <span class="citation-badge inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em]">
+            <span class="material-symbols-outlined text-[0.75rem]">pin_drop</span>
+            Page {{ citation.page }}
+          </span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--muted)]">
+            Lines {{ citation.line_start }}–{{ citation.line_end }}
+          </span>
+        </div>
+
+        <!-- Content -->
+        <div class="px-6 pb-6 pt-4">
+          <div class="max-h-[55vh] overflow-y-auto rounded-2xl border border-white/5 bg-white/[0.02] px-5 py-4">
+            <p class="whitespace-pre-wrap text-sm leading-7 text-[var(--text)]">{{ citation.text }}</p>
+          </div>
+        </div>
       </div>
     </div>
   }
