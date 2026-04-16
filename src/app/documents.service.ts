@@ -108,7 +108,8 @@ export class DocumentsService {
           );
           this.isLoading.set(false);
         },
-        () => {
+        (error) => {
+          console.error('[DocumentsService] onSnapshot error:', error);
           this.isLoading.set(false);
         },
       );

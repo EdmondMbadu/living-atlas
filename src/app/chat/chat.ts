@@ -5,6 +5,7 @@ import type { ChatHistoryItem, ChatStoredMessage, CitationPassage } from '../atl
 import { AuthService } from '../auth.service';
 import { AtlasService } from '../atlas.service';
 import { ChatService } from '../chat.service';
+import { DocumentsService } from '../documents.service';
 import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { AtlasSwitcherComponent } from '../atlas-switcher/atlas-switcher';
@@ -39,6 +40,7 @@ export class ChatComponent implements AfterViewChecked {
   private readonly authService = inject(AuthService);
   private readonly atlasService = inject(AtlasService);
   private readonly chatService = inject(ChatService);
+  private readonly documentsService = inject(DocumentsService);
 
   readonly atlasHomeLink = this.atlasService.activeAtlasHomeLink;
   private readonly router = inject(Router);
@@ -193,6 +195,27 @@ export class ChatComponent implements AfterViewChecked {
 
   closeCitation(): void {
     this.selectedCitation.set(null);
+  }
+
+  async openDocumentFile(citation: CitationPassage): Promise<void> {
+    const filename = citation.filename;
+    if (!filename || this.isFallbackCitationFilename(filename)) {
+      return;
+    }
+
+    const documents = this.documentsService.documents();
+    const match = documents.find(
+      (doc) => doc.filename === filename || doc.title === filename,
+    );
+
+    if (!match) {
+      return;
+    }
+
+    const downloadUrl = await this.documentsService.getDownloadUrl(match);
+    if (downloadUrl) {
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    }
   }
 
   newChat(): void {
