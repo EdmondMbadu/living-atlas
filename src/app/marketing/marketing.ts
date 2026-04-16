@@ -34,7 +34,7 @@ export class MarketingComponent {
     },
     {
       title: 'Done',
-      description: 'Instantly queryable, forever stored in your Living Atlas.',
+      description: 'Instantly queryable, forever stored in your Living Wiki.',
       icon: 'check_circle',
     },
   ];

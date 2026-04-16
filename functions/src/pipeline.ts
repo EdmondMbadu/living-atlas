@@ -556,7 +556,7 @@ export async function runAtlasQuery(params: {
   if (uniqueEntries.length === 0) {
     return {
       answer:
-        "This topic isn't in your knowledge base yet. Upload source material so Living Atlas can answer it with citations.",
+        "This topic isn't in your knowledge base yet. Upload source material so Living Wiki can answer it with citations.",
       citedEntryIds: [],
       citedPassages: [],
       scopedTopicIds: topics.map((topic) => topic.id),

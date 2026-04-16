@@ -1,6 +1,6 @@
-# Living Atlas
+# Living Wiki
 
-Living Atlas is an Angular app prepared for Firebase Hosting, with the Firebase Web SDK initialized on the client for future Auth and Firestore integration.
+Living Wiki is an Angular app prepared for Firebase Hosting, with the Firebase Web SDK initialized on the client for future Auth and Firestore integration.
 
 ## Development server
 

@@ -271,7 +271,7 @@ export const ingestUploadedDocument = onObjectFinalized(
 
     const documentId = extractDocumentIdFromPath(storagePath);
     if (!documentId) {
-      logger.warn('Ignoring storage object without a Living Atlas document path', { storagePath });
+      logger.warn('Ignoring storage object without a Living Wiki document path', { storagePath });
       return;
     }
 

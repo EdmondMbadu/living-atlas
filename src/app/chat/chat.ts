@@ -255,7 +255,7 @@ export class ChatComponent implements AfterViewChecked {
   }
 
   messageLabel(message: ChatMessage): string {
-    return message.role === 'user' ? 'You' : 'Living Atlas';
+    return message.role === 'user' ? 'You' : 'Living Wiki';
   }
 
   formatRelativeDateShort(value: { toDate(): Date } | Date | null | undefined): string {
