@@ -200,6 +200,7 @@ export class ChatComponent implements AfterViewChecked {
   formatCitationText(text: string): string {
     return text
       .replace(/\[Source:\s*[^\]]*\]/g, '')
+      .replace(/\[Source:[^\]]*$/gm, '')
       .replace(/^#{2,3}\s+(.+)$/gm, '<strong class="block mt-3 mb-1 font-bold text-[var(--text)]">$1</strong>')
       .replace(/^\* /gm, '- ')
       .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-[var(--text)]">$1</strong>')

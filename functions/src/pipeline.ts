@@ -1021,6 +1021,13 @@ async function tryAnswerFromArticles(params: {
   };
 }
 
+function cleanArticleText(content: string): string {
+  return content
+    .replace(/\[Source:\s*[^\]]*\]/g, '')
+    .replace(/\[Source:[^\]]*$/gm, '')
+    .trim();
+}
+
 function buildArticleCitationPassages(
   articles: Array<{
     article_id: string;
@@ -1041,7 +1048,7 @@ function buildArticleCitationPassages(
       for (const ref of sourceRefs) {
         passages.push({
           entry_id: articleId,
-          text: ref.context,
+          text: cleanArticleText(ref.context),
           filename: ref.filename,
           page: ref.page,
           line_start: 0,
@@ -1049,10 +1056,11 @@ function buildArticleCitationPassages(
         });
       }
     } else {
+      // No parseable [Source:] refs — use full cleaned article content
       const primaryDoc = article.source_documents[0];
       passages.push({
         entry_id: articleId,
-        text: article.content.slice(0, 500),
+        text: cleanArticleText(article.content),
         filename: primaryDoc?.filename ?? article.title,
         page: primaryDoc?.pages[0] ?? 0,
         line_start: 0,
