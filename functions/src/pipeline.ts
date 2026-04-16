@@ -578,72 +578,8 @@ export async function compileAndStoreWikiArticles(params: {
     }
   }
 
-  // After writing all articles, check if any existing articles from OTHER documents
-  // should be merged with new content (for incremental multi-doc merging)
-  const existingIndex = await loadWikiIndex(userId, atlasId);
-  const existingArticlesFromOtherDocs = (existingIndex?.entries ?? []).filter(
-    (entry) => !entry.document_ids.includes(documentId),
-  );
-
-  if (existingArticlesFromOtherDocs.length > 0 && writtenArticleIds.length > 0) {
-    logger.info('Checking for merge opportunities with existing articles', {
-      documentId,
-      existingArticleCount: existingArticlesFromOtherDocs.length,
-    });
-
-    const planResult = await planArticleMerge({
-      existingArticles: existingArticlesFromOtherDocs.map((entry) => ({
-        article_id: entry.article_id,
-        title: entry.title,
-        summary: entry.summary,
-      })),
-      newSourceText: blocks.map((block) => block.text).join('\n').slice(0, 6000),
-      filename,
-    });
-    totalUsage = mergeUsage(totalUsage, planResult.usage);
-
-    for (const update of planResult.plan.update) {
-      const articleSnapshot = await wikiArticlesCollection.doc(update.article_id).get();
-      if (!articleSnapshot.exists) {
-        continue;
-      }
-
-      const existing = articleSnapshot.data() as WikiArticleRecord;
-      const mergeResult = await mergeWikiArticle({
-        existingArticle: { title: existing.title, content: existing.content },
-        newBlocks: blocks,
-        filename,
-      });
-      totalUsage = mergeUsage(totalUsage, mergeResult.usage);
-
-      const mergedSources = dedupeArticleSources([
-        ...(existing.source_documents ?? []),
-        {
-          document_id: documentId,
-          filename,
-          pages: mergeResult.article.source_pages
-            .filter((sp) => sp.filename === filename)
-            .map((sp) => sp.page),
-        },
-      ]);
-
-      await wikiArticlesCollection.doc(update.article_id).set(
-        {
-          title: mergeResult.article.title,
-          content: mergeResult.article.content,
-          summary: mergeResult.article.summary || existing.summary,
-          source_documents: mergedSources,
-          related_articles: dedupeStrings([
-            ...(existing.related_articles ?? []),
-            ...mergeResult.article.related_articles,
-          ]),
-          word_count: countWords(mergeResult.article.content),
-          last_updated: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-    }
-  }
+  // Skip cross-document merge for now — each document gets its own articles.
+  // Merge is too expensive with many existing articles and risks timeouts.
 
   await rebuildWikiIndex(userId, atlasId);
 
