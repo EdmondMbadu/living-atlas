@@ -201,6 +201,32 @@ export class LibraryComponent {
     return `${document.processed_chunks ?? 0} of ${document.total_chunks} chunks`;
   }
 
+  ingestionProgress(document: DocumentItem): number | null {
+    if (document.status !== 'processing') {
+      return null;
+    }
+
+    const stageWeights: Record<string, number> = {
+      queued: 2,
+      extracting: 10,
+      writing_extracts: 25,
+      compiling_knowledge: 45,
+      writing_entries: 65,
+      queuing_topics: 75,
+      compiling_articles: 88,
+    };
+
+    const stage = document.processing_stage ?? 'queued';
+    const base = stageWeights[stage] ?? 5;
+
+    if (stage === 'compiling_knowledge' && document.total_chunks && document.total_chunks > 0) {
+      const chunkProgress = (document.processed_chunks ?? 0) / document.total_chunks;
+      return Math.round(base + chunkProgress * 20);
+    }
+
+    return base;
+  }
+
   formatDocumentDate(document: DocumentItem): string {
     const value = document.uploaded_at;
     const date =

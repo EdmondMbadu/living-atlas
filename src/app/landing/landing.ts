@@ -1,5 +1,6 @@
-import { Component, ElementRef, HostListener, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import type { DocumentItem } from '../atlas.models';
 import { AuthService } from '../auth.service';
 import { AtlasService } from '../atlas.service';
 import { DocumentsService } from '../documents.service';
@@ -26,9 +27,20 @@ export class LandingComponent {
   readonly avatarMenuOpen = signal(false);
   readonly isUploading = this.documentsService.isUploading;
   readonly uploadError = this.documentsService.uploadError;
+  readonly uploadProgress = this.documentsService.uploadProgress;
+  readonly documents = this.documentsService.documents;
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
   readonly userAvatar = '/assets/living-atlas-logo.png';
+
+  readonly activeUploads = computed(() => {
+    const progress = this.uploadProgress();
+    return Object.entries(progress).map(([id, pct]) => ({ id, percentage: pct }));
+  });
+
+  readonly processingDocuments = computed(() =>
+    this.documents().filter((d) => d.status === 'processing'),
+  );
 
   readonly userInitials = () => {
     const name = this.currentUserName();
@@ -69,6 +81,47 @@ export class LandingComponent {
     if (!this.uploadError()) {
       await this.router.navigateByUrl('/library');
     }
+  }
+
+  processingLabel(document: DocumentItem): string {
+    switch (document.processing_stage) {
+      case 'extracting':
+        return 'Extracting text';
+      case 'writing_extracts':
+        return 'Saving source extracts';
+      case 'compiling_knowledge':
+        return 'Compiling knowledge';
+      case 'writing_entries':
+        return 'Writing knowledge entries';
+      case 'queuing_topics':
+        return 'Queueing wiki updates';
+      case 'compiling_articles':
+        return 'Compiling wiki articles';
+      default:
+        return 'Processing';
+    }
+  }
+
+  ingestionProgress(document: DocumentItem): number {
+    const stageWeights: Record<string, number> = {
+      queued: 2,
+      extracting: 10,
+      writing_extracts: 25,
+      compiling_knowledge: 45,
+      writing_entries: 65,
+      queuing_topics: 75,
+      compiling_articles: 88,
+    };
+
+    const stage = document.processing_stage ?? 'queued';
+    const base = stageWeights[stage] ?? 5;
+
+    if (stage === 'compiling_knowledge' && document.total_chunks && document.total_chunks > 0) {
+      const chunkProgress = (document.processed_chunks ?? 0) / document.total_chunks;
+      return Math.round(base + chunkProgress * 20);
+    }
+
+    return base;
   }
 
   async signOut(): Promise<void> {
