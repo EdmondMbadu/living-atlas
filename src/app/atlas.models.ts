@@ -38,6 +38,13 @@ export interface AtlasItem {
   cover_color: string | null;
   created_at?: { toDate(): Date } | Date | null;
   updated_at?: { toDate(): Date } | Date | null;
+  stats?: {
+    documents: number;
+    knowledge_entries: number;
+    wiki_topics: number;
+    wiki_articles: number;
+    chat_threads: number;
+  } | null;
 }
 
 export interface AtlasUsage {

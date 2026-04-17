@@ -79,6 +79,25 @@ export class AtlasLandingComponent {
   readonly usage = signal<AtlasUsage | null>(null);
   readonly usageLoading = signal(false);
   private usageAtlasId: string | null = null;
+  readonly displayUsage = computed<AtlasUsage | null>(() => {
+    const atlas = this.atlas();
+    if (!atlas) return null;
+    if (!this.isOwner() && atlas.stats) {
+      return {
+        documents: atlas.stats.documents,
+        knowledge_entries: atlas.stats.knowledge_entries,
+        wiki_topics: atlas.stats.wiki_topics,
+        queries: 0,
+        chat_threads: atlas.stats.chat_threads,
+        total:
+          atlas.stats.documents +
+          atlas.stats.knowledge_entries +
+          atlas.stats.wiki_topics +
+          atlas.stats.chat_threads,
+      };
+    }
+    return this.usage();
+  });
 
   constructor() {
     effect(() => {
@@ -103,20 +122,25 @@ export class AtlasLandingComponent {
 
     effect(() => {
       const atlas = this.atlas();
-      const owner = this.isOwner();
-      if (!atlas || !owner) {
+      if (!atlas) {
         this.usage.set(null);
         this.usageAtlasId = null;
         return;
       }
-      if (this.usageAtlasId === atlas.id) return;
-      this.usageAtlasId = atlas.id;
-      this.usageLoading.set(true);
-      void this.atlasService
-        .getAtlasUsage(atlas.id)
-        .then((u) => this.usage.set(u))
-        .catch(() => this.usage.set(null))
-        .finally(() => this.usageLoading.set(false));
+      if (this.isOwner()) {
+        if (this.usageAtlasId === atlas.id) return;
+        this.usageAtlasId = atlas.id;
+        this.usageLoading.set(true);
+        void this.atlasService
+          .getAtlasUsage(atlas.id)
+          .then((u) => this.usage.set(u))
+          .catch(() => this.usage.set(null))
+          .finally(() => this.usageLoading.set(false));
+      } else {
+        this.usageAtlasId = null;
+        this.usageLoading.set(false);
+        this.usage.set(null);
+      }
     });
   }
 

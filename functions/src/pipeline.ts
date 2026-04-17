@@ -46,6 +46,7 @@ const chatMessagesCollection = db.collection('chat_messages');
 const wikiTopicJobsCollection = db.collection('wiki_topic_jobs');
 const wikiArticlesCollection = db.collection('wiki_articles');
 const wikiIndexCollection = db.collection('wiki_index');
+const atlasesCollection = db.collection('atlases');
 
 const compileChunkConcurrency = 6;
 const maxTopicPreviewEntries = 12;
@@ -350,6 +351,13 @@ async function processDocument(params: {
       },
       { merge: true },
     );
+
+    // Update atlas stats (best-effort, don't block on failure)
+    if (atlasId) {
+      void updateAtlasStats(document.user_id, atlasId).catch((err) =>
+        logger.warn('Failed to update atlas stats', { atlasId, error: String(err) }),
+      );
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
@@ -722,6 +730,43 @@ function dedupeArticleSources(sources: WikiArticleSource[]): WikiArticleSource[]
 
 function countWords(text: string): number {
   return text.split(/\s+/).filter((word) => word.length > 0).length;
+}
+
+async function countCollectionForAtlas(
+  collectionName: string,
+  userId: string,
+  atlasId: string,
+): Promise<number> {
+  const snapshot = await db
+    .collection(collectionName)
+    .where('user_id', '==', userId)
+    .where('atlas_id', '==', atlasId)
+    .count()
+    .get();
+  return snapshot.data().count;
+}
+
+async function updateAtlasStats(userId: string, atlasId: string): Promise<void> {
+  const [documents, knowledgeEntries, wikiTopics, wikiArticles, chatThreads] = await Promise.all([
+    countCollectionForAtlas('documents', userId, atlasId),
+    countCollectionForAtlas('knowledge_entries', userId, atlasId),
+    countCollectionForAtlas('wiki_topics', userId, atlasId),
+    countCollectionForAtlas('wiki_articles', userId, atlasId),
+    countCollectionForAtlas('chat_threads', userId, atlasId),
+  ]);
+
+  await atlasesCollection.doc(atlasId).set(
+    {
+      stats: {
+        documents,
+        knowledge_entries: knowledgeEntries,
+        wiki_topics: wikiTopics,
+        wiki_articles: wikiArticles,
+        chat_threads: chatThreads,
+      },
+    },
+    { merge: true },
+  );
 }
 
 export async function runAtlasQuery(params: {
