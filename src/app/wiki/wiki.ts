@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -22,6 +22,7 @@ export class WikiComponent {
   private readonly atlasService = inject(AtlasService);
   private readonly wikiService = inject(WikiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly atlasHomeLink = this.atlasService.activeAtlasHomeLink;
   readonly internalAtlasWikiLink = this.atlasService.activeAtlasWikiLink;
@@ -38,6 +39,13 @@ export class WikiComponent {
   readonly publicLookupDone = signal(false);
   readonly publicAtlasNotFound = computed(
     () => this.isPublicView() && this.publicLookupDone() && !this.publicAtlas(),
+  );
+  readonly isPublicPageLoading = computed(
+    () =>
+      this.isPublicView() &&
+      (!this.publicLookupDone() ||
+        (!this.publicAtlasNotFound() &&
+          (!this.publicAtlas() || this.isLoadingArticles() || this.isLoadingTopics()))),
   );
   readonly pageTitle = computed(() => (this.isPublicView() ? 'Public Wiki' : 'Wiki'));
   readonly pageSubtitle = computed(() => {
@@ -56,6 +64,7 @@ export class WikiComponent {
     return `/wiki/${atlas.slug || atlas.id}`;
   });
   readonly atlasWikiLink = computed(() => this.publicWikiLink() ?? this.internalAtlasWikiLink());
+  readonly shareStatus = signal<'idle' | 'copied' | 'error'>('idle');
 
   readonly isSigningOut = signal(false);
   readonly avatarMenuOpen = signal(false);
@@ -96,8 +105,15 @@ export class WikiComponent {
   readonly isLoadingTopics = this.wikiService.isLoadingTopics;
   readonly isLoadingEntries = this.wikiService.isLoadingEntries;
   readonly entriesError = this.wikiService.entriesError;
+  private shareStatusTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.shareStatusTimeout !== null) {
+        clearTimeout(this.shareStatusTimeout);
+      }
+    });
+
     effect(() => {
       const slug = this.routeSlug();
       if (!slug) {
@@ -225,6 +241,22 @@ export class WikiComponent {
     }
   }
 
+  async copyPublicWikiLink(): Promise<void> {
+    const link = this.publicWikiLink();
+    if (!link || typeof window === 'undefined') {
+      return;
+    }
+
+    const absoluteUrl = new URL(link, window.location.origin).toString();
+
+    try {
+      await this.copyToClipboard(absoluteUrl);
+      this.setShareStatus('copied');
+    } catch {
+      this.setShareStatus('error');
+    }
+  }
+
   private async openSourceDocument(documentId: string, page?: number): Promise<void> {
     this.openingSourceDocumentId.set(documentId);
     this.sourceDocumentError.set(null);
@@ -252,5 +284,46 @@ export class WikiComponent {
     }
     const withoutHash = url.split('#')[0];
     return `${withoutHash}#page=${page}`;
+  }
+
+  private async copyToClipboard(value: string): Promise<void> {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+
+    const textArea = document.createElement('textarea');
+    textArea.value = value;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.select();
+    textArea.setSelectionRange(0, textArea.value.length);
+
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (!copied) {
+      throw new Error('Copy failed');
+    }
+  }
+
+  private setShareStatus(status: 'idle' | 'copied' | 'error'): void {
+    this.shareStatus.set(status);
+
+    if (this.shareStatusTimeout !== null) {
+      clearTimeout(this.shareStatusTimeout);
+    }
+
+    if (status === 'idle') {
+      this.shareStatusTimeout = null;
+      return;
+    }
+
+    this.shareStatusTimeout = setTimeout(() => {
+      this.shareStatus.set('idle');
+      this.shareStatusTimeout = null;
+    }, 2200);
   }
 }

@@ -59,28 +59,61 @@
         </div>
 
         <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5">
-          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Public Atlas</p>
-          <h2 class="mt-3 text-2xl font-black tracking-[-0.05em] text-[var(--text)]">{{ activeAtlasLabel() }}</h2>
-          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">{{ pageSubtitle() }}</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Public Wiki</p>
+          <h2 class="mt-3 text-2xl font-black tracking-[-0.05em] text-[var(--text)]">
+            @if (publicAtlas()) {
+              {{ activeAtlasLabel() }}
+            } @else if (publicAtlasNotFound()) {
+              Wiki unavailable
+            } @else {
+              Loading wiki...
+            }
+          </h2>
+          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+            @if (publicAtlas()) {
+              {{ pageSubtitle() }}
+            } @else if (publicAtlasNotFound()) {
+              This wiki is unavailable or not public.
+            } @else {
+              Fetching this public wiki now.
+            }
+          </p>
         </div>
 
         <div class="mt-4 space-y-3">
-          @if (publicWikiLink()) {
-            <a [routerLink]="publicWikiLink()!" class="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-white/5 px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors duration-200 hover:border-[var(--accent)]/30 hover:text-[var(--accent)]">
-              <span class="material-symbols-outlined">link</span>
-              <span>Share this wiki</span>
+          @if (publicAtlas()) {
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 rounded-xl border border-[var(--line)] bg-white/5 px-4 py-3 text-left text-sm font-semibold text-[var(--text)] transition-colors duration-200 hover:border-[var(--accent)]/30 hover:text-[var(--accent)]"
+              (click)="copyPublicWikiLink()"
+            >
+              <span class="material-symbols-outlined">
+                @if (shareStatus() === 'copied') { check } @else { link }
+              </span>
+              <span>
+                @if (shareStatus() === 'copied') {
+                  Link copied
+                } @else if (shareStatus() === 'error') {
+                  Copy failed
+                } @else {
+                  Share this wiki
+                }
+              </span>
+            </button>
+            <p class="px-1 text-xs text-[var(--muted)]" aria-live="polite">
+              @if (shareStatus() === 'copied') {
+                Public wiki link copied to clipboard.
+              } @else if (shareStatus() === 'error') {
+                Could not copy the wiki link.
+              }
+            </p>
+
+            <a [routerLink]="['/atlas', publicAtlas()!.slug || publicAtlas()!.id]" class="flex items-center gap-3 rounded-xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+              <span class="material-symbols-outlined">public</span>
+              <span>View atlas landing page</span>
             </a>
           }
-          <a [routerLink]="publicAtlas() ? ['/atlas', publicAtlas()!.slug || publicAtlas()!.id] : ['/']" class="flex items-center gap-3 rounded-xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-            <span class="material-symbols-outlined">public</span>
-            <span>View atlas landing page</span>
-          </a>
-          @if (isSignedIn()) {
-            <a routerLink="/home" class="flex items-center gap-3 rounded-xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-              <span class="material-symbols-outlined">arrow_forward</span>
-              <span>Open the app</span>
-            </a>
-          } @else {
+          @if (!isSignedIn()) {
             <a routerLink="/sign-in" class="primary-btn w-full justify-center !py-3 text-sm">Sign in to ask questions</a>
           }
         </div>
@@ -102,7 +135,13 @@
             <h1 class="truncate text-2xl font-black tracking-[-0.06em] text-[var(--text)]">{{ pageTitle() }}</h1>
             <p class="truncate text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
               @if (isPublicView()) {
-                {{ activeAtlasLabel() }}
+                @if (publicAtlas()) {
+                  {{ activeAtlasLabel() }}
+                } @else if (publicAtlasNotFound()) {
+                  Unavailable
+                } @else {
+                  Loading public wiki
+                }
               } @else {
                 Compiled knowledge from your uploaded documents
               }
@@ -158,7 +197,19 @@
       </header>
 
       <div class="flex-1 min-h-0 md:overflow-hidden">
-        @if (publicAtlasNotFound()) {
+        @if (isPublicPageLoading()) {
+          <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center px-5 py-12 md:px-8 lg:px-12">
+            <article class="glass-card w-full rounded-[2rem] p-8 text-center">
+              <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[var(--line)] bg-white/5">
+                <span class="material-symbols-outlined animate-spin text-[var(--accent)]">progress_activity</span>
+              </div>
+              <h2 class="mt-5 text-3xl font-black tracking-[-0.05em] text-[var(--text)]">Loading public wiki</h2>
+              <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
+                Pulling wiki data and preparing the page.
+              </p>
+            </article>
+          </div>
+        } @else if (publicAtlasNotFound()) {
           <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center px-5 py-12 md:px-8 lg:px-12">
             <article class="glass-card w-full rounded-[2rem] p-8 text-center">
               <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">Public wiki not found</h2>
