@@ -203,6 +203,13 @@ export class AtlasLandingComponent {
   }
 
   openWiki(): void {
+    const atlas = this.atlas();
+    if (!atlas) return;
+    if (atlas.is_public) {
+      const slug = atlas.slug?.trim() || this.atlasService.slugify(atlas.name ?? '') || atlas.id;
+      void this.router.navigateByUrl(`/wiki/${slug}`);
+      return;
+    }
     this.activateThisAtlas();
     void this.router.navigateByUrl('/wiki');
   }

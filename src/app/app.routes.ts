@@ -20,6 +20,7 @@ export const routes: Routes = [
   { path: 'upload', component: LandingComponent, title: 'Upload | Living Wiki', canActivate: [authGuard] },
   { path: 'chat', component: ChatComponent, title: 'Chat | Living Wiki', canActivate: [authGuard] },
   { path: 'library', component: LibraryComponent, title: 'Library | Living Wiki', canActivate: [authGuard] },
+  { path: 'wiki/:slug', component: WikiComponent, title: 'Public Wiki | Living Wiki' },
   { path: 'wiki', component: WikiComponent, title: 'Wiki | Living Wiki', canActivate: [authGuard] },
   { path: 'atlases', component: AtlasManageComponent, title: 'Atlas Settings | Living Wiki', canActivate: [authGuard] },
   { path: 'atlas/:slug', component: AtlasLandingComponent, title: 'Atlas | Living Wiki' },

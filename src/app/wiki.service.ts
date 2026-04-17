@@ -14,6 +14,20 @@ import { AtlasService } from './atlas.service';
 import { AuthService } from './auth.service';
 import { getFirebaseFirestore, getFirebaseFunctions } from './firebase.client';
 
+type PublicWikiContentResponse = {
+  articles: Array<Record<string, unknown>>;
+  topics: Array<Record<string, unknown>>;
+};
+
+type PublicWikiTopicDetailsResponse = {
+  entries: KnowledgeEntryItem[];
+  sourceDocuments: Array<Record<string, unknown>>;
+};
+
+type WikiSourceDocumentLinkResponse = {
+  url: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class WikiService {
   private readonly authService = inject(AuthService);
@@ -22,6 +36,8 @@ export class WikiService {
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly firestore = this.isBrowser ? getFirebaseFirestore() : null;
   private readonly functions = this.isBrowser ? getFirebaseFunctions() : null;
+  readonly publicAtlasId = signal<string | null>(null);
+  readonly isPublicMode = computed(() => !!this.publicAtlasId());
 
   readonly topics = signal<WikiTopicItem[]>([]);
   readonly articles = signal<WikiArticleItem[]>([]);
@@ -46,6 +62,11 @@ export class WikiService {
   constructor() {
     // Load wiki articles (new system)
     effect((onCleanup) => {
+      if (this.isPublicMode()) {
+        this.isLoadingArticles.set(false);
+        return;
+      }
+
       const uid = this.authService.uid();
       const atlasId = this.atlasService.activeAtlasId();
       if (!this.firestore || !uid) {
@@ -94,6 +115,11 @@ export class WikiService {
 
     // Load wiki topics (old system, used as fallback)
     effect((onCleanup) => {
+      if (this.isPublicMode()) {
+        this.isLoadingTopics.set(false);
+        return;
+      }
+
       const uid = this.authService.uid();
       const atlasId = this.atlasService.activeAtlasId();
       if (!this.firestore || !uid) {
@@ -139,6 +165,10 @@ export class WikiService {
 
     // Load topic details when a topic is selected (old system fallback)
     effect((onCleanup) => {
+      if (this.isPublicMode()) {
+        return;
+      }
+
       const uid = this.authService.uid();
       const topic = this.selectedTopic();
       let cancelled = false;
@@ -193,6 +223,128 @@ export class WikiService {
         cancelled = true;
       });
     });
+
+    effect((onCleanup) => {
+      const atlasId = this.publicAtlasId();
+      let cancelled = false;
+
+      if (!atlasId) {
+        return;
+      }
+
+      if (!this.functions) {
+        this.articles.set([]);
+        this.topics.set([]);
+        this.selectedArticleId.set(null);
+        this.selectedTopicId.set(null);
+        this.isLoadingArticles.set(false);
+        this.isLoadingTopics.set(false);
+        return;
+      }
+
+      this.isLoadingArticles.set(true);
+      this.isLoadingTopics.set(true);
+      this.entriesError.set(null);
+      this.topicEntries.set([]);
+      this.sourceDocuments.set([]);
+
+      void (async () => {
+        try {
+          const data = await this.callPublicWikiContent(atlasId);
+          if (cancelled) {
+            return;
+          }
+
+          const articles = (data.articles ?? []).map((article) =>
+            this.hydrateArticle(article),
+          );
+          const topics = (data.topics ?? []).map((topic) => this.hydrateTopic(topic));
+
+          this.articles.set(articles);
+          this.topics.set(topics);
+
+          const currentArticle = this.selectedArticleId();
+          if (!currentArticle || !articles.some((article) => article.id === currentArticle)) {
+            this.selectedArticleId.set(articles[0]?.id ?? null);
+          }
+
+          const currentTopic = this.selectedTopicId();
+          if (!currentTopic || !topics.some((topic) => topic.id === currentTopic)) {
+            this.selectedTopicId.set(topics[0]?.id ?? null);
+          }
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          console.error('Public wiki content load failed:', error);
+          this.articles.set([]);
+          this.topics.set([]);
+          this.selectedArticleId.set(null);
+          this.selectedTopicId.set(null);
+        } finally {
+          if (!cancelled) {
+            this.isLoadingArticles.set(false);
+            this.isLoadingTopics.set(false);
+          }
+        }
+      })();
+
+      onCleanup(() => {
+        cancelled = true;
+      });
+    });
+
+    effect((onCleanup) => {
+      const atlasId = this.publicAtlasId();
+      const topic = this.selectedTopic();
+      let cancelled = false;
+
+      if (!atlasId || !topic || this.hasArticles()) {
+        return;
+      }
+
+      if (!this.functions) {
+        this.topicEntries.set([]);
+        this.sourceDocuments.set([]);
+        this.isLoadingEntries.set(false);
+        return;
+      }
+
+      this.isLoadingEntries.set(true);
+      this.entriesError.set(null);
+
+      void (async () => {
+        try {
+          const data = await this.callPublicWikiTopicDetails(topic.id);
+          if (cancelled) {
+            return;
+          }
+
+          this.topicEntries.set(data.entries ?? []);
+          this.sourceDocuments.set(
+            (data.sourceDocuments ?? []).map((document) => this.hydrateDocument(document)),
+          );
+          this.entriesError.set(null);
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          this.topicEntries.set([]);
+          this.sourceDocuments.set([]);
+          this.entriesError.set(
+            error instanceof Error ? error.message : 'Failed to load topic details.',
+          );
+        } finally {
+          if (!cancelled) {
+            this.isLoadingEntries.set(false);
+          }
+        }
+      })();
+
+      onCleanup(() => {
+        cancelled = true;
+      });
+    });
   }
 
   selectArticle(articleId: string): void {
@@ -201,5 +353,110 @@ export class WikiService {
 
   selectTopic(topicId: string): void {
     this.selectedTopicId.set(topicId);
+  }
+
+  setPublicAtlasId(atlasId: string | null): void {
+    if (this.publicAtlasId() === atlasId) {
+      return;
+    }
+
+    this.publicAtlasId.set(atlasId);
+    this.articles.set([]);
+    this.topics.set([]);
+    this.topicEntries.set([]);
+    this.sourceDocuments.set([]);
+    this.selectedArticleId.set(null);
+    this.selectedTopicId.set(null);
+    this.entriesError.set(null);
+    this.isLoadingArticles.set(!!atlasId);
+    this.isLoadingTopics.set(!!atlasId);
+    this.isLoadingEntries.set(false);
+  }
+
+  async getSourceDocumentLink(documentId: string): Promise<string | null> {
+    if (!this.functions) {
+      return null;
+    }
+
+    const getWikiSourceDocumentLink = httpsCallable<
+      { documentId: string },
+      WikiSourceDocumentLinkResponse
+    >(this.functions, 'getWikiSourceDocumentLink');
+
+    const { data } = await getWikiSourceDocumentLink({ documentId });
+    return data?.url ?? null;
+  }
+
+  private async callPublicWikiContent(atlasId: string): Promise<PublicWikiContentResponse> {
+    const getPublicWikiContent = httpsCallable<
+      { atlasId: string },
+      PublicWikiContentResponse
+    >(this.functions!, 'getPublicWikiContent');
+
+    try {
+      const { data } = await getPublicWikiContent({ atlasId });
+      return data;
+    } catch {
+      await this.delay(800);
+      const { data } = await getPublicWikiContent({ atlasId });
+      return data;
+    }
+  }
+
+  private async callPublicWikiTopicDetails(topicId: string): Promise<PublicWikiTopicDetailsResponse> {
+    const getPublicWikiTopicDetails = httpsCallable<
+      { topicId: string },
+      PublicWikiTopicDetailsResponse
+    >(this.functions!, 'getPublicWikiTopicDetails');
+
+    try {
+      const { data } = await getPublicWikiTopicDetails({ topicId });
+      return data;
+    } catch {
+      await this.delay(800);
+      const { data } = await getPublicWikiTopicDetails({ topicId });
+      return data;
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private hydrateArticle(article: Record<string, unknown>): WikiArticleItem {
+    return {
+      ...(article as unknown as WikiArticleItem),
+      created_at: this.parseDateField(article['created_at']),
+      last_updated: this.parseDateField(article['last_updated']),
+    };
+  }
+
+  private hydrateTopic(topic: Record<string, unknown>): WikiTopicItem {
+    return {
+      ...(topic as unknown as WikiTopicItem),
+      last_updated: this.parseDateField(topic['last_updated']),
+    };
+  }
+
+  private hydrateDocument(document: Record<string, unknown>): DocumentItem {
+    return {
+      ...(document as unknown as DocumentItem),
+      uploaded_at: this.parseDateField(document['uploaded_at']),
+      indexed_at: this.parseDateField(document['indexed_at']),
+      last_heartbeat_at: this.parseDateField(document['last_heartbeat_at']),
+    };
+  }
+
+  private parseDateField(value: unknown): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
+      return (value as { toDate(): Date }).toDate();
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    return null;
   }
 }

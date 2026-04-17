@@ -8,357 +8,474 @@
 
   <div class="relative flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
     <aside class="theme-sidebar hidden h-screen w-72 shrink-0 border-r px-5 py-6 md:flex md:flex-col">
-      <div class="mb-10 px-2">
-        <a routerLink="/" class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1 shadow-[0_0_24px_rgba(59,175,98,0.08)]">
-            <img src="/assets/living-atlas-logo.png" alt="Living Wiki logo" class="h-full w-full object-contain" />
-          </div>
-          <span class="text-xl font-black tracking-tighter text-[var(--text)]">Living Wiki</span>
-        </a>
-      </div>
-      <app-atlas-switcher></app-atlas-switcher>
+      @if (!isPublicView()) {
+        <div class="mb-10 px-2">
+          <a routerLink="/" class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1 shadow-[0_0_24px_rgba(59,175,98,0.08)]">
+              <img src="/assets/living-atlas-logo.png" alt="Living Wiki logo" class="h-full w-full object-contain" />
+            </div>
+            <span class="text-xl font-black tracking-tighter text-[var(--text)]">Living Wiki</span>
+          </a>
+        </div>
+        <app-atlas-switcher></app-atlas-switcher>
 
-      <nav class="flex-1 space-y-1 text-sm">
-        <a [routerLink]="atlasHomeLink()" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-          <span class="material-symbols-outlined">home</span>
-          <span>Home</span>
-        </a>
-        <a routerLink="/chat" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-          <span class="material-symbols-outlined">chat</span>
-          <span>New Chat</span>
-        </a>
-        <a routerLink="/upload" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-          <span class="material-symbols-outlined">neurology</span>
-          <span>Upload</span>
-        </a>
-        <a routerLink="/library" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
-          <span class="material-symbols-outlined">library_books</span>
-          <span>Library</span>
-        </a>
-        <a routerLink="/wiki" class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]">
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">menu_book</span>
-          <span>Wiki</span>
-        </a>
-      </nav>
+        <nav class="flex-1 space-y-1 text-sm">
+          <a [routerLink]="atlasHomeLink()" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+            <span class="material-symbols-outlined">home</span>
+            <span>Home</span>
+          </a>
+          <a routerLink="/chat" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+            <span class="material-symbols-outlined">chat</span>
+            <span>New Chat</span>
+          </a>
+          <a routerLink="/upload" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+            <span class="material-symbols-outlined">neurology</span>
+            <span>Upload</span>
+          </a>
+          <a routerLink="/library" class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-3 text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+            <span class="material-symbols-outlined">library_books</span>
+            <span>Library</span>
+          </a>
+          <a routerLink="/wiki" class="flex items-center gap-3 rounded-xl border border-[var(--line-strong)] bg-white/5 px-3 py-3 font-bold text-[var(--accent)] shadow-[inset_0_0_0_1px_rgba(59,175,98,0.08)]">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">menu_book</span>
+            <span>Wiki</span>
+          </a>
+        </nav>
 
-      <div class="mt-auto space-y-1 border-t border-white/5 pt-6">
-        <button type="button" class="danger-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
-          <span class="material-symbols-outlined text-[1.2rem]">logout</span>
-          <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
-        </button>
-      </div>
+        <div class="mt-auto space-y-1 border-t border-white/5 pt-6">
+          <button type="button" class="danger-action flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
+            <span class="material-symbols-outlined text-[1.2rem]">logout</span>
+            <span>{{ isSigningOut() ? 'Signing out...' : 'Sign out' }}</span>
+          </button>
+        </div>
+      } @else {
+        <div class="mb-8 px-2">
+          <a routerLink="/" class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1 shadow-[0_0_24px_rgba(59,175,98,0.08)]">
+              <img src="/assets/living-atlas-logo.png" alt="Living Wiki logo" class="h-full w-full object-contain" />
+            </div>
+            <span class="text-xl font-black tracking-tighter text-[var(--text)]">Living Wiki</span>
+          </a>
+        </div>
+
+        <div class="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5">
+          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Public Atlas</p>
+          <h2 class="mt-3 text-2xl font-black tracking-[-0.05em] text-[var(--text)]">{{ activeAtlasLabel() }}</h2>
+          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">{{ pageSubtitle() }}</p>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          @if (publicWikiLink()) {
+            <a [routerLink]="publicWikiLink()!" class="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-white/5 px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors duration-200 hover:border-[var(--accent)]/30 hover:text-[var(--accent)]">
+              <span class="material-symbols-outlined">link</span>
+              <span>Share this wiki</span>
+            </a>
+          }
+          <a [routerLink]="publicAtlas() ? ['/atlas', publicAtlas()!.slug || publicAtlas()!.id] : ['/']" class="flex items-center gap-3 rounded-xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+            <span class="material-symbols-outlined">public</span>
+            <span>View atlas landing page</span>
+          </a>
+          @if (isSignedIn()) {
+            <a routerLink="/home" class="flex items-center gap-3 rounded-xl border border-[var(--line)] px-4 py-3 text-sm text-[var(--muted)] transition-colors duration-200 hover:bg-white/5 hover:text-[var(--text)]">
+              <span class="material-symbols-outlined">arrow_forward</span>
+              <span>Open the app</span>
+            </a>
+          } @else {
+            <a routerLink="/sign-in" class="primary-btn w-full justify-center !py-3 text-sm">Sign in to ask questions</a>
+          }
+        </div>
+      }
     </aside>
 
     <main class="theme-shell relative flex min-w-0 flex-1 flex-col">
       <header class="theme-nav sticky top-0 z-40 flex h-16 items-center justify-between border-b px-5 backdrop-blur-xl md:px-8">
         <div class="flex min-w-0 items-center gap-3 md:gap-8">
-          <app-mobile-menu activePage="wiki"></app-mobile-menu>
-          <div>
-            <h1 class="text-2xl font-black tracking-[-0.06em] text-[var(--text)]">Wiki</h1>
-            <p class="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Compiled knowledge from your uploaded documents</p>
+          @if (!isPublicView()) {
+            <app-mobile-menu activePage="wiki"></app-mobile-menu>
+          } @else {
+            <a routerLink="/" class="md:hidden flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+              <span class="material-symbols-outlined">arrow_back</span>
+              <span>Home</span>
+            </a>
+          }
+          <div class="min-w-0">
+            <h1 class="truncate text-2xl font-black tracking-[-0.06em] text-[var(--text)]">{{ pageTitle() }}</h1>
+            <p class="truncate text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+              @if (isPublicView()) {
+                {{ activeAtlasLabel() }}
+              } @else {
+                Compiled knowledge from your uploaded documents
+              }
+            </p>
           </div>
         </div>
 
         <div class="flex items-center gap-3">
-          <app-atlas-badge></app-atlas-badge>
+          @if (!isPublicView()) {
+            <app-atlas-badge></app-atlas-badge>
+          } @else {
+            <span class="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--soft-fill)] px-3 py-1 text-xs font-semibold text-[var(--text)]">
+              <span class="material-symbols-outlined text-[var(--accent)] text-[0.9rem]">public</span>
+              <span>Public wiki</span>
+            </span>
+          }
           <app-theme-toggle></app-theme-toggle>
-          <div class="avatar-menu-wrapper relative">
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--soft-fill)] text-xs font-bold text-[var(--accent)] transition-all duration-200 hover:border-[var(--accent)]/30 hover:bg-[var(--soft-fill-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
-              (click)="toggleAvatarMenu()"
-              [attr.aria-expanded]="avatarMenuOpen()"
-              aria-haspopup="true"
-            >
-              {{ userInitials() }}
-            </button>
+          @if (!isPublicView()) {
+            <div class="avatar-menu-wrapper relative">
+              <button
+                type="button"
+                class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--soft-fill)] text-xs font-bold text-[var(--accent)] transition-all duration-200 hover:border-[var(--accent)]/30 hover:bg-[var(--soft-fill-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+                (click)="toggleAvatarMenu()"
+                [attr.aria-expanded]="avatarMenuOpen()"
+                aria-haspopup="true"
+              >
+                {{ userInitials() }}
+              </button>
 
-            @if (avatarMenuOpen()) {
-              <div class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-elevated)] backdrop-blur-xl" role="menu">
-                <div class="border-b border-[var(--line)] px-4 py-4">
-                  <p class="text-sm font-bold text-[var(--text)] truncate">{{ currentUserName() }}</p>
-                  <p class="mt-0.5 text-xs text-[var(--muted)] truncate">{{ currentUserEmail() }}</p>
+              @if (avatarMenuOpen()) {
+                <div class="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-elevated)] backdrop-blur-xl" role="menu">
+                  <div class="border-b border-[var(--line)] px-4 py-4">
+                    <p class="text-sm font-bold text-[var(--text)] truncate">{{ currentUserName() }}</p>
+                    <p class="mt-0.5 text-xs text-[var(--muted)] truncate">{{ currentUserEmail() }}</p>
+                  </div>
+                  <div class="py-1.5">
+                    <button type="button" role="menuitem" class="danger-action flex w-full items-center gap-3 px-4 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
+                      <span class="material-symbols-outlined text-base">logout</span>
+                      {{ isSigningOut() ? 'Signing out...' : 'Sign out' }}
+                    </button>
+                  </div>
                 </div>
-                <div class="py-1.5">
-                  <button type="button" role="menuitem" class="danger-action flex w-full items-center gap-3 px-4 py-2.5 text-sm" [disabled]="isSigningOut()" (click)="signOut()">
-                    <span class="material-symbols-outlined text-base">logout</span>
-                    {{ isSigningOut() ? 'Signing out...' : 'Sign out' }}
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
+              }
+            </div>
+          } @else if (isSignedIn()) {
+            <a routerLink="/home" class="hidden sm:inline-flex items-center gap-2 rounded-full border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--accent)]/30 hover:text-[var(--accent)]">
+              <span>Open app</span>
+            </a>
+          } @else {
+            <a routerLink="/sign-in" class="hidden sm:inline-flex primary-btn !py-2 !px-4 text-sm">Sign in</a>
+          }
         </div>
       </header>
 
       <div class="flex-1 min-h-0 md:overflow-hidden">
-        <div class="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 pb-20 md:h-full md:grid-cols-[22rem_minmax(0,1fr)] md:gap-6 md:py-6 md:pb-6 md:px-8 lg:px-12">
-
-          <!-- LEFT SIDEBAR: Article/Topic index -->
-          <section class="flex min-h-0 flex-col gap-4 md:h-full">
-            <div class="glass-card rounded-[1.75rem] p-5">
-              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
-                @if (hasArticles()) { Article Index } @else { Topic Index }
+        @if (publicAtlasNotFound()) {
+          <div class="mx-auto flex h-full w-full max-w-4xl items-center justify-center px-5 py-12 md:px-8 lg:px-12">
+            <article class="glass-card w-full rounded-[2rem] p-8 text-center">
+              <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">Public wiki not found</h2>
+              <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
+                This wiki is unavailable or not public.
               </p>
-              <h2 class="mt-3 text-xl font-black tracking-[-0.05em] text-[var(--text)]">
-                @if (hasArticles()) { Wiki Articles } @else { Your Wiki Topics }
-              </h2>
-              <div class="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 focus-within:border-[var(--accent)]/40">
-                <span class="material-symbols-outlined text-[1.1rem] text-[var(--muted)]">search</span>
-                <input
-                  type="text"
-                  [ngModel]="searchQuery()"
-                  (ngModelChange)="searchQuery.set($event)"
-                  placeholder="Search articles"
-                  class="w-full bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
-                />
-                @if (searchQuery()) {
-                  <button type="button" class="text-[var(--muted)] hover:text-[var(--text)]" (click)="searchQuery.set('')" aria-label="Clear search">
-                    <span class="material-symbols-outlined text-[1.1rem]">close</span>
-                  </button>
+              <a routerLink="/" class="primary-btn mt-6 inline-flex !py-3 !px-5 text-sm">Back to home</a>
+            </article>
+          </div>
+        } @else {
+          <div class="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 pb-20 md:h-full md:grid-cols-[22rem_minmax(0,1fr)] md:gap-6 md:py-6 md:pb-6 md:px-8 lg:px-12">
+            <section class="flex min-h-0 flex-col gap-4 md:h-full">
+              <div class="glass-card rounded-[1.75rem] p-5">
+                <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">
+                  @if (hasArticles()) { Article Index } @else { Topic Index }
+                </p>
+                <h2 class="mt-3 text-xl font-black tracking-[-0.05em] text-[var(--text)]">
+                  @if (hasArticles()) {
+                    @if (isPublicView()) { Public Wiki Articles } @else { Wiki Articles }
+                  } @else {
+                    @if (isPublicView()) { Public Wiki Topics } @else { Your Wiki Topics }
+                  }
+                </h2>
+                <div class="mt-4 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 focus-within:border-[var(--accent)]/40">
+                  <span class="material-symbols-outlined text-[1.1rem] text-[var(--muted)]">search</span>
+                  <input
+                    type="text"
+                    [ngModel]="searchQuery()"
+                    (ngModelChange)="searchQuery.set($event)"
+                    placeholder="Search articles"
+                    class="w-full bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
+                  />
+                  @if (searchQuery()) {
+                    <button type="button" class="text-[var(--muted)] hover:text-[var(--text)]" (click)="searchQuery.set('')" aria-label="Clear search">
+                      <span class="material-symbols-outlined text-[1.1rem]">close</span>
+                    </button>
+                  }
+                </div>
+                @if (hasArticles()) {
+                  <p class="mt-3 text-[11px] text-[var(--muted)]">{{ filteredArticles().length }} of {{ articles().length }} articles</p>
+                } @else {
+                  <p class="mt-3 text-[11px] text-[var(--muted)]">{{ filteredTopics().length }} of {{ topics().length }} topics</p>
                 }
               </div>
-              @if (hasArticles()) {
-                <p class="mt-3 text-[11px] text-[var(--muted)]">{{ filteredArticles().length }} of {{ articles().length }} articles</p>
-              } @else {
-                <p class="mt-3 text-[11px] text-[var(--muted)]">{{ filteredTopics().length }} of {{ topics().length }} topics</p>
-              }
-            </div>
 
-            <div class="flex-1 min-h-0 space-y-3 md:overflow-y-auto md:pr-1">
-
-              <!-- ARTICLES VIEW (new system) -->
-              @if (hasArticles()) {
-                @if (isLoadingArticles()) {
-                  <div class="glass-card rounded-[1.5rem] px-5 py-4 text-sm text-[var(--muted)]">Loading articles...</div>
-                } @else if (filteredArticles().length === 0) {
-                  <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
-                    @if (searchQuery()) {
-                      No articles match "{{ searchQuery() }}".
-                    } @else {
-                      No wiki articles yet. Upload documents to generate wiki articles.
-                    }
-                  </div>
-                } @else {
-                  @for (article of filteredArticles(); track article.id) {
-                    <button
-                      type="button"
-                      class="glass-card block w-full rounded-[1.25rem] border-l-2 border-transparent px-4 py-3 text-left transition-all hover:bg-white/[0.04]"
-                      [class.!border-l-2]="selectedArticle()?.id === article.id"
-                      [class.!border-[var(--accent)]]="selectedArticle()?.id === article.id"
-                      [class.bg-white/[0.04]]="selectedArticle()?.id === article.id"
-                      (click)="selectArticle(article.id)"
-                    >
-                      <div class="flex items-start justify-between gap-3">
-                        <h3 class="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.02em] text-[var(--text)]">{{ article.title }}</h3>
-                        <span class="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-[var(--muted)]">
-                          {{ article.word_count }}w
-                        </span>
-                      </div>
-                      <p class="mt-1 text-xs text-[var(--muted)] line-clamp-2">{{ article.summary }}</p>
-                      <p class="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                        {{ article.source_documents.length }} source{{ article.source_documents.length !== 1 ? 's' : '' }}
-                        · {{ formatDate(article.last_updated) }}
-                      </p>
-                    </button>
-                  }
-                }
-
-              <!-- TOPICS VIEW (old system fallback) -->
-              } @else {
-                @if (isLoadingTopics()) {
-                  <div class="glass-card rounded-[1.5rem] px-5 py-4 text-sm text-[var(--muted)]">Loading topics...</div>
-                } @else if (topics().length === 0) {
-                  <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
-                    No wiki topics yet. Upload documents in the Library and the ingestion pipeline will create topic pages automatically.
-                  </div>
-                } @else if (filteredTopics().length === 0) {
-                  <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
-                    No topics match "{{ searchQuery() }}".
-                  </div>
-                } @else {
-                  @for (topic of filteredTopics(); track topic.id) {
-                    <button
-                      type="button"
-                      class="glass-card block w-full rounded-[1.25rem] border-l-2 border-transparent px-4 py-3 text-left transition-all hover:bg-white/[0.04]"
-                      [class.!border-l-2]="selectedTopic()?.id === topic.id"
-                      [class.!border-[var(--accent)]]="selectedTopic()?.id === topic.id"
-                      [class.bg-white/[0.04]]="selectedTopic()?.id === topic.id"
-                      (click)="selectTopic(topic.id)"
-                    >
-                      <div class="flex items-start justify-between gap-3">
-                        <h3 class="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.02em] text-[var(--text)]">{{ topic.name }}</h3>
-                        <span class="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-[var(--muted)]">
-                          {{ topic.entry_ids.length }}
-                        </span>
-                      </div>
-                      <p class="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                        {{ formatDate(topic.last_updated) }}
-                      </p>
-                    </button>
-                  }
-                }
-              }
-            </div>
-          </section>
-
-          <!-- RIGHT PANEL: Article content or Topic details -->
-          <section class="min-h-0 md:h-full md:overflow-y-auto md:pr-1">
-
-            <!-- ARTICLE DETAIL VIEW (new system) -->
-            @if (hasArticles()) {
-              @if (selectedArticle(); as article) {
-                <article class="glass-card rounded-[2rem] p-6 md:p-8">
-                  <div class="border-b border-white/5 pb-6">
-                    <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">Wiki Article</p>
-                    <h1 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ article.title }}</h1>
-                    <div class="mt-4 flex flex-wrap items-center gap-2">
-                      <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                        {{ article.word_count }} words
-                      </span>
-                      @for (source of article.source_documents; track source.document_id) {
-                        <span class="citation-badge rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em]">
-                          {{ source.filename }}
-                          @if (source.pages.length > 0) {
-                            · p.{{ source.pages[0] }}@if (source.pages.length > 1) {-{{ source.pages[source.pages.length - 1] }}}
-                          }
-                        </span>
+              <div class="flex-1 min-h-0 space-y-3 md:overflow-y-auto md:pr-1">
+                @if (hasArticles()) {
+                  @if (isLoadingArticles()) {
+                    <div class="glass-card rounded-[1.5rem] px-5 py-4 text-sm text-[var(--muted)]">Loading articles...</div>
+                  } @else if (filteredArticles().length === 0) {
+                    <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
+                      @if (searchQuery()) {
+                        No articles match "{{ searchQuery() }}".
+                      } @else if (isPublicView()) {
+                        This public wiki does not have any articles yet.
+                      } @else {
+                        No wiki articles yet. Upload documents to generate wiki articles.
                       }
                     </div>
-                  </div>
-
-                  <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                    <div class="wiki-article-content">
-                      <p class="text-base leading-8 text-[var(--muted)]" [innerHTML]="formatArticleContent(article.content)"></p>
-                    </div>
-
-                    <div class="space-y-4">
-                      @if (article.related_articles.length > 0) {
-                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Related Articles</p>
-                          <div class="mt-3 space-y-2">
-                            @for (related of article.related_articles; track related) {
-                              <p class="text-sm text-[var(--muted)]">{{ related }}</p>
-                            }
-                          </div>
+                  } @else {
+                    @for (article of filteredArticles(); track article.id) {
+                      <button
+                        type="button"
+                        class="glass-card block w-full rounded-[1.25rem] border-l-2 border-transparent px-4 py-3 text-left transition-all hover:bg-white/[0.04]"
+                        [class.!border-l-2]="selectedArticle()?.id === article.id"
+                        [class.!border-[var(--accent)]]="selectedArticle()?.id === article.id"
+                        [class.bg-white/[0.04]]="selectedArticle()?.id === article.id"
+                        (click)="selectArticle(article.id)"
+                      >
+                        <div class="flex items-start justify-between gap-3">
+                          <h3 class="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.02em] text-[var(--text)]">{{ article.title }}</h3>
+                          <span class="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-[var(--muted)]">
+                            {{ article.word_count }}w
+                          </span>
                         </div>
+                        <p class="mt-1 text-xs text-[var(--muted)] line-clamp-2">{{ article.summary }}</p>
+                        <p class="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {{ article.source_documents.length }} source{{ article.source_documents.length !== 1 ? 's' : '' }}
+                          · {{ formatDate(article.last_updated) }}
+                        </p>
+                      </button>
+                    }
+                  }
+                } @else {
+                  @if (isLoadingTopics()) {
+                    <div class="glass-card rounded-[1.5rem] px-5 py-4 text-sm text-[var(--muted)]">Loading topics...</div>
+                  } @else if (topics().length === 0) {
+                    <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
+                      @if (isPublicView()) {
+                        This public wiki does not have any topics yet.
+                      } @else {
+                        No wiki topics yet. Upload documents in the Library and the ingestion pipeline will create topic pages automatically.
                       }
+                    </div>
+                  } @else if (filteredTopics().length === 0) {
+                    <div class="glass-card rounded-[1.5rem] px-5 py-6 text-sm leading-7 text-[var(--muted)]">
+                      No topics match "{{ searchQuery() }}".
+                    </div>
+                  } @else {
+                    @for (topic of filteredTopics(); track topic.id) {
+                      <button
+                        type="button"
+                        class="glass-card block w-full rounded-[1.25rem] border-l-2 border-transparent px-4 py-3 text-left transition-all hover:bg-white/[0.04]"
+                        [class.!border-l-2]="selectedTopic()?.id === topic.id"
+                        [class.!border-[var(--accent)]]="selectedTopic()?.id === topic.id"
+                        [class.bg-white/[0.04]]="selectedTopic()?.id === topic.id"
+                        (click)="selectTopic(topic.id)"
+                      >
+                        <div class="flex items-start justify-between gap-3">
+                          <h3 class="min-w-0 flex-1 truncate text-sm font-bold tracking-[-0.02em] text-[var(--text)]">{{ topic.name }}</h3>
+                          <span class="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-[var(--muted)]">
+                            {{ topic.entry_ids.length }}
+                          </span>
+                        </div>
+                        <p class="mt-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {{ formatDate(topic.last_updated) }}
+                        </p>
+                      </button>
+                    }
+                  }
+                }
+              </div>
+            </section>
 
-                      <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                        <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Documents</p>
-                        <div class="mt-4 space-y-3">
-                          @for (source of article.source_documents; track source.document_id) {
-                            <div class="rounded-[1rem] border border-white/10 bg-white/5 p-4">
-                              <p class="truncate text-sm font-bold text-[var(--text)]">{{ source.filename }}</p>
-                              @if (source.pages.length > 0) {
-                                <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                                  Pages: {{ source.pages.join(', ') }}
-                                </p>
+            <section class="min-h-0 md:h-full md:overflow-y-auto md:pr-1">
+              @if (hasArticles()) {
+                @if (selectedArticle(); as article) {
+                  <article class="glass-card rounded-[2rem] p-6 md:p-8">
+                    <div class="border-b border-white/5 pb-6">
+                      <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">Wiki Article</p>
+                      <h1 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ article.title }}</h1>
+                      <div class="mt-4 flex flex-wrap items-center gap-2">
+                        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                          {{ article.word_count }} words
+                        </span>
+                        @for (source of article.source_documents; track source.document_id) {
+                          <span class="citation-badge rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em]">
+                            {{ source.filename }}
+                            @if (source.pages.length > 0) {
+                              · p.{{ source.pages[0] }}@if (source.pages.length > 1) {-{{ source.pages[source.pages.length - 1] }}}
+                            }
+                          </span>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                      <div class="wiki-article-content">
+                        <p class="text-base leading-8 text-[var(--muted)]" [innerHTML]="formatArticleContent(article.content)"></p>
+                      </div>
+
+                      <div class="space-y-4">
+                        @if (article.related_articles.length > 0) {
+                          <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Related Articles</p>
+                            <div class="mt-3 space-y-2">
+                              @for (related of article.related_articles; track related) {
+                                <p class="text-sm text-[var(--muted)]">{{ related }}</p>
                               }
                             </div>
-                          }
-                        </div>
-                      </div>
+                          </div>
+                        }
 
-                      <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                        <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Ask About This</p>
-                        <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
-                          Use New Chat to ask questions — the system draws from all wiki articles to find answers.
-                        </p>
-                        <a routerLink="/chat" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Go to New Chat</a>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              } @else {
-                <article class="glass-card rounded-[2rem] p-8 text-center">
-                  <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">No article selected</h2>
-                  <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
-                    Choose an article from the left to read compiled knowledge from your documents.
-                  </p>
-                </article>
-              }
-
-            <!-- TOPIC DETAIL VIEW (old system fallback) -->
-            } @else {
-              @if (selectedTopic(); as topic) {
-                <article class="glass-card rounded-[2rem] p-6 md:p-8">
-                  <div class="border-b border-white/5 pb-6">
-                    <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">Knowledge synthesis</p>
-                    <h1 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ topic.name }}</h1>
-                    <p class="mt-5 max-w-3xl text-base leading-8 text-[var(--muted)]">{{ topic.summary }}</p>
-                  </div>
-
-                  <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_20rem]">
-                    <div>
-                      <div class="mb-4 flex items-center justify-between gap-3">
-                        <h2 class="text-2xl font-black tracking-[-0.04em] text-[var(--text)]">Knowledge Entries</h2>
-                        <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                          {{ topicEntries().length }} total
-                        </span>
-                      </div>
-
-                      @if (isLoadingEntries()) {
-                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-[var(--muted)]">Loading topic entries...</div>
-                      } @else if (entriesError()) {
-                        <div class="error-banner rounded-[1.5rem] px-5 py-4 text-sm">
-                          {{ entriesError() }}
-                        </div>
-                      } @else {
-                        <div class="space-y-3">
-                          @for (entry of topicEntries(); track entry.id) {
-                            <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                              <p class="text-base leading-8 text-[var(--text)]">{{ entry.claim }}</p>
-                              <div class="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
-                                <span class="citation-badge rounded-full px-3 py-1">
-                                  p.{{ entry.source.page }} · L{{ entry.source.line_start }}-{{ entry.source.line_end }}
-                                </span>
-                                @for (related of entry.related_topics; track related) {
-                                  <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[var(--muted)]">{{ related }}</span>
+                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Documents</p>
+                          <div class="mt-4 space-y-3">
+                            @for (source of article.source_documents; track source.document_id) {
+                              <button
+                                type="button"
+                                class="w-full rounded-[1rem] border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-[var(--accent)]/30 hover:bg-white/[0.08]"
+                                (click)="openArticleSourceDocument(source)"
+                              >
+                                <div class="flex items-start justify-between gap-3">
+                                  <p class="min-w-0 truncate text-sm font-bold text-[var(--text)]">{{ source.filename }}</p>
+                                  @if (openingSourceDocumentId() === source.document_id) {
+                                    <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Opening</span>
+                                  }
+                                </div>
+                                @if (source.pages.length > 0) {
+                                  <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                                    Pages: {{ source.pages.join(', ') }}
+                                  </p>
                                 }
-                              </div>
-                            </article>
+                              </button>
+                            }
+                          </div>
+                          @if (sourceDocumentError()) {
+                            <p class="mt-3 text-xs text-[var(--accent)]">{{ sourceDocumentError() }}</p>
                           }
                         </div>
-                      }
-                    </div>
 
-                    <div class="space-y-4">
-                      <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                        <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Documents</p>
-                        <div class="mt-4 space-y-3">
-                          @for (document of sourceDocuments(); track document.id) {
-                            <div class="rounded-[1rem] border border-white/10 bg-white/5 p-4">
-                              <p class="truncate text-sm font-bold text-[var(--text)]">{{ documentLabel(document) }}</p>
-                              <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
-                                {{ document.file_type }} · {{ formatDate(document.uploaded_at) }}
-                              </p>
-                            </div>
+                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Ask About This</p>
+                          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                            @if (isPublicView()) {
+                              Sign in to ask questions against this wiki and get cited answers.
+                            } @else {
+                              Use New Chat to ask questions — the system draws from all wiki articles to find answers.
+                            }
+                          </p>
+                          @if (isPublicView()) {
+                            <a routerLink="/sign-in" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Sign in to ask</a>
+                          } @else {
+                            <a routerLink="/chat" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Go to New Chat</a>
                           }
                         </div>
                       </div>
-
-                      <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                        <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Ask This Topic</p>
-                        <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
-                          Use New Chat to ask a scoped question with this topic as the knowledge surface.
-                        </p>
-                        <a routerLink="/chat" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Go to New Chat</a>
-                      </div>
                     </div>
-                  </div>
-                </article>
+                  </article>
+                } @else {
+                  <article class="glass-card rounded-[2rem] p-8 text-center">
+                    <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">No article selected</h2>
+                    <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
+                      Choose an article from the left to read compiled knowledge from the source documents.
+                    </p>
+                  </article>
+                }
               } @else {
-                <article class="glass-card rounded-[2rem] p-8 text-center">
-                  <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">No topic selected</h2>
-                  <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
-                    Choose a topic from the left once your library has been indexed.
-                  </p>
-                </article>
+                @if (selectedTopic(); as topic) {
+                  <article class="glass-card rounded-[2rem] p-6 md:p-8">
+                    <div class="border-b border-white/5 pb-6">
+                      <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">Knowledge synthesis</p>
+                      <h1 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ topic.name }}</h1>
+                      <p class="mt-5 max-w-3xl text-base leading-8 text-[var(--muted)]">{{ topic.summary }}</p>
+                    </div>
+
+                    <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_20rem]">
+                      <div>
+                        <div class="mb-4 flex items-center justify-between gap-3">
+                          <h2 class="text-2xl font-black tracking-[-0.04em] text-[var(--text)]">Knowledge Entries</h2>
+                          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                            {{ topicEntries().length }} total
+                          </span>
+                        </div>
+
+                        @if (isLoadingEntries()) {
+                          <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-[var(--muted)]">Loading topic entries...</div>
+                        } @else if (entriesError()) {
+                          <div class="error-banner rounded-[1.5rem] px-5 py-4 text-sm">
+                            {{ entriesError() }}
+                          </div>
+                        } @else {
+                          <div class="space-y-3">
+                            @for (entry of topicEntries(); track entry.id) {
+                              <article class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                                <p class="text-base leading-8 text-[var(--text)]">{{ entry.claim }}</p>
+                                <div class="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]">
+                                  <span class="citation-badge rounded-full px-3 py-1">
+                                    p.{{ entry.source.page }} · L{{ entry.source.line_start }}-{{ entry.source.line_end }}
+                                  </span>
+                                  @for (related of entry.related_topics; track related) {
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[var(--muted)]">{{ related }}</span>
+                                  }
+                                </div>
+                              </article>
+                            }
+                          </div>
+                        }
+                      </div>
+
+                      <div class="space-y-4">
+                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Source Documents</p>
+                          <div class="mt-4 space-y-3">
+                            @for (document of sourceDocuments(); track document.id) {
+                              <button
+                                type="button"
+                                class="w-full rounded-[1rem] border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-[var(--accent)]/30 hover:bg-white/[0.08]"
+                                (click)="openTopicSourceDocument(document)"
+                              >
+                                <div class="flex items-start justify-between gap-3">
+                                  <p class="min-w-0 truncate text-sm font-bold text-[var(--text)]">{{ documentLabel(document) }}</p>
+                                  @if (openingSourceDocumentId() === document.id) {
+                                    <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--accent)]">Opening</span>
+                                  }
+                                </div>
+                                <p class="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                                  {{ document.file_type }} · {{ formatDate(document.uploaded_at) }}
+                                </p>
+                              </button>
+                            }
+                          </div>
+                          @if (sourceDocumentError()) {
+                            <p class="mt-3 text-xs text-[var(--accent)]">{{ sourceDocumentError() }}</p>
+                          }
+                        </div>
+
+                        <div class="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
+                          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--accent)]">Ask This Topic</p>
+                          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+                            @if (isPublicView()) {
+                              Sign in to ask a scoped question about this topic with cited answers.
+                            } @else {
+                              Use New Chat to ask a scoped question with this topic as the knowledge surface.
+                            }
+                          </p>
+                          @if (isPublicView()) {
+                            <a routerLink="/sign-in" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Sign in to ask</a>
+                          } @else {
+                            <a routerLink="/chat" class="primary-btn mt-5 w-full justify-center !py-3 text-sm">Go to New Chat</a>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                } @else {
+                  <article class="glass-card rounded-[2rem] p-8 text-center">
+                    <h2 class="text-3xl font-black tracking-[-0.05em] text-[var(--text)]">No topic selected</h2>
+                    <p class="mt-4 text-sm leading-7 text-[var(--muted)]">
+                      Choose a topic from the left to read the compiled knowledge.
+                    </p>
+                  </article>
+                }
               }
-            }
-          </section>
-        </div>
+            </section>
+          </div>
+        }
       </div>
     </main>
   </div>

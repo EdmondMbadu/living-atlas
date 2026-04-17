@@ -2,7 +2,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import { logger } from 'firebase-functions';
-import { db } from './firebase';
+import { db, storage } from './firebase';
 import { geminiApiKey } from './gemini';
 import {
   clientTimestamp,
@@ -29,6 +29,60 @@ async function countPublicAtlasCollection(collectionName: string, userId: string
     .count()
     .get();
   return snapshot.data().count;
+}
+
+function normalizeTimestamp(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate(): Date }).toDate().toISOString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return null;
+}
+
+async function loadPublicAtlasById(atlasId: string) {
+  const atlasSnapshot = await db.collection('atlases').doc(atlasId).get();
+  if (!atlasSnapshot.exists) {
+    throw new HttpsError('not-found', 'Atlas not found.');
+  }
+
+  const atlas = atlasSnapshot.data() as Record<string, unknown> | undefined;
+  if (!atlas?.is_public || !atlas.user_id) {
+    throw new HttpsError('permission-denied', 'Atlas is not public.');
+  }
+
+  return {
+    id: atlasSnapshot.id,
+    user_id: String(atlas.user_id),
+    is_public: atlas.is_public === true,
+    ...atlas,
+  };
+}
+
+async function documentAccessAllowed(requestUid: string | undefined, documentId: string) {
+  const document = await loadDocumentRecord(documentId);
+  if (requestUid && document.user_id === requestUid) {
+    return document;
+  }
+
+  if (!document.atlas_id) {
+    throw new HttpsError('permission-denied', 'You do not have access to this document.');
+  }
+
+  const atlas = await loadPublicAtlasById(document.atlas_id);
+  if (atlas.user_id !== document.user_id) {
+    throw new HttpsError('permission-denied', 'You do not have access to this document.');
+  }
+  if (document.visible === false) {
+    throw new HttpsError('permission-denied', 'You do not have access to this document.');
+  }
+
+  return document;
 }
 
 function normalizeAtlasId(value: unknown): string | null {
@@ -244,15 +298,7 @@ export const getPublicAtlasUsage = onCall(
       throw new HttpsError('invalid-argument', 'atlasId is required.');
     }
 
-    const atlasSnapshot = await db.collection('atlases').doc(atlasId).get();
-    if (!atlasSnapshot.exists) {
-      throw new HttpsError('not-found', 'Atlas not found.');
-    }
-
-    const atlas = atlasSnapshot.data();
-    if (!atlas?.is_public || !atlas.user_id) {
-      throw new HttpsError('permission-denied', 'Atlas is not public.');
-    }
+    const atlas = await loadPublicAtlasById(atlasId);
 
     const [documents, knowledgeEntries, wikiTopics, chatThreads] = await Promise.all([
       countPublicAtlasCollection('documents', atlas.user_id, atlasId),
@@ -269,6 +315,173 @@ export const getPublicAtlasUsage = onCall(
       chat_threads: chatThreads,
       total: documents + knowledgeEntries + wikiTopics + chatThreads,
     };
+  },
+);
+
+export const getPublicWikiContent = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (request) => {
+    const atlasId = String(request.data?.atlasId ?? '').trim();
+    if (!atlasId) {
+      throw new HttpsError('invalid-argument', 'atlasId is required.');
+    }
+
+    const atlas = await loadPublicAtlasById(atlasId);
+
+    const [articleSnapshot, topicSnapshot] = await Promise.all([
+      db
+        .collection('wiki_articles')
+        .where('user_id', '==', atlas.user_id)
+        .where('atlas_id', '==', atlasId)
+        .orderBy('last_updated', 'desc')
+        .limit(250)
+        .get(),
+      db
+        .collection('wiki_topics')
+        .where('user_id', '==', atlas.user_id)
+        .where('atlas_id', '==', atlasId)
+        .orderBy('last_updated', 'desc')
+        .limit(250)
+        .get(),
+    ]);
+
+    return {
+      articles: articleSnapshot.docs.map((doc) => {
+        const data = doc.data() as Record<string, unknown>;
+        return {
+          id: doc.id,
+          ...data,
+          created_at: normalizeTimestamp(data.created_at),
+          last_updated: normalizeTimestamp(data.last_updated),
+        };
+      }),
+      topics: topicSnapshot.docs.map((doc) => {
+        const data = doc.data() as Record<string, unknown>;
+        return {
+          id: doc.id,
+          ...data,
+          last_updated: normalizeTimestamp(data.last_updated),
+        };
+      }),
+    };
+  },
+);
+
+export const getPublicWikiTopicDetails = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (request) => {
+    const topicId = String(request.data?.topicId ?? '').trim();
+    if (!topicId) {
+      throw new HttpsError('invalid-argument', 'topicId is required.');
+    }
+
+    const topicSnapshot = await db.collection('wiki_topics').doc(topicId).get();
+    if (!topicSnapshot.exists) {
+      throw new HttpsError('not-found', 'Topic not found.');
+    }
+
+    const topic = topicSnapshot.data() as Record<string, unknown> | undefined;
+    if (!topic?.atlas_id || !topic.user_id) {
+      throw new HttpsError('permission-denied', 'Topic is not public.');
+    }
+
+    const atlas = await loadPublicAtlasById(String(topic.atlas_id));
+    if (atlas.user_id !== String(topic.user_id)) {
+      throw new HttpsError('permission-denied', 'Topic is not public.');
+    }
+
+    const entryIds = ((topic.entry_ids as string[] | undefined) ?? []).slice(0, 250);
+    if (entryIds.length === 0) {
+      return { entries: [], sourceDocuments: [] };
+    }
+
+    const entrySnapshots = await Promise.all(
+      entryIds.map((entryId) => db.collection('knowledge_entries').doc(entryId).get()),
+    );
+
+    const entryRecords = entrySnapshots
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() as Record<string, unknown>) })) as Array<
+        Record<string, unknown> & { id: string }
+      >;
+
+    const entries = entryRecords.filter(
+        (entry) =>
+          String(entry.user_id ?? '') === atlas.user_id &&
+          String(entry.atlas_id ?? '') === atlas.id &&
+          entry.orphaned !== true,
+      );
+
+    const documentIds = Array.from(
+      new Set(entries.map((entry) => String(entry.document_id ?? '')).filter(Boolean)),
+    ).slice(0, 30);
+    const documentSnapshots = await Promise.all(
+      documentIds.map((documentId) => db.collection('documents').doc(documentId).get()),
+    );
+
+    const sourceDocumentRecords = documentSnapshots
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => ({ id: snapshot.id, ...(snapshot.data() as Record<string, unknown>) })) as Array<
+        Record<string, unknown> & { id: string }
+      >;
+
+    const sourceDocuments = sourceDocumentRecords
+      .filter(
+        (document) =>
+          String(document.user_id ?? '') === atlas.user_id &&
+          String(document.atlas_id ?? '') === atlas.id &&
+          document.visible !== false,
+      )
+      .map((document) => ({
+        ...document,
+        uploaded_at: normalizeTimestamp(document.uploaded_at),
+        indexed_at: normalizeTimestamp(document.indexed_at),
+        last_heartbeat_at: normalizeTimestamp(document.last_heartbeat_at),
+      }));
+
+    return { entries, sourceDocuments };
+  },
+);
+
+export const getWikiSourceDocumentLink = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (request) => {
+    const documentId = String(request.data?.documentId ?? '').trim();
+    if (!documentId) {
+      throw new HttpsError('invalid-argument', 'documentId is required.');
+    }
+
+    const document = await documentAccessAllowed(request.auth?.uid, documentId);
+
+    if (document.source_type === 'url' && document.source_url) {
+      return { url: document.source_url };
+    }
+
+    if (!document.storage_path) {
+      throw new HttpsError('not-found', 'Document file is unavailable.');
+    }
+
+    const [url] = await storage.bucket().file(document.storage_path).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000,
+    });
+
+    return { url };
   },
 );
 
