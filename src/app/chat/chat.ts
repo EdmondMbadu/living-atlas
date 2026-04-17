@@ -228,7 +228,7 @@ export class ChatComponent implements AfterViewChecked {
 
     const downloadUrl = await this.documentsService.getDownloadUrl(match);
     if (downloadUrl) {
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      window.open(this.withPdfPageAnchor(downloadUrl, citation.page), '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -510,6 +510,15 @@ export class ChatComponent implements AfterViewChecked {
   private isFallbackCitationFilename(filename: string): boolean {
     const normalized = filename.trim().toLowerCase();
     return normalized === 'unknown document' || normalized === 'source document' || normalized.startsWith('document ');
+  }
+
+  private withPdfPageAnchor(url: string, page?: number): string {
+    if (!page || !/\.pdf([?#]|$)/i.test(url)) {
+      return url;
+    }
+
+    const withoutHash = url.split('#')[0];
+    return `${withoutHash}#page=${page}`;
   }
 
   private async copyText(target: string, text: string): Promise<void> {
