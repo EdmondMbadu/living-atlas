@@ -359,9 +359,14 @@ export async function answerQuestion(params: {
     'Use only the provided knowledge entries.',
     'Entry format: [id, topic, claim, page, line_start, line_end].',
     'Treat the recent conversation history as real context: resolve references (it, that, they), understand follow-ups, and avoid repeating themes, topics, or points already given in prior assistant turns unless the user asks for them again.',
+    'If the user gives a short affirmative follow-up like "yes", "yeah", "do that", or "let\'s do it", interpret it as accepting the most recent concrete next-step proposed in the conversation history and continue from that exact proposal instead of asking what they mean.',
     'When the user asks for "other", "more", "additional", or "any else" items, introduce genuinely new themes/topics not already covered in prior assistant turns.',
     'Do not invent context that is not supported by the provided history and entries.',
     'Give a useful, concrete answer with enough detail to be meaningful.',
+    'End the answer with exactly one brief, concrete next-step invitation that is tightly grounded in the answer you just gave.',
+    'The next-step invitation must propose one specific continuation, not multiple branches or a menu of options.',
+    'Make the invitation high-value and specific enough that a later reply like "yes" clearly refers to one continuation path.',
+    'Avoid generic closers like "Want more?", "Need anything else?", or "Would you like more details?".',
     'If the evidence is incomplete or weak, say so clearly and set knowledge_gap to true.',
     'Prefer citing multiple strong supporting entry ids when the evidence allows it.',
     'Only cite entry ids that are present in the provided entries.',
@@ -399,6 +404,7 @@ export async function answerQuestion(params: {
     });
 
     const parsed = normalizeAnswerResponse(parseJsonResponse<unknown>(response.text ?? '{}'), response.text ?? '');
+    parsed.answer = ensureConcreteNextStepInvitation(parsed.answer, params.question, broadQuestion);
     if (!answerLooksTooThin(parsed.answer, params.question, params.entries.length)) {
       return parsed;
     }
@@ -422,6 +428,7 @@ export async function answerQuestion(params: {
     ...styleInstructions,
     'Important: the answer field must be a complete plain-text answer, not a fragment.',
     'If the question asks for themes, topics, patterns, or areas to explore, include several distinct items with explanation.',
+    'The final sentence should still be a single concrete next-step invitation.',
     'Escape internal quotes. Use \\n for line breaks.',
     'Do not output markdown fences. Do not output any prose outside the JSON object.',
     '',
@@ -442,7 +449,9 @@ export async function answerQuestion(params: {
     },
   });
 
-  return normalizeAnswerResponse(parseJsonResponse<unknown>(retryResponse.text ?? '{}'), retryResponse.text ?? '');
+  const retried = normalizeAnswerResponse(parseJsonResponse<unknown>(retryResponse.text ?? '{}'), retryResponse.text ?? '');
+  retried.answer = ensureConcreteNextStepInvitation(retried.answer, params.question, broadQuestion);
+  return retried;
 }
 
 export async function compileWikiArticles(params: {
@@ -710,9 +719,14 @@ export async function answerFromArticles(params: {
     'Articles contain inline citations like [Source: filename, p.PAGE] — preserve and reference these in your answer.',
     'When citing facts, include the source reference from the article (e.g. "According to [Source: C-PACE Guide, p.29]...").',
     'Treat the recent conversation history as real context: resolve references (it, that, they), understand follow-ups.',
+    'If the user gives a short affirmative follow-up like "yes", "yeah", "do that", or "let\'s do it", interpret it as accepting the most recent concrete next-step proposed in the conversation history and continue from that exact proposal instead of asking what they mean.',
     'When the user asks for "other", "more", "additional" items, introduce genuinely new themes not already covered.',
     'Do not invent information not present in the articles.',
     'Give a useful, concrete answer with enough detail to be meaningful.',
+    'End the answer with exactly one brief, concrete next-step invitation that is tightly grounded in the answer you just gave.',
+    'The next-step invitation must propose one specific continuation, not multiple branches or a menu of options.',
+    'Make the invitation high-value and specific enough that a later reply like "yes" clearly refers to one continuation path.',
+    'Avoid generic closers like "Want more?", "Need anything else?", or "Would you like more details?".',
     'Include specific numbers, dates, thresholds, and requirements when the articles contain them.',
     'If the evidence is incomplete or weak, say so clearly and set knowledge_gap to true.',
     'For cited_entry_ids, return the article_id values of articles you drew information from.',
@@ -750,7 +764,9 @@ export async function answerFromArticles(params: {
     },
   });
 
-  return normalizeAnswerResponse(parseJsonResponse<unknown>(response.text ?? '{}'), response.text ?? '');
+  const parsed = normalizeAnswerResponse(parseJsonResponse<unknown>(response.text ?? '{}'), response.text ?? '');
+  parsed.answer = ensureConcreteNextStepInvitation(parsed.answer, params.question, broadQuestion);
+  return parsed;
 }
 
 export async function transcribeImageToLines(params: {
@@ -880,4 +896,69 @@ function answerLooksTooThin(answer: string, question: string, entryCount: number
   }
 
   return trimmed.length < 90 && entryCount >= 8;
+}
+
+function ensureConcreteNextStepInvitation(
+  answer: string,
+  question: string,
+  broadQuestion: boolean,
+): string {
+  const trimmed = answer.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const normalized = trimmed.toLowerCase();
+  if (
+    normalized.includes('want me to ') ||
+    normalized.includes('would you like me to ') ||
+    normalized.includes('if useful, i can ') ||
+    normalized.includes('i can next ') ||
+    /(?:\n|^).*\?\s*$/.test(trimmed)
+  ) {
+    return trimmed;
+  }
+
+  return `${trimmed}\n\n${buildNextStepInvitation(question, broadQuestion)}`;
+}
+
+function buildNextStepInvitation(question: string, broadQuestion: boolean): string {
+  const normalized = question.toLowerCase();
+
+  if (
+    normalized.includes('name') ||
+    normalized.includes('naming') ||
+    normalized.includes('brand') ||
+    normalized.includes('title')
+  ) {
+    return 'If useful, I can turn this into 10 stronger naming options in the same direction, each with a short rationale so you can pick one cleanly.';
+  }
+
+  if (
+    normalized.includes('compare') ||
+    normalized.includes('best') ||
+    normalized.includes('which') ||
+    normalized.includes('versus') ||
+    normalized.includes('vs')
+  ) {
+    return 'If useful, I can compare the strongest 2-3 options directly and recommend one based on the tradeoffs.';
+  }
+
+  if (
+    normalized.includes('approach') ||
+    normalized.includes('solve') ||
+    normalized.includes('solution') ||
+    normalized.includes('strategy') ||
+    normalized.includes('electrify') ||
+    normalized.includes('electrifying') ||
+    normalized.includes('plan')
+  ) {
+    return 'If useful, I can turn this into a concrete phased strategy with priorities, actors, financing, and the first moves to make.';
+  }
+
+  if (broadQuestion) {
+    return 'If useful, I can turn this into a concrete next-step plan with the highest-leverage actions to pursue first.';
+  }
+
+  return 'If useful, I can take this one step further and turn it into a concrete recommendation or action plan.';
 }
