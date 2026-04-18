@@ -102,6 +102,22 @@ async function loadPublicAtlasById(atlasId: string) {
   };
 }
 
+async function assertAtlasOwner(atlasId: string | null, userId: string): Promise<void> {
+  if (!atlasId) {
+    return;
+  }
+
+  const atlasSnapshot = await db.collection('atlases').doc(atlasId).get();
+  if (!atlasSnapshot.exists) {
+    throw new HttpsError('not-found', 'Atlas not found.');
+  }
+
+  const atlas = atlasSnapshot.data() as Record<string, unknown> | undefined;
+  if (!atlas?.user_id || String(atlas.user_id) !== userId) {
+    throw new HttpsError('permission-denied', 'You do not have access to upload to this atlas.');
+  }
+}
+
 async function loadPublicAtlasBySlug(slug: string) {
   const trimmedSlug = slug.trim();
   if (!trimmedSlug) {
@@ -225,6 +241,8 @@ export const prepareDocumentUpload = onCall({ region: callableRegion, cors: true
   const documentRef = db.collection('documents').doc();
   const storagePath = buildStoragePath(request.auth.uid, documentRef.id, filename);
 
+  await assertAtlasOwner(atlasId, request.auth.uid);
+
   await documentRef.set(
     newDocumentRecord({
       userId: request.auth.uid,
@@ -284,6 +302,8 @@ export const submitUrlDocument = onCall(
     } catch {
       throw new HttpsError('invalid-argument', 'Enter a valid URL.');
     }
+
+    await assertAtlasOwner(atlasId, request.auth.uid);
 
     const documentRef = db.collection('documents').doc();
     await documentRef.set(
