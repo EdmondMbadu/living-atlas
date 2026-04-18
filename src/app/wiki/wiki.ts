@@ -63,6 +63,11 @@ export class WikiComponent {
     if (!atlas) return null;
     return `/wiki/${atlas.slug || atlas.id}`;
   });
+  readonly publicAtlasHomeLink = computed(() => {
+    const atlas = this.publicAtlas();
+    if (!atlas) return '/';
+    return `/atlas/${atlas.slug || atlas.id}`;
+  });
   readonly atlasWikiLink = computed(() => this.publicWikiLink() ?? this.internalAtlasWikiLink());
   readonly shareStatus = signal<'idle' | 'copied' | 'error'>('idle');
 

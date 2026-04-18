@@ -126,7 +126,7 @@
           @if (!isPublicView()) {
             <app-mobile-menu activePage="wiki"></app-mobile-menu>
           } @else {
-            <a routerLink="/" class="md:hidden flex items-center gap-2 text-sm font-bold text-[var(--text)]">
+            <a [routerLink]="publicAtlasHomeLink()" class="md:hidden flex items-center gap-2 text-sm font-bold text-[var(--text)]">
               <span class="material-symbols-outlined">arrow_back</span>
               <span>Home</span>
             </a>
