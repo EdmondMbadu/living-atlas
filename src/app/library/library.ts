@@ -45,6 +45,9 @@ export class LibraryComponent {
   readonly publicNotFound = computed(
     () => this.isPublicView() && this.publicLookupDone() && !this.publicAtlas(),
   );
+  readonly publicPageLoading = computed(
+    () => this.isPublicView() && this.isLoading() && !this.publicNotFound(),
+  );
 
   readonly currentUserName = this.authService.displayName;
   readonly currentUserEmail = this.authService.email;
@@ -56,7 +59,9 @@ export class LibraryComponent {
   readonly libraryLink = computed(() => this.publicRoute('library') ?? '/library');
   readonly pageTitle = computed(() =>
     this.isPublicView()
-      ? `${this.atlasService.displayName(this.publicAtlas())} Library`
+      ? this.publicPageLoading()
+        ? 'Loading Library...'
+        : `${this.atlasService.displayName(this.publicAtlas())} Library`
       : 'Library',
   );
   readonly documents = computed(() =>
