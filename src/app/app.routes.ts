@@ -12,6 +12,7 @@ import { LibraryComponent } from './library/library';
 import { AtlasManageComponent } from './atlas-manage/atlas-manage';
 import { AtlasLandingComponent } from './atlas-landing/atlas-landing';
 import { AtlasHomeRedirectComponent } from './atlas-home-redirect/atlas-home-redirect';
+import { LegalComponent } from './legal/legal';
 import { authGuard, guestOnlyGuard } from './auth.guards';
 
 export const routes: Routes = [
@@ -27,6 +28,8 @@ export const routes: Routes = [
   { path: 'wiki', component: WikiComponent, title: 'Wiki | Living Wiki', canActivate: [authGuard] },
   { path: 'atlases', component: AtlasManageComponent, title: 'Atlas Settings | Living Wiki', canActivate: [authGuard] },
   { path: 'atlas/:slug', component: AtlasLandingComponent, title: 'Atlas | Living Wiki' },
+  { path: 'privacy', component: LegalComponent, title: 'Privacy Policy | Living Wiki', data: { legalPage: 'privacy' } },
+  { path: 'terms', component: LegalComponent, title: 'Terms and Conditions | Living Wiki', data: { legalPage: 'terms' } },
   { path: 'landing', redirectTo: 'home', pathMatch: 'full' },
   { path: 'sign-in', component: SignInComponent, title: 'Sign In | Living Wiki', canActivate: [guestOnlyGuard] },
   { path: 'create-account', component: CreateAccountComponent, title: 'Create Account | Living Wiki', canActivate: [guestOnlyGuard] },

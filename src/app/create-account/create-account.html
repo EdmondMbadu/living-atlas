@@ -77,7 +77,12 @@
 
           <label class="flex items-start gap-3 text-sm leading-relaxed text-[var(--muted)]">
             <input type="checkbox" formControlName="agreeToTerms" class="auth-check mt-1 h-4 w-4 rounded border-[var(--line)] bg-transparent" />
-            I agree to the Terms of Service and Privacy Policy.
+            <span>
+              I agree to the
+              <a routerLink="/terms" class="font-semibold text-[var(--accent)] hover:opacity-80">Terms and Conditions</a>
+              and
+              <a routerLink="/privacy" class="font-semibold text-[var(--accent)] hover:opacity-80">Privacy Policy</a>.
+            </span>
           </label>
           @if (form.controls.agreeToTerms.touched && form.controls.agreeToTerms.invalid) {
             <p class="text-sm text-rose-400">You need to accept the terms to continue.</p>
