@@ -30,6 +30,29 @@ type AskAtlasResponse = {
   threadId: string;
 };
 
+type PublicChatStateResponse = {
+  threadId: string | null;
+  messages: Array<Record<string, unknown>>;
+  questionCount: number;
+  questionLimit: number | null;
+  remainingQuestions: number | null;
+  requiresSignIn: boolean;
+};
+
+type AskPublicAtlasResponse = {
+  blocked: boolean;
+  answer: string;
+  citedEntryIds: string[];
+  citedPassages: CitationPassage[];
+  scopedTopicIds: string[];
+  knowledgeGap: boolean;
+  threadId: string | null;
+  questionCount: number;
+  questionLimit: number | null;
+  remainingQuestions: number | null;
+  requiresSignIn: boolean;
+};
+
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly authService = inject(AuthService);
@@ -171,6 +194,97 @@ export class ChatService {
     }
   }
 
+  async loadPublicChatState(
+    atlasId: string,
+    anonymousVisitorId?: string | null,
+  ): Promise<{
+    threadId: string | null;
+    messages: ChatStoredMessage[];
+    questionCount: number;
+    questionLimit: number | null;
+    remainingQuestions: number | null;
+    requiresSignIn: boolean;
+  }> {
+    if (!this.functions) {
+      return {
+        threadId: null,
+        messages: [],
+        questionCount: 0,
+        questionLimit: null,
+        remainingQuestions: null,
+        requiresSignIn: false,
+      };
+    }
+
+    const getPublicChatState = httpsCallable<
+      { atlasId: string; anonymousVisitorId?: string | null },
+      PublicChatStateResponse
+    >(this.functions, 'getPublicChatState');
+
+    const { data } = await getPublicChatState({
+      atlasId,
+      anonymousVisitorId: anonymousVisitorId ?? null,
+    });
+
+    return {
+      threadId: data.threadId ?? null,
+      messages: (data.messages ?? []).map((message) => this.hydrateStoredMessage(message)),
+      questionCount: Number(data.questionCount ?? 0),
+      questionLimit: typeof data.questionLimit === 'number' ? data.questionLimit : null,
+      remainingQuestions: typeof data.remainingQuestions === 'number' ? data.remainingQuestions : null,
+      requiresSignIn: data.requiresSignIn === true,
+    };
+  }
+
+  async askPublic(
+    question: string,
+    atlasId: string,
+    options?: {
+      threadId?: string | null;
+      anonymousVisitorId?: string | null;
+      topicIds?: string[];
+    },
+  ): Promise<AskPublicAtlasResponse | null> {
+    if (!this.functions) {
+      return null;
+    }
+
+    this.isSubmitting.set(true);
+    this.submitError.set(null);
+
+    try {
+      const askPublicAtlas = httpsCallable<
+        {
+          question: string;
+          atlasId: string;
+          threadId?: string | null;
+          anonymousVisitorId?: string | null;
+          topicIds?: string[];
+        },
+        AskPublicAtlasResponse
+      >(this.functions, 'askPublicAtlas');
+
+      const { data } = await askPublicAtlas({
+        question,
+        atlasId,
+        threadId: options?.threadId ?? null,
+        anonymousVisitorId: options?.anonymousVisitorId ?? null,
+        topicIds: options?.topicIds,
+      });
+
+      this.latestAnswer.set(data.answer);
+      this.latestCitations.set(data.citedPassages ?? []);
+      this.knowledgeGap.set(data.knowledgeGap === true);
+      this.latestThreadId.set(data.threadId ?? null);
+      return data;
+    } catch (error) {
+      this.submitError.set(this.authService.toFriendlyError(error));
+      return null;
+    } finally {
+      this.isSubmitting.set(false);
+    }
+  }
+
   async loadHistoryMessages(item: ChatHistoryItem): Promise<ChatStoredMessage[]> {
     if (!this.firestore) {
       return [];
@@ -258,5 +372,37 @@ export class ChatService {
       return 0;
     }
     return left.role === 'user' ? -1 : 1;
+  }
+
+  private hydrateStoredMessage(message: Record<string, unknown>): ChatStoredMessage {
+    return {
+      id: String(message['id'] ?? ''),
+      thread_id: String(message['thread_id'] ?? ''),
+      user_id: String(message['user_id'] ?? message['visitor_uid'] ?? ''),
+      role: message['role'] === 'assistant' ? 'assistant' : 'user',
+      text: String(message['text'] ?? ''),
+      cited_passages: Array.isArray(message['cited_passages'])
+        ? (message['cited_passages'] as CitationPassage[])
+        : [],
+      knowledge_gap: message['knowledge_gap'] === true,
+      created_at: this.hydrateTimestamp(message['created_at']),
+    };
+  }
+
+  private hydrateTimestamp(value: unknown): { toDate(): Date } | Date | null {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
+      return value as { toDate(): Date };
+    }
+    return null;
   }
 }

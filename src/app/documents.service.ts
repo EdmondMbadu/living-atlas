@@ -213,7 +213,7 @@ export class DocumentsService {
       }
 
       const getWikiSourceDocumentLink = httpsCallable<
-        { documentId: string; atlasId?: string | null; filename?: string | null },
+        { documentId?: string | null; atlasId?: string | null; filename?: string | null },
         WikiSourceDocumentLinkResponse
       >(this.functions, 'getWikiSourceDocumentLink');
 
@@ -227,6 +227,25 @@ export class DocumentsService {
     }
 
     return this.getDownloadUrl(document);
+  }
+
+  async getPublicDocumentLink(atlasId: string, filename: string): Promise<string | null> {
+    if (!this.functions) {
+      return null;
+    }
+
+    const getWikiSourceDocumentLink = httpsCallable<
+      { documentId?: string | null; atlasId?: string | null; filename?: string | null },
+      WikiSourceDocumentLinkResponse
+    >(this.functions, 'getWikiSourceDocumentLink');
+
+    const { data } = await getWikiSourceDocumentLink({
+      atlasId,
+      filename,
+      documentId: null,
+    });
+
+    return data?.url ?? null;
   }
 
   async getPublicAtlasDocuments(atlasId: string): Promise<DocumentItem[]> {

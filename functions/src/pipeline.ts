@@ -29,6 +29,8 @@ import type {
   ModelUsage,
   QueryCitationSnapshot,
   TopicEntryPreview,
+  PublicChatMessageRecord,
+  PublicChatThreadRecord,
   WikiArticleDraft,
   WikiArticleRecord,
   WikiArticleSource,
@@ -43,6 +45,8 @@ const wikiTopicsCollection = db.collection('wiki_topics');
 const queriesCollection = db.collection('queries');
 const chatThreadsCollection = db.collection('chat_threads');
 const chatMessagesCollection = db.collection('chat_messages');
+const publicChatThreadsCollection = db.collection('public_chat_threads');
+const publicChatMessagesCollection = db.collection('public_chat_messages');
 const wikiTopicJobsCollection = db.collection('wiki_topic_jobs');
 const wikiArticlesCollection = db.collection('wiki_articles');
 const wikiIndexCollection = db.collection('wiki_index');
@@ -55,6 +59,7 @@ const maxAnswerEntries = 48;
 const broadQuestionMinAnswerEntries = 30;
 const broadQuestionMaxAnswerEntries = 72;
 const maxUserTurnsPerThread = 8;
+const maxAnonymousPublicQuestions = 5;
 const maxHistoryMessagesForAnswer = 6;
 
 export async function loadDocumentRecord(documentId: string): Promise<DocumentRecord & { id: string }> {
@@ -930,6 +935,221 @@ export async function runAtlasQuery(params: {
   };
 }
 
+export async function runPublicAtlasQuery(params: {
+  atlasId: string;
+  atlasOwnerUserId: string;
+  question: string;
+  topicIds?: string[];
+  threadId?: string | null;
+  visitor: PublicChatVisitorContext;
+}): Promise<{
+  blocked: boolean;
+  answer: string;
+  citedEntryIds: string[];
+  citedPassages: QueryCitationSnapshot[];
+  scopedTopicIds: string[];
+  knowledgeGap: boolean;
+  threadId: string | null;
+  questionCount: number;
+  questionLimit: number | null;
+  remainingQuestions: number | null;
+  requiresSignIn: boolean;
+}> {
+  const trimmedQuestion = params.question.trim();
+  if (!trimmedQuestion) {
+    throw new Error('Question is required.');
+  }
+
+  const thread = await ensureActivePublicChatThread({
+    atlasId: params.atlasId,
+    atlasOwnerUserId: params.atlasOwnerUserId,
+    threadId: params.threadId ?? null,
+    seedQuestion: trimmedQuestion,
+    visitor: params.visitor,
+  });
+
+  const questionLimit =
+    params.visitor.kind === 'anonymous' ? maxAnonymousPublicQuestions : null;
+  const questionCountBeforeAsk = thread.questionCount;
+
+  if (questionLimit !== null && questionCountBeforeAsk >= questionLimit) {
+    return {
+      blocked: true,
+      answer: '',
+      citedEntryIds: [],
+      citedPassages: [],
+      scopedTopicIds: [],
+      knowledgeGap: false,
+      threadId: thread.id,
+      questionCount: questionCountBeforeAsk,
+      questionLimit,
+      remainingQuestions: 0,
+      requiresSignIn: true,
+    };
+  }
+
+  const broadQuestion = isBroadSynthesisQuestion(trimmedQuestion);
+  const threadHistory = thread.reusedExisting
+    ? await loadRecentPublicChatThreadMessages(thread.id, maxHistoryMessagesForAnswer)
+    : [];
+
+  const articleResult = await tryAnswerFromArticles({
+    userId: params.atlasOwnerUserId,
+    atlasId: params.atlasId,
+    question: trimmedQuestion,
+    broadQuestion,
+    history: threadHistory.map((message) => ({ role: message.role, text: message.text })),
+  });
+
+  if (articleResult) {
+    await recordPublicChatThreadExchange({
+      threadId: thread.id,
+      atlasId: params.atlasId,
+      atlasOwnerUserId: params.atlasOwnerUserId,
+      visitor: params.visitor,
+      question: trimmedQuestion,
+      answer: articleResult.answer,
+      citedPassages: articleResult.citedPassages,
+      knowledgeGap: articleResult.knowledgeGap,
+      questionCountIncrement: 1,
+    });
+
+    const questionCount = questionCountBeforeAsk + 1;
+    const remainingQuestions =
+      questionLimit === null ? null : Math.max(0, questionLimit - questionCount);
+
+    return {
+      blocked: false,
+      answer: articleResult.answer,
+      citedEntryIds: articleResult.articleIds,
+      citedPassages: articleResult.citedPassages,
+      scopedTopicIds: [],
+      knowledgeGap: articleResult.knowledgeGap,
+      threadId: thread.id,
+      questionCount,
+      questionLimit,
+      remainingQuestions,
+      requiresSignIn: questionLimit !== null && remainingQuestions !== null && remainingQuestions <= 0,
+    };
+  }
+
+  const topics = await loadCandidateTopics(
+    params.atlasOwnerUserId,
+    trimmedQuestion,
+    params.topicIds,
+    broadQuestion,
+  );
+  const tokens = tokenize(trimmedQuestion);
+  const entryLimit = broadQuestion ? broadQuestionMaxAnswerEntries : maxAnswerEntries;
+  const minEntries = broadQuestion ? broadQuestionMinAnswerEntries : minAnswerEntries;
+  const previewEntries = dedupeById(
+    topics.flatMap((topic) => topic.retrieval_entries ?? []),
+  );
+  const previewRankedEntries = rankEntriesForQuestion(previewEntries, tokens).slice(0, entryLimit);
+
+  let uniqueEntries = previewRankedEntries;
+
+  if (uniqueEntries.length < minEntries || shouldFetchAdditionalEntries(uniqueEntries, tokens, broadQuestion)) {
+    const fallbackEntryIds = topics
+      .flatMap((topic) => topic.entry_ids)
+      .filter((entryId) => !uniqueEntries.some((entry) => entry.id === entryId))
+      .slice(0, broadQuestion ? 72 : 36);
+
+    if (fallbackEntryIds.length > 0) {
+      const entrySnapshots = await Promise.all(
+        fallbackEntryIds.map((entryId) => knowledgeEntriesCollection.doc(entryId).get()),
+      );
+
+      const fetchedEntries = compact(
+        entrySnapshots.map((snapshot) =>
+          snapshot.exists
+            ? {
+                id: snapshot.id,
+                ...(snapshot.data() as Omit<KnowledgeEntryRecord, 'created_at' | 'last_updated'>),
+              }
+            : null,
+        ),
+      );
+
+      uniqueEntries = rankEntriesForQuestion(
+        dedupeById([...uniqueEntries, ...fetchedEntries]),
+        tokens,
+      ).slice(0, entryLimit);
+    }
+  }
+
+  let answer: string;
+  let citedEntryIds: string[];
+  let citedPassages: QueryCitationSnapshot[];
+  let knowledgeGap: boolean;
+
+  if (uniqueEntries.length === 0) {
+    answer =
+      "This topic isn't in the current knowledge base yet. Sign in or ask the atlas owner to upload source material so Living Wiki can answer it with citations.";
+    citedEntryIds = [];
+    citedPassages = [];
+    knowledgeGap = true;
+  } else {
+    const response = await answerQuestion({
+      question: trimmedQuestion,
+      history: threadHistory.map((message) => ({ role: message.role, text: message.text })),
+      entries: uniqueEntries.map((entry) => ({
+        id: entry.id,
+        claim: entry.claim,
+        topic: entry.topic,
+        source: entry.source,
+      })),
+    });
+
+    citedEntryIds = (Array.isArray(response.cited_entry_ids) ? response.cited_entry_ids : []).filter((entryId) =>
+      uniqueEntries.some((entry) => entry.id === entryId),
+    );
+    citedPassages = await hydrateCitationSnapshots(
+      params.atlasOwnerUserId,
+      uniqueEntries,
+      citedEntryIds,
+    );
+    answer =
+      typeof response.answer === 'string' && response.answer.trim().length > 0
+        ? response.answer.trim()
+        : 'I could not generate a reliable answer for this question from the current knowledge base.';
+    knowledgeGap =
+      typeof response.knowledge_gap === 'boolean'
+        ? response.knowledge_gap
+        : citedEntryIds.length === 0;
+  }
+
+  await recordPublicChatThreadExchange({
+    threadId: thread.id,
+    atlasId: params.atlasId,
+    atlasOwnerUserId: params.atlasOwnerUserId,
+    visitor: params.visitor,
+    question: trimmedQuestion,
+    answer,
+    citedPassages,
+    knowledgeGap,
+    questionCountIncrement: 1,
+  });
+
+  const questionCount = questionCountBeforeAsk + 1;
+  const remainingQuestions =
+    questionLimit === null ? null : Math.max(0, questionLimit - questionCount);
+
+  return {
+    blocked: false,
+    answer,
+    citedEntryIds,
+    citedPassages,
+    scopedTopicIds: topics.map((topic) => topic.id),
+    knowledgeGap,
+    threadId: thread.id,
+    questionCount,
+    questionLimit,
+    remainingQuestions,
+    requiresSignIn: questionLimit !== null && remainingQuestions !== null && remainingQuestions <= 0,
+  };
+}
+
 async function tryAnswerFromArticles(params: {
   userId: string;
   atlasId: string | null;
@@ -1262,6 +1482,228 @@ async function recordChatThreadExchange(params: {
     },
     { merge: true },
   );
+}
+
+type PublicChatVisitorContext = {
+  kind: 'anonymous' | 'authenticated';
+  visitorUserId: string | null;
+  anonymousVisitorId: string | null;
+  visitorDisplayName: string | null;
+  visitorEmail: string | null;
+};
+
+function publicVisitorMatchesThread(
+  thread: PublicChatThreadRecord,
+  visitor: PublicChatVisitorContext,
+): boolean {
+  if (thread.visitor_kind !== visitor.kind) {
+    return false;
+  }
+  if (visitor.kind === 'authenticated') {
+    return !!visitor.visitorUserId && thread.visitor_uid === visitor.visitorUserId;
+  }
+  return !!visitor.anonymousVisitorId && thread.anonymous_visitor_id === visitor.anonymousVisitorId;
+}
+
+async function loadPublicChatThreadForVisitor(params: {
+  atlasId: string;
+  visitor: PublicChatVisitorContext;
+}): Promise<(PublicChatThreadRecord & { id: string }) | null> {
+  const field =
+    params.visitor.kind === 'authenticated' ? 'visitor_uid' : 'anonymous_visitor_id';
+  const value =
+    params.visitor.kind === 'authenticated'
+      ? params.visitor.visitorUserId
+      : params.visitor.anonymousVisitorId;
+
+  if (!value) {
+    return null;
+  }
+
+  const snapshot = await publicChatThreadsCollection
+    .where('atlas_id', '==', params.atlasId)
+    .where('visitor_kind', '==', params.visitor.kind)
+    .where(field, '==', value)
+    .limit(1)
+    .get();
+
+  const doc = snapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
+
+  return {
+    id: doc.id,
+    ...(doc.data() as PublicChatThreadRecord),
+  };
+}
+
+async function ensureActivePublicChatThread(params: {
+  atlasId: string;
+  atlasOwnerUserId: string;
+  threadId: string | null;
+  seedQuestion: string;
+  visitor: PublicChatVisitorContext;
+}): Promise<{ id: string; reusedExisting: boolean; questionCount: number }> {
+  if (params.threadId) {
+    const existingSnapshot = await publicChatThreadsCollection.doc(params.threadId).get();
+    if (existingSnapshot.exists) {
+      const existing = existingSnapshot.data() as PublicChatThreadRecord;
+      if (
+        existing.atlas_id === params.atlasId &&
+        existing.atlas_owner_user_id === params.atlasOwnerUserId &&
+        publicVisitorMatchesThread(existing, params.visitor)
+      ) {
+        return {
+          id: params.threadId,
+          reusedExisting: true,
+          questionCount: Number(existing.user_turn_count ?? 0),
+        };
+      }
+    }
+  }
+
+  const currentThread = await loadPublicChatThreadForVisitor({
+    atlasId: params.atlasId,
+    visitor: params.visitor,
+  });
+  if (currentThread) {
+    return {
+      id: currentThread.id,
+      reusedExisting: true,
+      questionCount: Number(currentThread.user_turn_count ?? 0),
+    };
+  }
+
+  const threadRef = publicChatThreadsCollection.doc();
+  await threadRef.set({
+    atlas_id: params.atlasId,
+    atlas_owner_user_id: params.atlasOwnerUserId,
+    visitor_kind: params.visitor.kind,
+    visitor_uid: params.visitor.visitorUserId,
+    anonymous_visitor_id: params.visitor.anonymousVisitorId,
+    visitor_display_name: params.visitor.visitorDisplayName,
+    visitor_email: params.visitor.visitorEmail,
+    title: threadTitleFromQuestion(params.seedQuestion),
+    created_at: FieldValue.serverTimestamp(),
+    updated_at: FieldValue.serverTimestamp(),
+    last_question: params.seedQuestion,
+    last_answer_preview: '',
+    message_count: 0,
+    user_turn_count: 0,
+  } satisfies PublicChatThreadRecord);
+
+  return { id: threadRef.id, reusedExisting: false, questionCount: 0 };
+}
+
+async function loadRecentPublicChatThreadMessages(
+  threadId: string,
+  limitCount: number,
+): Promise<Array<PublicChatMessageRecord & { id: string }>> {
+  const snapshot = await publicChatMessagesCollection
+    .where('thread_id', '==', threadId)
+    .orderBy('created_at', 'desc')
+    .limit(limitCount)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as PublicChatMessageRecord),
+    }))
+    .reverse()
+    .sort((left, right) => compareStoredChatMessages(left, right));
+}
+
+async function recordPublicChatThreadExchange(params: {
+  threadId: string;
+  atlasId: string;
+  atlasOwnerUserId: string;
+  visitor: PublicChatVisitorContext;
+  question: string;
+  answer: string;
+  citedPassages: QueryCitationSnapshot[];
+  knowledgeGap: boolean;
+  questionCountIncrement: number;
+}): Promise<void> {
+  const createdAt = FieldValue.serverTimestamp();
+
+  await commitSetOperations([
+    {
+      ref: publicChatMessagesCollection.doc(generateId('pubchatmsg')),
+      data: {
+        thread_id: params.threadId,
+        atlas_id: params.atlasId,
+        atlas_owner_user_id: params.atlasOwnerUserId,
+        visitor_kind: params.visitor.kind,
+        visitor_uid: params.visitor.visitorUserId,
+        anonymous_visitor_id: params.visitor.anonymousVisitorId,
+        role: 'user',
+        text: params.question,
+        created_at: createdAt,
+      } satisfies PublicChatMessageRecord,
+    },
+    {
+      ref: publicChatMessagesCollection.doc(generateId('pubchatmsg')),
+      data: {
+        thread_id: params.threadId,
+        atlas_id: params.atlasId,
+        atlas_owner_user_id: params.atlasOwnerUserId,
+        visitor_kind: params.visitor.kind,
+        visitor_uid: params.visitor.visitorUserId,
+        anonymous_visitor_id: params.visitor.anonymousVisitorId,
+        role: 'assistant',
+        text: params.answer,
+        cited_passages: params.citedPassages,
+        knowledge_gap: params.knowledgeGap,
+        created_at: createdAt,
+      } satisfies PublicChatMessageRecord,
+    },
+  ]);
+
+  await publicChatThreadsCollection.doc(params.threadId).set(
+    {
+      updated_at: FieldValue.serverTimestamp(),
+      last_question: params.question,
+      last_answer_preview: params.answer.slice(0, 260),
+      message_count: FieldValue.increment(2),
+      user_turn_count: FieldValue.increment(params.questionCountIncrement),
+      visitor_display_name: params.visitor.visitorDisplayName,
+      visitor_email: params.visitor.visitorEmail,
+    },
+    { merge: true },
+  );
+}
+
+export async function getPublicChatState(params: {
+  atlasId: string;
+  visitor: PublicChatVisitorContext;
+}): Promise<{
+  threadId: string | null;
+  messages: Array<PublicChatMessageRecord & { id: string }>;
+  questionCount: number;
+  questionLimit: number | null;
+  remainingQuestions: number | null;
+  requiresSignIn: boolean;
+}> {
+  const thread = await loadPublicChatThreadForVisitor({
+    atlasId: params.atlasId,
+    visitor: params.visitor,
+  });
+
+  const questionCount = Number(thread?.user_turn_count ?? 0);
+  const questionLimit = params.visitor.kind === 'anonymous' ? maxAnonymousPublicQuestions : null;
+  const remainingQuestions =
+    questionLimit === null ? null : Math.max(0, questionLimit - questionCount);
+
+  return {
+    threadId: thread?.id ?? null,
+    messages: thread ? await loadRecentPublicChatThreadMessages(thread.id, 250) : [],
+    questionCount,
+    questionLimit,
+    remainingQuestions,
+    requiresSignIn: questionLimit !== null && remainingQuestions !== null && remainingQuestions <= 0,
+  };
 }
 
 async function loadCandidateTopics(

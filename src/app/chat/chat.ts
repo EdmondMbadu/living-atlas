@@ -71,10 +71,40 @@ export class ChatComponent implements AfterViewChecked {
   readonly copiedTarget = signal<string | null>(null);
   readonly publicAtlas = signal<AtlasItem | null>(null);
   readonly publicLookupDone = signal(false);
+  readonly publicChatLoading = signal(false);
+  readonly publicLoadError = signal<string | null>(null);
+  readonly publicQuestionLimit = signal<number | null>(null);
+  readonly publicRemainingQuestions = signal<number | null>(null);
+  readonly publicRequiresSignIn = signal(false);
+  readonly anonymousVisitorId = signal<string | null>(this.loadAnonymousVisitorId());
   readonly isPublicView = computed(() => !!this.routeSlug());
   readonly publicNotFound = computed(
     () => this.isPublicView() && this.publicLookupDone() && !this.publicAtlas(),
   );
+  readonly authInitialized = this.authService.initialized;
+  readonly isSignedIn = computed(() => !!this.authService.uid());
+  readonly isPublicOwner = computed(
+    () => this.isPublicView() && !!this.publicAtlas() && this.publicAtlas()!.user_id === this.authService.uid(),
+  );
+  readonly isWorkspaceMode = computed(() => !this.isPublicView() || this.isPublicOwner());
+  readonly isPublicVisitorMode = computed(() => this.isPublicView() && !this.isPublicOwner());
+  readonly isAnonymousPublicVisitor = computed(() => this.isPublicVisitorMode() && !this.isSignedIn());
+  readonly isSignedInPublicVisitor = computed(() => this.isPublicVisitorMode() && this.isSignedIn());
+  readonly isPublicPageLoading = computed(() => {
+    if (!this.isPublicView()) {
+      return false;
+    }
+    if (!this.publicLookupDone()) {
+      return true;
+    }
+    if (this.publicNotFound()) {
+      return false;
+    }
+    if (!this.authInitialized()) {
+      return true;
+    }
+    return this.isPublicVisitorMode() && this.publicChatLoading();
+  });
 
   @ViewChild('transcriptEnd') transcriptEnd?: ElementRef<HTMLElement>;
 
@@ -99,10 +129,94 @@ export class ChatComponent implements AfterViewChecked {
   readonly pageTitle = computed(() =>
     this.isPublicView() ? `${this.atlasService.displayName(this.publicAtlas())} Chat` : 'Chat',
   );
+  readonly pageSubtitle = computed(() => {
+    if (this.isWorkspaceMode()) {
+      return 'Query pre-compiled knowledge with citations';
+    }
+    if (this.showSignInCta()) {
+      return 'Public question limit reached';
+    }
+    if (this.isAnonymousPublicVisitor()) {
+      return 'Ask up to 5 questions without signing in';
+    }
+    if (this.isSignedInPublicVisitor()) {
+      return 'Signed-in visitors can chat freely with this atlas';
+    }
+    return 'Ask questions about this public atlas';
+  });
   readonly composerPlaceholder = computed(() =>
-    this.isPublicView() ? 'Sign in to ask questions about this wiki...' : 'Message Living Wiki...',
+    this.isWorkspaceMode()
+      ? 'Message Living Wiki...'
+      : this.showSignInCta()
+        ? 'Sign in to continue asking questions...'
+        : 'Ask about this living wiki...',
   );
-  readonly canSubmit = computed(() => !this.isPublicView() && !this.isSubmitting() && !!this.question().trim());
+  readonly canSubmit = computed(() => {
+    if (this.isSubmitting() || !this.question().trim() || this.publicNotFound()) {
+      return false;
+    }
+    if (this.isWorkspaceMode()) {
+      return true;
+    }
+    return this.authInitialized() && !this.isPublicPageLoading() && !this.publicRequiresSignIn();
+  });
+  readonly showSignInCta = computed(() => this.isAnonymousPublicVisitor() && this.publicRequiresSignIn());
+  readonly primaryActionDisabled = computed(() => (this.showSignInCta() ? false : !this.canSubmit()));
+  readonly publicSidebarNotice = computed(() => {
+    if (!this.isPublicVisitorMode()) {
+      return '';
+    }
+    if (this.showSignInCta()) {
+      return 'You have reached the 5-question public limit. Sign in to continue this conversation.';
+    }
+    if (this.isAnonymousPublicVisitor()) {
+      const remaining = this.publicRemainingQuestions();
+      return remaining === null
+        ? 'Ask up to 5 questions without signing in.'
+        : `Ask up to 5 questions without signing in. ${remaining} remaining.`;
+    }
+    return 'Signed-in visitors can ask unlimited questions. The atlas owner can see your name, email, and questions.';
+  });
+  readonly emptyStateEyebrow = computed(() => (this.isWorkspaceMode() ? 'General query' : 'Public chat'));
+  readonly emptyStateTitle = computed(() => {
+    if (this.isWorkspaceMode()) {
+      return 'Ask your Wiki';
+    }
+    if (this.showSignInCta()) {
+      return 'Sign in to keep chatting';
+    }
+    return 'Ask this Wiki';
+  });
+  readonly emptyStateDescription = computed(() => {
+    if (this.isWorkspaceMode()) {
+      return 'Living Wiki answers from pre-compiled knowledge entries and returns citation passages tied to exact stored source spans.';
+    }
+    if (this.showSignInCta()) {
+      return 'You have used all 5 anonymous public questions for this atlas. Sign in to continue the conversation and keep your chat history.';
+    }
+    if (this.isAnonymousPublicVisitor()) {
+      const remaining = this.publicRemainingQuestions();
+      return remaining === null
+        ? 'Ask questions about this public atlas without signing in. Anonymous visitors can ask up to 5 questions.'
+        : `Ask questions about this public atlas without signing in. You have ${remaining} anonymous question${remaining === 1 ? '' : 's'} remaining.`;
+    }
+    return 'Ask questions about this public atlas. Signed-in visitors can chat without limits, and the atlas owner can see who asked.';
+  });
+  readonly composerHelperText = computed(() => {
+    if (this.isWorkspaceMode()) {
+      return 'shortcut';
+    }
+    if (this.showSignInCta()) {
+      return 'You have used all 5 anonymous questions. Sign in to continue.';
+    }
+    if (this.isAnonymousPublicVisitor()) {
+      const remaining = this.publicRemainingQuestions();
+      return remaining === null
+        ? 'Ask up to 5 questions without signing in.'
+        : `${remaining} of 5 anonymous questions remaining.`;
+    }
+    return 'Your questions are saved with your name and email for the atlas owner.';
+  });
 
   readonly quickPrompts = [
     'What does my knowledge base say about transformer architecture?',
@@ -127,29 +241,121 @@ export class ChatComponent implements AfterViewChecked {
       if (!slug) {
         this.publicAtlas.set(null);
         this.publicLookupDone.set(true);
+        this.publicChatLoading.set(false);
+        this.publicLoadError.set(null);
         return;
       }
 
       this.publicLookupDone.set(false);
+      this.publicLoadError.set(null);
       void this.atlasService
         .getPublicAtlasBySlug(slug)
         .then((atlas) => this.publicAtlas.set(atlas))
         .catch(() => this.publicAtlas.set(null))
         .finally(() => this.publicLookupDone.set(true));
     });
+
+    effect(() => {
+      if (!this.isPublicOwner()) {
+        return;
+      }
+
+      const atlas = this.publicAtlas();
+      if (atlas?.id) {
+        this.atlasService.setActive(atlas.id);
+      }
+    });
+
+    effect((onCleanup) => {
+      if (!this.isPublicView()) {
+        this.resetPublicChatState();
+        return;
+      }
+
+      if (!this.publicLookupDone()) {
+        this.publicChatLoading.set(true);
+        this.publicLoadError.set(null);
+        return;
+      }
+
+      if (this.publicNotFound()) {
+        this.resetPublicChatState();
+        this.messages.set([]);
+        this.activeThreadId.set(null);
+        return;
+      }
+
+      if (!this.authInitialized()) {
+        this.publicChatLoading.set(true);
+        this.publicLoadError.set(null);
+        return;
+      }
+
+      if (this.isWorkspaceMode()) {
+        this.resetPublicChatState();
+        this.messages.set([]);
+        this.activeThreadId.set(null);
+        this.activeHistoryId.set(null);
+        return;
+      }
+
+      const atlas = this.publicAtlas();
+      if (!atlas?.id) {
+        this.resetPublicChatState();
+        return;
+      }
+
+      let cancelled = false;
+      onCleanup(() => {
+        cancelled = true;
+      });
+
+      this.publicChatLoading.set(true);
+      this.publicLoadError.set(null);
+      this.messages.set([]);
+      this.activeThreadId.set(null);
+      this.activeHistoryId.set(null);
+
+      void this.chatService
+        .loadPublicChatState(
+          atlas.id,
+          this.isAnonymousPublicVisitor() ? this.ensureAnonymousVisitorId() : null,
+        )
+        .then((state) => {
+          if (cancelled) {
+            return;
+          }
+          this.messages.set(state.messages.map((message) => this.mapStoredMessage(message)));
+          this.activeThreadId.set(state.threadId ?? null);
+          this.publicQuestionLimit.set(state.questionLimit);
+          this.publicRemainingQuestions.set(state.remainingQuestions);
+          this.publicRequiresSignIn.set(state.requiresSignIn);
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          const message = this.authService.toFriendlyError(error);
+          this.publicLoadError.set(message);
+          this.messages.set([]);
+          this.activeThreadId.set(null);
+        })
+        .finally(() => {
+          if (!cancelled) {
+            this.publicChatLoading.set(false);
+          }
+        });
+    });
   }
 
   async submitQuestion(): Promise<void> {
-    if (this.isPublicView()) {
-      return;
-    }
     const question = this.question().trim();
-    if (!question || this.isSubmitting()) {
+    if (!question || this.isSubmitting() || this.publicNotFound()) {
       return;
     }
 
     const submittedThreadId = this.activeThreadId();
-    if (!submittedThreadId) {
+    if (!submittedThreadId && this.isWorkspaceMode()) {
       this.activeHistoryId.set(null);
     }
     this.question.set('');
@@ -165,7 +371,12 @@ export class ChatComponent implements AfterViewChecked {
     this.shouldScrollToEnd = true;
     this.startThinkingRotation();
 
-    const response = await this.chatService.ask(question, undefined, submittedThreadId);
+    const response = this.isWorkspaceMode()
+      ? await this.chatService.ask(question, undefined, submittedThreadId)
+      : await this.chatService.askPublic(question, this.publicAtlas()!.id, {
+          threadId: submittedThreadId,
+          anonymousVisitorId: this.isAnonymousPublicVisitor() ? this.ensureAnonymousVisitorId() : null,
+        });
 
     this.stopThinkingRotation();
 
@@ -185,7 +396,12 @@ export class ChatComponent implements AfterViewChecked {
         ),
       );
     } else {
-      const answer = response?.answer ?? this.chatService.latestAnswer() ?? '';
+      const publicResponse =
+        !this.isWorkspaceMode() && response && 'blocked' in response ? response : null;
+      const blocked = publicResponse?.blocked === true;
+      const answer = blocked
+        ? 'You have reached the 5-question public limit for this atlas. Sign in to continue this conversation.'
+        : response?.answer ?? this.chatService.latestAnswer() ?? '';
       const citations = this.normalizeCitations(response?.citedPassages ?? this.chatService.latestCitations());
       const gap = response?.knowledgeGap ?? this.chatService.knowledgeGap();
       const returnedThreadId = response?.threadId ?? submittedThreadId;
@@ -224,7 +440,14 @@ export class ChatComponent implements AfterViewChecked {
       }
 
       this.activeThreadId.set(returnedThreadId ?? null);
-      this.activeHistoryId.set(returnedThreadId ?? null);
+      if (this.isWorkspaceMode()) {
+        this.activeHistoryId.set(returnedThreadId ?? null);
+      }
+      if (publicResponse) {
+        this.publicQuestionLimit.set(publicResponse.questionLimit ?? null);
+        this.publicRemainingQuestions.set(publicResponse.remainingQuestions ?? null);
+        this.publicRequiresSignIn.set(publicResponse.requiresSignIn === true);
+      }
     }
 
     this.shouldScrollToEnd = true;
@@ -258,6 +481,19 @@ export class ChatComponent implements AfterViewChecked {
   async openDocumentFile(citation: CitationPassage): Promise<void> {
     const filename = citation.filename;
     if (!filename || this.isFallbackCitationFilename(filename)) {
+      return;
+    }
+
+    if (this.isPublicVisitorMode()) {
+      const atlasId = this.publicAtlas()?.id;
+      if (!atlasId) {
+        return;
+      }
+
+      const downloadUrl = await this.documentsService.getPublicDocumentLink(atlasId, filename);
+      if (downloadUrl) {
+        window.open(this.withPdfPageAnchor(downloadUrl, citation.page), '_blank', 'noopener,noreferrer');
+      }
       return;
     }
 
@@ -303,7 +539,20 @@ export class ChatComponent implements AfterViewChecked {
   onComposerKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      this.submitQuestion();
+      if (this.canSubmit()) {
+        void this.submitQuestion();
+      }
+    }
+  }
+
+  handlePrimaryAction(): void {
+    if (this.showSignInCta()) {
+      void this.goToSignIn();
+      return;
+    }
+
+    if (this.canSubmit()) {
+      void this.submitQuestion();
     }
   }
 
@@ -462,6 +711,10 @@ export class ChatComponent implements AfterViewChecked {
     }
   }
 
+  signInQueryParams(): { redirectTo: string } {
+    return { redirectTo: this.publicRoute('chat') ?? this.router.url ?? '/chat' };
+  }
+
   private publicRoute(segment: 'atlas' | 'chat' | 'upload' | 'library' | 'wiki'): string | null {
     if (!this.isPublicView()) {
       return null;
@@ -607,5 +860,39 @@ export class ChatComponent implements AfterViewChecked {
       createdAt: message.created_at,
       updatedAt: message.created_at,
     };
+  }
+
+  private resetPublicChatState(): void {
+    this.publicChatLoading.set(false);
+    this.publicLoadError.set(null);
+    this.publicQuestionLimit.set(null);
+    this.publicRemainingQuestions.set(null);
+    this.publicRequiresSignIn.set(false);
+  }
+
+  private loadAnonymousVisitorId(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return window.localStorage.getItem('living-wiki:publicVisitorId');
+  }
+
+  private ensureAnonymousVisitorId(): string | null {
+    const existing = this.anonymousVisitorId();
+    if (existing) {
+      return existing;
+    }
+    if (typeof window === 'undefined' || typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') {
+      return null;
+    }
+
+    const next = crypto.randomUUID();
+    window.localStorage.setItem('living-wiki:publicVisitorId', next);
+    this.anonymousVisitorId.set(next);
+    return next;
+  }
+
+  private async goToSignIn(): Promise<void> {
+    await this.router.navigate(['/sign-in'], { queryParams: this.signInQueryParams() });
   }
 }

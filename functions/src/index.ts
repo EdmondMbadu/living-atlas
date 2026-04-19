@@ -9,6 +9,7 @@ import {
   clientTimestamp,
   deleteChatEntityForUser,
   deleteDocumentForUser,
+  getPublicChatState as loadPublicChatState,
   getWikiTopicDetailsForUser,
   loadDocumentRecord,
   newDocumentRecord,
@@ -16,6 +17,7 @@ import {
   processStoredDocument,
   processUrlDocument,
   runAtlasQuery,
+  runPublicAtlasQuery,
 } from './pipeline';
 import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './utils';
 
@@ -214,6 +216,51 @@ function normalizeAtlasId(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeAnonymousVisitorId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 128) {
+    return null;
+  }
+
+  return /^[A-Za-z0-9_-]+$/.test(trimmed) ? trimmed : null;
+}
+
+function getPublicChatVisitorContext(request: {
+  auth?: { uid?: string; token?: unknown } | null;
+  data?: Record<string, unknown>;
+}) {
+  if (request.auth?.uid) {
+    const token = (request.auth.token ?? {}) as { name?: unknown; email?: unknown };
+    const displayName = typeof token.name === 'string' && token.name.trim() ? token.name.trim() : null;
+    const email = typeof token.email === 'string' && token.email.trim() ? token.email.trim().toLowerCase() : null;
+
+    return {
+      kind: 'authenticated' as const,
+      visitorUserId: request.auth.uid,
+      anonymousVisitorId: null,
+      visitorDisplayName: displayName,
+      visitorEmail: email,
+    };
+  }
+
+  const anonymousVisitorId = normalizeAnonymousVisitorId(request.data?.anonymousVisitorId);
+  if (!anonymousVisitorId) {
+    throw new HttpsError('unauthenticated', 'anonymousVisitorId is required.');
+  }
+
+  return {
+    kind: 'anonymous' as const,
+    visitorUserId: null,
+    anonymousVisitorId,
+    visitorDisplayName: 'Anonymous',
+    visitorEmail: null,
+  };
+}
+
 export const prepareDocumentUpload = onCall({ region: callableRegion, cors: true }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -360,6 +407,118 @@ export const askAtlas = onCall(
       throw new HttpsError(
         'internal',
         error instanceof Error ? error.message : 'Failed to answer question.',
+      );
+    }
+  },
+);
+
+export const getPublicChatState = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (request) => {
+    const atlasId = normalizeAtlasId(request.data?.atlasId);
+    if (!atlasId) {
+      throw new HttpsError('invalid-argument', 'atlasId is required.');
+    }
+
+    const atlas = await loadPublicAtlasById(atlasId);
+    const visitor = getPublicChatVisitorContext(request);
+
+    if (visitor.kind === 'authenticated' && visitor.visitorUserId === atlas.user_id) {
+      throw new HttpsError('failed-precondition', 'Atlas owners should use the workspace chat.');
+    }
+
+    try {
+      const state = await loadPublicChatState({
+        atlasId: atlas.id,
+        visitor: {
+          kind: visitor.kind,
+          visitorUserId: visitor.visitorUserId,
+          anonymousVisitorId: visitor.anonymousVisitorId,
+          visitorDisplayName: visitor.visitorDisplayName,
+          visitorEmail: visitor.visitorEmail,
+        },
+      });
+
+      return {
+        ...state,
+        messages: state.messages.map((message) => ({
+          ...message,
+          created_at: normalizeTimestamp(message.created_at),
+        })),
+      };
+    } catch (error) {
+      logger.error('getPublicChatState failed', {
+        atlasId,
+        visitorKind: visitor.kind,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw new HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to load public chat state.',
+      );
+    }
+  },
+);
+
+export const askPublicAtlas = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 180,
+    memory: '1GiB',
+    cors: true,
+    secrets: [geminiApiKey],
+  },
+  async (request) => {
+    const atlasId = normalizeAtlasId(request.data?.atlasId);
+    const question = String(request.data?.question ?? '').trim();
+    const threadId = String(request.data?.threadId ?? '').trim() || null;
+    const topicIds = Array.isArray(request.data?.topicIds)
+      ? request.data.topicIds.map((value: unknown) => String(value)).filter(Boolean)
+      : undefined;
+
+    if (!atlasId) {
+      throw new HttpsError('invalid-argument', 'atlasId is required.');
+    }
+    if (!question) {
+      throw new HttpsError('invalid-argument', 'question is required.');
+    }
+
+    const atlas = await loadPublicAtlasById(atlasId);
+    const visitor = getPublicChatVisitorContext(request);
+
+    if (visitor.kind === 'authenticated' && visitor.visitorUserId === atlas.user_id) {
+      throw new HttpsError('failed-precondition', 'Atlas owners should use the workspace chat.');
+    }
+
+    try {
+      return await runPublicAtlasQuery({
+        atlasId: atlas.id,
+        atlasOwnerUserId: atlas.user_id,
+        question,
+        topicIds,
+        threadId,
+        visitor: {
+          kind: visitor.kind,
+          visitorUserId: visitor.visitorUserId,
+          anonymousVisitorId: visitor.anonymousVisitorId,
+          visitorDisplayName: visitor.visitorDisplayName,
+          visitorEmail: visitor.visitorEmail,
+        },
+      });
+    } catch (error) {
+      logger.error('askPublicAtlas failed', {
+        atlasId,
+        visitorKind: visitor.kind,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw new HttpsError(
+        'internal',
+        error instanceof Error ? error.message : 'Failed to answer public question.',
       );
     }
   },
@@ -647,8 +806,8 @@ export const getWikiSourceDocumentLink = onCall(
     const documentId = String(request.data?.documentId ?? '').trim();
     const atlasId = String(request.data?.atlasId ?? '').trim();
     const filename = String(request.data?.filename ?? '').trim();
-    if (!documentId) {
-      throw new HttpsError('invalid-argument', 'documentId is required.');
+    if (!documentId && (!atlasId || !filename)) {
+      throw new HttpsError('invalid-argument', 'documentId or atlasId + filename is required.');
     }
 
     let document:
@@ -661,7 +820,11 @@ export const getWikiSourceDocumentLink = onCall(
       | (Record<string, unknown> & { id: string });
 
     try {
-      document = await documentAccessAllowed(request.auth?.uid, documentId);
+      if (documentId) {
+        document = await documentAccessAllowed(request.auth?.uid, documentId);
+      } else {
+        document = await findPublicDocumentByFilename(atlasId, filename);
+      }
     } catch (error) {
       if (!atlasId || !filename) {
         throw error;

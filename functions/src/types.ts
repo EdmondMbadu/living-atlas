@@ -189,6 +189,37 @@ export interface ChatMessageRecord {
   created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }
 
+export interface PublicChatThreadRecord {
+  atlas_id: string;
+  atlas_owner_user_id: string;
+  visitor_kind: 'anonymous' | 'authenticated';
+  visitor_uid: string | null;
+  anonymous_visitor_id: string | null;
+  visitor_display_name: string | null;
+  visitor_email: string | null;
+  title: string;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  updated_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+  last_question: string;
+  last_answer_preview: string;
+  message_count: number;
+  user_turn_count: number;
+}
+
+export interface PublicChatMessageRecord {
+  thread_id: string;
+  atlas_id: string;
+  atlas_owner_user_id: string;
+  visitor_kind: 'anonymous' | 'authenticated';
+  visitor_uid: string | null;
+  anonymous_visitor_id: string | null;
+  role: 'user' | 'assistant';
+  text: string;
+  cited_passages?: QueryCitationSnapshot[];
+  knowledge_gap?: boolean;
+  created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
+}
+
 export interface PreparedUpload {
   documentId: string;
   storagePath: string;
