@@ -210,6 +210,26 @@ export class WikiComponent {
     return document.title || document.filename;
   }
 
+  sourcePagesLabel(pages: number[]): string {
+    if (pages.length === 0) {
+      return 'Source document';
+    }
+
+    if (pages.length === 1) {
+      return `Page ${pages[0]}`;
+    }
+
+    return `Pages ${pages[0]}-${pages[pages.length - 1]}`;
+  }
+
+  additionalSourceCountLabel(count: number): string {
+    if (count <= 0) {
+      return '';
+    }
+
+    return `+${count} more source${count === 1 ? '' : 's'}`;
+  }
+
   toggleAvatarMenu(): void {
     this.avatarMenuOpen.update((open) => !open);
   }

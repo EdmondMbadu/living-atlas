@@ -345,15 +345,36 @@
                         <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
                           {{ article.word_count }} words
                         </span>
-                        @for (source of article.source_documents; track source.document_id) {
-                          <span class="citation-badge rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em]">
-                            {{ source.filename }}
-                            @if (source.pages.length > 0) {
-                              · p.{{ source.pages[0] }}@if (source.pages.length > 1) {-{{ source.pages[source.pages.length - 1] }}}
-                            }
+                        @if (article.source_documents.length > 0) {
+                          <span class="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+                            {{ article.source_documents.length }} source{{ article.source_documents.length === 1 ? '' : 's' }}
                           </span>
                         }
                       </div>
+
+                      @if (article.source_documents[0]; as primarySource) {
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            class="group inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-left transition-colors hover:border-[var(--accent)]/30 hover:bg-white/[0.06]"
+                            [title]="primarySource.filename"
+                            (click)="openArticleSourceDocument(primarySource)"
+                          >
+                            <span class="material-symbols-outlined shrink-0 text-base text-[var(--accent)]">description</span>
+                            <span class="min-w-0 truncate text-sm font-semibold text-[var(--text)]">{{ primarySource.filename }}</span>
+                          </button>
+
+                          <span class="citation-badge rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em]">
+                            {{ sourcePagesLabel(primarySource.pages) }}
+                          </span>
+
+                          @if (article.source_documents.length > 1) {
+                            <span class="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[var(--muted)]">
+                              {{ additionalSourceCountLabel(article.source_documents.length - 1) }}
+                            </span>
+                          }
+                        </div>
+                      }
                     </div>
 
                     <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
