@@ -1,8 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { AtlasAnimationComponent } from './atlas-animation/atlas-animation';
 import { GraphAnimationComponent } from './atlas-animation/graph-animation';
+import { PUBLIC_WIKI_CATALOG } from '../public-wiki-catalog';
 
 @Component({
   selector: 'app-marketing',
@@ -11,10 +12,13 @@ import { GraphAnimationComponent } from './atlas-animation/graph-animation';
 })
 export class MarketingComponent {
   navItems = [
+    { label: 'Public Wikis', href: '#public-wikis' },
     { label: 'Features', href: '#features' },
     { label: 'Security', href: '#security' },
     { label: 'Pricing', href: '#pricing' },
   ];
+
+  featuredPublicWikis = PUBLIC_WIKI_CATALOG.filter((wiki) => wiki.status === 'live').slice(0, 3);
 
   workflowSteps = [
     {

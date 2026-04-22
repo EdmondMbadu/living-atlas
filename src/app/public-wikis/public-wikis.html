@@ -1,0 +1,128 @@
+<div class="min-h-screen bg-[var(--bg)] text-[var(--text)] selection:bg-[var(--accent)] selection:text-[var(--accent-contrast)]">
+  <nav class="theme-nav sticky top-0 z-50 w-full border-b backdrop-blur-2xl">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 sm:py-5 lg:px-10">
+      <a routerLink="/" class="flex items-center gap-2 sm:gap-3 text-lg font-bold tracking-tighter text-[var(--text)]">
+        <div class="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-1.5 shadow-[0_0_24px_rgba(34,197,94,0.08)]">
+          <img src="/assets/living-atlas-logo.png" alt="Living Wiki logo" class="h-full w-full object-contain" />
+        </div>
+        <span class="hidden sm:inline">Living Wiki</span>
+      </a>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <app-theme-toggle></app-theme-toggle>
+        <a routerLink="/" class="ghost-btn !px-3 !py-2 sm:!px-4 sm:!py-2.5 text-xs sm:!text-sm">Home</a>
+        <a routerLink="/sign-in" class="primary-btn !py-2 !px-3 sm:!py-2.5 sm:!px-6 text-xs sm:!text-sm">Sign In</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-10">
+    <section class="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.3em] text-[var(--accent)]">Public Library</p>
+        <h1 class="mt-4 text-4xl font-bold tracking-tight text-[var(--text)] sm:text-6xl">Browse every public wiki.</h1>
+        <p class="mt-6 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+          Start with the live public atlases below. Additional public wikis will appear here as they are published.
+        </p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="glass-card rounded-[2rem] p-6">
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">Live Now</p>
+          <p class="mt-3 text-4xl font-black tracking-tight text-[var(--text)]">{{ liveCount }}</p>
+          <p class="mt-2 text-sm text-[var(--muted)]">Public wiki pages ready to browse today.</p>
+        </div>
+        <div class="glass-card rounded-[2rem] p-6">
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent-soft)]">Coming Soon</p>
+          <p class="mt-3 text-4xl font-black tracking-tight text-[var(--text)]">{{ comingSoonCount }}</p>
+          <p class="mt-2 text-sm text-[var(--muted)]">Additional public atlases queued for release.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-14">
+      <div class="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">Featured</p>
+          <h2 class="mt-2 text-2xl font-bold text-[var(--text)] sm:text-3xl">Live public wikis</h2>
+        </div>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-3">
+        @for (wiki of featuredWikis; track wiki.title) {
+          <a [routerLink]="['/wiki', wiki.slug]" class="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[var(--surface)] p-6 shadow-[var(--shadow-elevated)] transition-transform duration-300 hover:-translate-y-1">
+            <div [attr.class]="'absolute inset-x-0 top-0 h-28 bg-gradient-to-br ' + wiki.accentClass"></div>
+            <div class="relative">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent-soft)]">{{ wiki.subtitle }}</p>
+                  <h3 class="mt-3 text-2xl font-bold tracking-tight text-[var(--text)]">{{ wiki.title }}</h3>
+                </div>
+                <span class="rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">
+                  Live
+                </span>
+              </div>
+              <p class="mt-5 text-sm leading-relaxed text-[var(--muted)]">{{ wiki.description }}</p>
+              <div class="mt-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
+                Open wiki
+                <span class="material-symbols-outlined text-base transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
+              </div>
+            </div>
+          </a>
+        }
+      </div>
+    </section>
+
+    <section class="mt-16">
+      <div class="mb-6">
+        <p class="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent)]">Catalog</p>
+        <h2 class="mt-2 text-2xl font-bold text-[var(--text)] sm:text-3xl">All public wiki pages</h2>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        @for (wiki of publicWikis; track wiki.title) {
+          @if (wiki.status === 'live') {
+            <a [routerLink]="['/wiki', wiki.slug]" class="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-[var(--surface)] p-6 transition-transform duration-300 hover:-translate-y-1">
+              <div [attr.class]="'absolute inset-x-0 top-0 h-24 bg-gradient-to-br ' + wiki.accentClass"></div>
+              <div class="relative">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent-soft)]">{{ wiki.subtitle }}</p>
+                    <h3 class="mt-3 text-xl font-bold tracking-tight text-[var(--text)]">{{ wiki.title }}</h3>
+                  </div>
+                  <span class="rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">
+                    Public
+                  </span>
+                </div>
+                <p class="mt-5 text-sm leading-relaxed text-[var(--muted)]">{{ wiki.description }}</p>
+                <div class="mt-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
+                  Read public wiki
+                  <span class="material-symbols-outlined text-base transition-transform duration-300 group-hover:translate-x-1">arrow_forward</span>
+                </div>
+              </div>
+            </a>
+          } @else {
+            <div class="relative overflow-hidden rounded-[2rem] border border-dashed border-white/10 bg-white/[0.02] p-6 opacity-85">
+              <div [attr.class]="'absolute inset-x-0 top-0 h-24 bg-gradient-to-br ' + wiki.accentClass"></div>
+              <div class="relative">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">{{ wiki.subtitle }}</p>
+                    <h3 class="mt-3 text-xl font-bold tracking-tight text-[var(--text)]">{{ wiki.title }}</h3>
+                  </div>
+                  <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                    Coming Soon
+                  </span>
+                </div>
+                <p class="mt-5 text-sm leading-relaxed text-[var(--muted)]">{{ wiki.description }}</p>
+                <div class="mt-8 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--muted)]">
+                  Launch pending
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </section>
+  </main>
+</div>
