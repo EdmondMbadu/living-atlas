@@ -19,16 +19,41 @@ const defaultUserAgent =
 
 export function looksLikeAntiBotChallenge(html: string): boolean {
   const normalized = html.toLowerCase();
-  return [
+
+  // Short challenge/block pages are typically <50KB. Real article/listing pages are much
+  // larger. Cloudflare injects /cdn-cgi/challenge-platform/ tracking scripts on many
+  // otherwise-normal pages, so that marker alone is not sufficient and caused false
+  // positives on amanet.org (193KB real content flagged as blocked).
+  const isSmallPage = normalized.length < 50_000;
+
+  const strongBlockMarkers = [
     'attention required! | cloudflare',
-    'just a moment...',
-    'enable javascript and cookies to continue',
     'sorry, you have been blocked',
-    'cf-mitigated',
-    '_cf_chl_opt',
-    '/cdn-cgi/challenge-platform/',
+    '<title>just a moment...</title>',
+    'checking if the site connection is secure',
+    'enable javascript and cookies to continue',
+    'performance &amp; security by cloudflare',
     'performance & security by cloudflare',
-  ].some((marker) => normalized.includes(marker));
+    'error 1020',
+    'error 1015',
+    'ray id:',
+  ];
+
+  if (strongBlockMarkers.some((marker) => normalized.includes(marker))) {
+    return true;
+  }
+
+  const weakBlockMarkers = [
+    '_cf_chl_opt',
+    'cf-mitigated',
+    'challenge-platform',
+  ];
+
+  if (isSmallPage && weakBlockMarkers.some((marker) => normalized.includes(marker))) {
+    return true;
+  }
+
+  return false;
 }
 
 export async function fetchHtmlWithFallback(
