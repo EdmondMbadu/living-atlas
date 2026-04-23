@@ -36,6 +36,10 @@ export class PublicWikisComponent {
     return acc;
   }, {});
 
+  readonly hasFilters = computed(
+    () => this.activeCategory() !== ALL_CATEGORIES || this.searchTerm().trim().length > 0,
+  );
+
   readonly filteredWikis = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
     const cat = this.activeCategory();
