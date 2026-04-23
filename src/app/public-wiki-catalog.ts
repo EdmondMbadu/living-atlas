@@ -18,6 +18,8 @@ export interface PublicWikiCatalogItem {
   priority?: PublicWikiPriority;
   badges?: PublicWikiBadge[];
   sources?: string;
+  fallbackHeroUrl?: string;
+  fallbackLogoUrl?: string;
 }
 
 export const PUBLIC_WIKI_CATALOG: PublicWikiCatalogItem[] = [
@@ -31,6 +33,8 @@ export const PUBLIC_WIKI_CATALOG: PublicWikiCatalogItem[] = [
     category: 'Cities & Regions',
     priority: 'high',
     badges: ['evergreen', 'geo'],
+    fallbackHeroUrl: '/assets/public-wikis/philly-hero.jpg',
+    fallbackLogoUrl: '/assets/public-wikis/philly-logo.png',
     sources:
       'OpenDataPhilly, DVRPC, PWD, PEA, EPA, Census Bureau, SBN, Green Philly, SEPTA',
   },
@@ -42,6 +46,8 @@ export const PUBLIC_WIKI_CATALOG: PublicWikiCatalogItem[] = [
     status: 'live',
     slug: 'newworld-game',
     category: 'Culture & Entertainment',
+    fallbackHeroUrl: '/assets/public-wikis/newworld-game-hero.jpg',
+    fallbackLogoUrl: '/assets/public-wikis/newworld-game-logo.png',
   },
   {
     title: 'MS Bookmakers',

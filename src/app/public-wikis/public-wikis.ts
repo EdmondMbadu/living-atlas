@@ -90,6 +90,28 @@ export class PublicWikisComponent implements OnInit {
     return this.atlasMedia()[slug] ?? null;
   }
 
+  heroFor(wiki: (typeof this.publicWikis)[number]): string | null {
+    return this.mediaFor(wiki.slug)?.hero_url ?? wiki.fallbackHeroUrl ?? null;
+  }
+
+  logoFor(wiki: (typeof this.publicWikis)[number]): string | null {
+    return this.mediaFor(wiki.slug)?.logo_url ?? wiki.fallbackLogoUrl ?? null;
+  }
+
+  coverColorFor(wiki: (typeof this.publicWikis)[number]): string | null {
+    return this.mediaFor(wiki.slug)?.cover_color ?? null;
+  }
+
+  initialsFor(title: string): string {
+    return title
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
+  }
+
   async ngOnInit(): Promise<void> {
     const liveSlugs = this.publicWikis
       .filter((wiki) => wiki.status === 'live' && wiki.slug)
