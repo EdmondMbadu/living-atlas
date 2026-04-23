@@ -565,7 +565,90 @@ export class WebScraperComponent {
       return true;
     }
 
-    return /\/(p|articles|posts|blog|entry)(\/|$)/.test(pathname);
+    return this.matchesGenericArticlePath(url);
+  }
+
+  private matchesGenericArticlePath(url: URL): boolean {
+    if (this.hasDisqualifyingArticleQuery(url)) {
+      return false;
+    }
+
+    const segments = url.pathname
+      .toLowerCase()
+      .split('/')
+      .filter(Boolean);
+
+    for (const section of ['p', 'articles', 'posts', 'blog', 'entry']) {
+      const sectionIndex = segments.indexOf(section);
+      if (sectionIndex === -1) {
+        continue;
+      }
+
+      const slugSegments = segments.slice(sectionIndex + 1);
+      if (slugSegments.length === 0) {
+        return false;
+      }
+
+      if (slugSegments.some((segment) => this.isDisallowedArticleSegment(segment))) {
+        return false;
+      }
+
+      const slug = slugSegments[slugSegments.length - 1];
+      return this.isLikelyArticleSlug(slug);
+    }
+
+    return false;
+  }
+
+  private hasDisqualifyingArticleQuery(url: URL): boolean {
+    const disallowedKeys = new Set([
+      'pg',
+      'page',
+      'mpp',
+      'sort',
+      'filter',
+      'keyword',
+      'it',
+      'hawksortby',
+      'hawktabs',
+      'content_topic',
+      'redir',
+      'returnurl',
+    ]);
+
+    for (const key of url.searchParams.keys()) {
+      if (disallowedKeys.has(key.toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private isDisallowedArticleSegment(segment: string): boolean {
+    return [
+      'page',
+      'tag',
+      'tags',
+      'category',
+      'categories',
+      'author',
+      'authors',
+      'search',
+      'archive',
+    ].includes(segment);
+  }
+
+  private isLikelyArticleSlug(value: string): boolean {
+    if (!value || value.includes('.')) {
+      return false;
+    }
+
+    if (/^\d+$/.test(value)) {
+      return false;
+    }
+
+    return /[a-z]/.test(value) && value.length >= 4;
   }
 
   private isExcludedPath(pathname: string): boolean {

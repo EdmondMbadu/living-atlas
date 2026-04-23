@@ -34,6 +34,7 @@ export class LibraryComponent {
   );
 
   readonly isSigningOut = signal(false);
+  readonly isDeletingAllDocuments = signal(false);
   readonly avatarMenuOpen = signal(false);
   readonly searchQuery = signal('');
   readonly urlToImport = signal('');
@@ -127,6 +128,13 @@ export class LibraryComponent {
   );
   readonly deletingDocumentIds = computed(() =>
     this.isPublicView() ? {} : this.documentsService.deletingDocumentIds(),
+  );
+  readonly canDeleteAllDocuments = computed(
+    () =>
+      !this.isPublicView() &&
+      this.documents().length > 0 &&
+      !this.isDeletingAllDocuments() &&
+      !this.isUploading(),
   );
 
   constructor() {
@@ -242,6 +250,33 @@ export class LibraryComponent {
     }
 
     await this.documentsService.deleteDocument(document.id);
+  }
+
+  async deleteAllDocuments(): Promise<void> {
+    if (this.isPublicView()) {
+      return;
+    }
+
+    const documents = this.documents().slice();
+    if (documents.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${documents.length} sources in this atlas?\n\nThis will remove every file and URL source, their extracts, knowledge entries, and affected wiki topics.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.isDeletingAllDocuments.set(true);
+
+    try {
+      await this.documentsService.deleteDocuments(documents.map((document) => document.id));
+    } finally {
+      this.isDeletingAllDocuments.set(false);
+    }
   }
 
   iconForDocument(document: DocumentItem): string {

@@ -356,6 +356,18 @@ export class DocumentsService {
     }
   }
 
+  async deleteDocuments(documentIds: string[]): Promise<void> {
+    const ids = Array.from(new Set(documentIds.map((value) => value.trim()).filter(Boolean)));
+    if (ids.length === 0) {
+      return;
+    }
+
+    this.deleteError.set(null);
+    for (const documentId of ids) {
+      await this.deleteDocument(documentId);
+    }
+  }
+
   private async uploadSingleFile(file: File): Promise<void> {
     if (!this.functions || !this.storage) {
       return;
