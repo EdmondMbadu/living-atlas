@@ -24,6 +24,19 @@ import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './u
 const callableRegion = 'us-central1';
 const storageTriggerRegion = 'us-west1';
 
+function looksLikeAntiBotChallenge(html: string): boolean {
+  const normalized = html.toLowerCase();
+  return [
+    'attention required! | cloudflare',
+    'just a moment...',
+    'enable javascript and cookies to continue',
+    'sorry, you have been blocked',
+    'cf-mitigated',
+    '_cf_chl_opt',
+    '/cdn-cgi/challenge-platform/',
+  ].some((marker) => normalized.includes(marker));
+}
+
 export const fetchProxy = onRequest(
   {
     region: callableRegion,
@@ -81,9 +94,39 @@ export const fetchProxy = onRequest(
       });
 
       const html = await response.text();
+      const blockedByAntiBot = looksLikeAntiBotChallenge(html);
       const contentType = response.headers.get('content-type');
-      res.status(response.status);
-      res.set('Content-Type', contentType && contentType.includes('text/html') ? contentType : 'text/html; charset=utf-8');
+
+      if (!response.ok || blockedByAntiBot) {
+        const upstreamStatus = response.status || 0;
+        const message = blockedByAntiBot
+          ? `The source site blocked server-side scraping with an anti-bot challenge. Try a less-protected source such as an RSS feed, a public archive page, or an individual article URL.`
+          : `The source site responded with ${upstreamStatus}.`;
+
+        logger.warn('fetchProxy upstream blocked or failed', {
+          url: targetUrl.toString(),
+          upstreamStatus,
+          blockedByAntiBot,
+        });
+
+        res.status(blockedByAntiBot ? 422 : upstreamStatus);
+        res.set('Content-Type', 'application/json; charset=utf-8');
+        res.send({
+          code: blockedByAntiBot ? 'site-blocked-bot-challenge' : 'upstream-fetch-failed',
+          message,
+          upstreamStatus,
+          targetHost: targetUrl.hostname,
+        });
+        return;
+      }
+
+      res.status(200);
+      res.set(
+        'Content-Type',
+        contentType && contentType.includes('text/html')
+          ? contentType
+          : 'text/html; charset=utf-8',
+      );
       res.send(html);
     } catch (error) {
       logger.error('fetchProxy failed', {

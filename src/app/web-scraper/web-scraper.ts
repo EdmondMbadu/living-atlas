@@ -350,31 +350,82 @@ export class WebScraperComponent {
       throw new Error('Firebase project configuration is missing.');
     }
 
-    const endpoint = this.fetchProxyEndpoint(projectId, url);
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    });
+    const endpoints = this.fetchProxyEndpoints(projectId, url);
+    let lastError: unknown = null;
 
-    if (!response.ok) {
-      throw new Error(`Could not fetch the source page (${response.status}).`);
-    }
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        });
 
-    return await response.text();
-  }
+        if (!response.ok) {
+          throw new Error(await this.readProxyError(response));
+        }
 
-  private fetchProxyEndpoint(projectId: string, targetUrl: string): string {
-    const encodedUrl = encodeURIComponent(targetUrl);
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `http://127.0.0.1:5001/${projectId}/us-central1/fetchProxy?url=${encodedUrl}`;
+        return await response.text();
+      } catch (error) {
+        lastError = error;
       }
     }
 
-    return `https://us-central1-${projectId}.cloudfunctions.net/fetchProxy?url=${encodedUrl}`;
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Could not fetch the source page.');
+  }
+
+  private async readProxyError(response: Response): Promise<string> {
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      try {
+        const payload = (await response.json()) as {
+          message?: unknown;
+          upstreamStatus?: unknown;
+          targetHost?: unknown;
+          code?: unknown;
+        };
+
+        const message =
+          typeof payload.message === 'string' && payload.message.trim()
+            ? payload.message.trim()
+            : null;
+        const targetHost =
+          typeof payload.targetHost === 'string' && payload.targetHost.trim()
+            ? payload.targetHost.trim()
+            : null;
+
+        if (message && targetHost) {
+          return `${message} Source: ${targetHost}.`;
+        }
+        if (message) {
+          return message;
+        }
+      } catch {
+        // Fall through to the generic message below.
+      }
+    }
+
+    return `Could not fetch the source page (${response.status}).`;
+  }
+
+  private fetchProxyEndpoints(projectId: string, targetUrl: string): string[] {
+    const encodedUrl = encodeURIComponent(targetUrl);
+    const productionEndpoint = `https://us-central1-${projectId}.cloudfunctions.net/fetchProxy?url=${encodedUrl}`;
+
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return [
+          `http://127.0.0.1:5001/${projectId}/us-central1/fetchProxy?url=${encodedUrl}`,
+          productionEndpoint,
+        ];
+      }
+    }
+
+    return [productionEndpoint];
   }
 
   private extractArticlesFromHtml(html: string, seedUrl: string): DiscoveredArticle[] {
