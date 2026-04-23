@@ -1,17 +1,28 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AtlasService } from '../atlas.service';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 import { PUBLIC_WIKI_CATALOG } from '../public-wiki-catalog';
 
 const ALL_CATEGORIES = 'All';
+
+interface AtlasMedia {
+  hero_url: string | null;
+  logo_url: string | null;
+  cover_color: string | null;
+}
 
 @Component({
   selector: 'app-public-wikis',
   imports: [RouterLink, ThemeToggleComponent, FormsModule],
   templateUrl: './public-wikis.html',
 })
-export class PublicWikisComponent {
+export class PublicWikisComponent implements OnInit {
+  private readonly atlasService = inject(AtlasService);
+  readonly atlasMedia = signal<Record<string, AtlasMedia>>({});
+
+
   readonly publicWikis = [...PUBLIC_WIKI_CATALOG].sort((a, b) => {
     if (a.status === b.status) return 0;
     return a.status === 'live' ? -1 : 1;
@@ -72,5 +83,41 @@ export class PublicWikisComponent {
   clearFilters(): void {
     this.activeCategory.set(ALL_CATEGORIES);
     this.searchTerm.set('');
+  }
+
+  mediaFor(slug: string | undefined): AtlasMedia | null {
+    if (!slug) return null;
+    return this.atlasMedia()[slug] ?? null;
+  }
+
+  async ngOnInit(): Promise<void> {
+    const liveSlugs = this.publicWikis
+      .filter((wiki) => wiki.status === 'live' && wiki.slug)
+      .map((wiki) => wiki.slug as string);
+
+    const results = await Promise.all(
+      liveSlugs.map(async (slug) => {
+        try {
+          const atlas = await this.atlasService.getPublicAtlasBySlug(slug);
+          if (!atlas) return null;
+          return [
+            slug,
+            {
+              hero_url: atlas.hero_url,
+              logo_url: atlas.logo_url,
+              cover_color: atlas.cover_color,
+            },
+          ] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const next: Record<string, AtlasMedia> = {};
+    for (const entry of results) {
+      if (entry) next[entry[0]] = entry[1];
+    }
+    this.atlasMedia.set(next);
   }
 }
