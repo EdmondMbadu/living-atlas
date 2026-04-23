@@ -25,6 +25,7 @@ interface DiscoveredArticle {
   title: string;
   url: string;
   domain: string;
+  alreadyIngested: boolean;
 }
 
 interface ScrapeFailure {
@@ -68,6 +69,7 @@ export class WebScraperComponent {
   readonly statusMessage = signal<string | null>(null);
   readonly discoveredArticles = signal<DiscoveredArticle[]>([]);
   readonly scrapeCount = signal(0);
+  readonly skipAlreadyIngested = signal(true);
   readonly currentArticle = signal<DiscoveredArticle | null>(null);
   readonly currentStageLabel = signal('Waiting to begin');
   readonly completedCount = signal(0);
@@ -85,8 +87,19 @@ export class WebScraperComponent {
   readonly activeAtlas = this.atlasService.activeAtlas;
   readonly activeAtlasName = computed(() => this.atlasService.displayName(this.activeAtlas()));
   readonly totalDiscovered = computed(() => this.discoveredArticles().length);
+  readonly alreadyIngestedCount = computed(
+    () => this.discoveredArticles().filter((article) => article.alreadyIngested).length,
+  );
+  readonly eligibleArticles = computed(() => {
+    const articles = this.discoveredArticles();
+    if (!this.skipAlreadyIngested()) {
+      return articles;
+    }
+    return articles.filter((article) => !article.alreadyIngested);
+  });
+  readonly eligibleCount = computed(() => this.eligibleArticles().length);
   readonly clampedScrapeCount = computed(() => {
-    const total = this.totalDiscovered();
+    const total = this.eligibleCount();
     if (total <= 0) {
       return 0;
     }
@@ -94,7 +107,7 @@ export class WebScraperComponent {
     return Math.min(Math.max(this.scrapeCount(), 1), total);
   });
   readonly selectedArticles = computed(() =>
-    this.discoveredArticles().slice(0, this.clampedScrapeCount()),
+    this.eligibleArticles().slice(0, this.clampedScrapeCount()),
   );
   readonly estimatedTokens = computed(
     () => this.clampedScrapeCount() * AVERAGE_TOKENS_PER_ARTICLE,
@@ -176,13 +189,18 @@ export class WebScraperComponent {
 
   updateScrapeCount(value: unknown): void {
     const numericValue = Number(value);
+    const total = this.eligibleCount();
     if (!Number.isFinite(numericValue)) {
-      this.scrapeCount.set(this.totalDiscovered());
+      this.scrapeCount.set(total);
       return;
     }
 
-    const total = this.totalDiscovered();
     this.scrapeCount.set(total > 0 ? Math.min(Math.max(Math.floor(numericValue), 1), total) : 0);
+  }
+
+  toggleSkipAlreadyIngested(value: boolean): void {
+    this.skipAlreadyIngested.set(value);
+    this.scrapeCount.set(this.eligibleCount());
   }
 
   async discoverArticles(): Promise<void> {
@@ -221,7 +239,10 @@ export class WebScraperComponent {
 
       this.sourceUrl.set(normalizedUrl);
       this.discoveredArticles.set(articles);
-      this.scrapeCount.set(articles.length);
+      const eligible = this.skipAlreadyIngested()
+        ? articles.filter((article) => !article.alreadyIngested).length
+        : articles.length;
+      this.scrapeCount.set(eligible);
       this.state.set('PREVIEW');
     } catch (error) {
       this.state.set('ERROR');
@@ -435,6 +456,7 @@ export class WebScraperComponent {
     const seed = new URL(seedUrl);
     const seedHost = this.normalizeHost(seed.hostname);
     const seedKey = this.normalizeComparableUrl(seed.toString());
+    const existingUrls = this.collectExistingIngestedUrls();
     const seen = new Set<string>();
     const articles: DiscoveredArticle[] = [];
 
@@ -473,10 +495,33 @@ export class WebScraperComponent {
         title: this.extractLinkTitle(anchor, candidate),
         url: comparableUrl,
         domain: candidate.hostname,
+        alreadyIngested: existingUrls.has(comparableUrl),
       });
     }
 
     return articles;
+  }
+
+  private collectExistingIngestedUrls(): Set<string> {
+    const urls = new Set<string>();
+    for (const document of this.documentsService.documents()) {
+      if (document.source_type !== 'url') {
+        continue;
+      }
+      const candidate =
+        (typeof document.source_url === 'string' && document.source_url.trim()) ||
+        (typeof document.filename === 'string' && document.filename.trim()) ||
+        '';
+      if (!candidate) {
+        continue;
+      }
+      try {
+        urls.add(this.normalizeComparableUrl(candidate));
+      } catch {
+        // ignore malformed stored URLs
+      }
+    }
+    return urls;
   }
 
   private detectPlatform(seedUrl: string, doc: Document): DiscoveryPlatform {
