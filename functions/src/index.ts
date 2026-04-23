@@ -5,6 +5,7 @@ import { logger } from 'firebase-functions';
 import { randomUUID } from 'node:crypto';
 import { db, storage } from './firebase';
 import { geminiApiKey } from './gemini';
+import { fetchHtmlWithFallback, looksLikeAntiBotChallenge } from './html-fetch';
 import {
   clientTimestamp,
   deleteChatEntityForUser,
@@ -24,24 +25,11 @@ import { buildStoragePath, detectFileType, extractDocumentIdFromPath } from './u
 const callableRegion = 'us-central1';
 const storageTriggerRegion = 'us-west1';
 
-function looksLikeAntiBotChallenge(html: string): boolean {
-  const normalized = html.toLowerCase();
-  return [
-    'attention required! | cloudflare',
-    'just a moment...',
-    'enable javascript and cookies to continue',
-    'sorry, you have been blocked',
-    'cf-mitigated',
-    '_cf_chl_opt',
-    '/cdn-cgi/challenge-platform/',
-  ].some((marker) => normalized.includes(marker));
-}
-
 export const fetchProxy = onRequest(
   {
     region: callableRegion,
-    timeoutSeconds: 60,
-    memory: '256MiB',
+    timeoutSeconds: 120,
+    memory: '1GiB',
   },
   async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -78,27 +66,14 @@ export const fetchProxy = onRequest(
       return;
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20_000);
-
     try {
-      const response = await fetch(targetUrl.toString(), {
-        method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; LivingAtlasBot/1.0)',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
+      const fetched = await fetchHtmlWithFallback(targetUrl.toString(), {
+        timeoutMs: 90_000,
       });
+      const blockedByAntiBot = looksLikeAntiBotChallenge(fetched.html);
 
-      const html = await response.text();
-      const blockedByAntiBot = looksLikeAntiBotChallenge(html);
-      const contentType = response.headers.get('content-type');
-
-      if (!response.ok || blockedByAntiBot) {
-        const upstreamStatus = response.status || 0;
+      if (fetched.status >= 400 || blockedByAntiBot) {
+        const upstreamStatus = fetched.status || 0;
         const message = blockedByAntiBot
           ? `The source site blocked server-side scraping with an anti-bot challenge. Try a less-protected source such as an RSS feed, a public archive page, or an individual article URL.`
           : `The source site responded with ${upstreamStatus}.`;
@@ -123,19 +98,17 @@ export const fetchProxy = onRequest(
       res.status(200);
       res.set(
         'Content-Type',
-        contentType && contentType.includes('text/html')
-          ? contentType
+        fetched.contentType && fetched.contentType.includes('text/html')
+          ? fetched.contentType
           : 'text/html; charset=utf-8',
       );
-      res.send(html);
+      res.send(fetched.html);
     } catch (error) {
       logger.error('fetchProxy failed', {
         url: targetUrl.toString(),
         errorMessage: error instanceof Error ? error.message : String(error),
       });
       res.status(500).send('Fetch failed.');
-    } finally {
-      clearTimeout(timeout);
     }
   },
 );

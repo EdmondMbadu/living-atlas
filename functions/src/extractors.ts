@@ -4,6 +4,7 @@ import JSZip from 'jszip';
 import mammoth from 'mammoth';
 import pdf from 'pdf-parse';
 import { transcribeImageToLines } from './gemini';
+import { fetchHtmlWithFallback } from './html-fetch';
 import { groupLinesIntoBlocks } from './utils';
 import type { ExtractBlock, SupportedFileType } from './types';
 
@@ -63,18 +64,13 @@ async function extractPlainText(buffer: Buffer): Promise<ExtractBlock[]> {
 }
 
 async function extractUrl(url: string): Promise<{ title: string | null; blocks: ExtractBlock[] }> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'LivingAtlasBot/1.0 (+https://living-atlas-7622a.web.app)',
-    },
-  });
+  const response = await fetchHtmlWithFallback(url, { timeoutMs: 60_000 });
 
-  if (!response.ok) {
+  if (response.status >= 400) {
     throw new Error(`Failed to fetch URL (${response.status}).`);
   }
 
-  const html = await response.text();
-  const dom = new JSDOM(html, { url });
+  const dom = new JSDOM(response.html, { url: response.finalUrl || url });
   const reader = new Readability(dom.window.document);
   const article = reader.parse();
   const text = article?.textContent?.trim() ?? dom.window.document.body?.textContent?.trim() ?? '';
