@@ -33,6 +33,7 @@ const urlIngestionTriggerOptions = {
   region: callableRegion,
   timeoutSeconds: 540,
   memory: '2GiB' as const,
+  cpu: 2,
   concurrency: 1,
   maxInstances: 16,
   secrets: [geminiApiKey],
