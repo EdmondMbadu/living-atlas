@@ -1,5 +1,6 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import { logger } from 'firebase-functions';
 import { randomUUID } from 'node:crypto';
@@ -27,6 +28,7 @@ const callableRegion = 'us-central1';
 const storageTriggerRegion = 'us-west1';
 const staleIngestionThresholdMinutes = 10;
 const defaultRetryLimit = 50;
+const staleRetryBatchLimit = 200;
 const urlIngestionTriggerOptions = {
   region: callableRegion,
   timeoutSeconds: 540,
@@ -163,6 +165,78 @@ function timestampToMillis(value: unknown): number | null {
     return Number.isNaN(date.getTime()) ? null : date.getTime();
   }
   return null;
+}
+
+type StaleUrlDocumentCandidate = FirebaseFirestore.QueryDocumentSnapshot;
+
+async function collectStaleUrlDocuments(params: {
+  userId: string | null;
+  atlasId: string | null;
+  staleMinutes: number;
+  limit: number;
+}): Promise<StaleUrlDocumentCandidate[]> {
+  const cutoffMs = Date.now() - params.staleMinutes * 60_000;
+  const staleDocs = new Map<string, StaleUrlDocumentCandidate>();
+
+  for (const status of ['processing', 'pending'] as const) {
+    let query = db.collection('documents').where('status', '==', status).limit(1000);
+    if (params.userId) {
+      query = query.where('user_id', '==', params.userId);
+    }
+    if (params.atlasId) {
+      query = query.where('atlas_id', '==', params.atlasId);
+    }
+
+    const snapshot = await query.get();
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      if (data.source_type !== 'url') {
+        continue;
+      }
+
+      const heartbeatMs = timestampToMillis(data.last_heartbeat_at);
+      if (heartbeatMs === null || heartbeatMs >= cutoffMs) {
+        continue;
+      }
+
+      staleDocs.set(doc.id, doc);
+      if (staleDocs.size >= params.limit) {
+        return Array.from(staleDocs.values());
+      }
+    }
+  }
+
+  return Array.from(staleDocs.values());
+}
+
+async function requeueStaleUrlDocuments(
+  staleDocuments: StaleUrlDocumentCandidate[],
+): Promise<void> {
+  for (const doc of staleDocuments) {
+    await doc.ref.set(
+      {
+        status: 'failed',
+        processing_stage: 'failed',
+        error_message: 'Retrying stale ingestion request.',
+        failure_code: 'retrying_stale_ingestion',
+        last_heartbeat_at: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+
+    await doc.ref.set(
+      {
+        status: 'pending',
+        processing_stage: 'queued',
+        processed_chunks: 0,
+        total_chunks: 0,
+        error_message: null,
+        failure_code: null,
+        last_heartbeat_at: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
 }
 
 type PublicDocumentCandidate = Record<string, unknown> & { id: string };
@@ -507,63 +581,56 @@ export const retryStaleUrlDocuments = onCall(
       Number(request.data?.staleMinutes ?? staleIngestionThresholdMinutes) || staleIngestionThresholdMinutes,
     );
     const limit = Math.min(
-      200,
+      staleRetryBatchLimit,
       Math.max(1, Number(request.data?.limit ?? defaultRetryLimit) || defaultRetryLimit),
     );
-    const cutoffMs = Date.now() - staleMinutes * 60_000;
-
-    const snapshot = atlasId
-      ? await db
-          .collection('documents')
-          .where('user_id', '==', request.auth.uid)
-          .where('atlas_id', '==', atlasId)
-          .where('status', '==', 'processing')
-          .limit(500)
-          .get()
-      : await db
-          .collection('documents')
-          .where('user_id', '==', request.auth.uid)
-          .where('status', '==', 'processing')
-          .limit(500)
-          .get();
-
-    const staleDocuments = snapshot.docs
-      .filter((doc) => {
-        const data = doc.data();
-        if (data.source_type !== 'url') {
-          return false;
-        }
-
-        const heartbeatMs = timestampToMillis(data.last_heartbeat_at);
-        return heartbeatMs !== null && heartbeatMs < cutoffMs;
-      })
-      .slice(0, limit);
+    const staleDocuments = await collectStaleUrlDocuments({
+      userId: request.auth.uid,
+      atlasId,
+      staleMinutes,
+      limit,
+    });
 
     if (staleDocuments.length === 0) {
       return { retriedCount: 0, documentIds: [] };
     }
 
-    await Promise.all(
-      staleDocuments.map((doc) =>
-        doc.ref.set(
-          {
-            status: 'pending',
-            processing_stage: 'queued',
-            processed_chunks: 0,
-            total_chunks: 0,
-            error_message: null,
-            failure_code: null,
-            last_heartbeat_at: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        ),
-      ),
-    );
+    await requeueStaleUrlDocuments(staleDocuments);
 
     return {
       retriedCount: staleDocuments.length,
       documentIds: staleDocuments.map((doc) => doc.id),
     };
+  },
+);
+
+export const sweepStaleUrlDocuments = onSchedule(
+  {
+    region: callableRegion,
+    schedule: 'every 15 minutes',
+    timeZone: 'America/Los_Angeles',
+    timeoutSeconds: 300,
+    memory: '256MiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const staleDocuments = await collectStaleUrlDocuments({
+      userId: null,
+      atlasId: null,
+      staleMinutes: staleIngestionThresholdMinutes,
+      limit: staleRetryBatchLimit,
+    });
+
+    if (staleDocuments.length === 0) {
+      logger.info('sweepStaleUrlDocuments found no stale URL documents');
+      return;
+    }
+
+    await requeueStaleUrlDocuments(staleDocuments);
+    logger.warn('sweepStaleUrlDocuments requeued stale URL documents', {
+      count: staleDocuments.length,
+      documentIds: staleDocuments.slice(0, 25).map((doc) => doc.id),
+    });
   },
 );
 
