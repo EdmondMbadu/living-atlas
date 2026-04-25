@@ -210,6 +210,12 @@
               <div class="flex flex-col items-center pt-12 text-center">
                 <p class="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--accent)]">{{ emptyStateEyebrow() }}</p>
                 <h2 class="mt-3 text-4xl font-black tracking-[-0.08em] text-[var(--text)] md:text-5xl">{{ emptyStateTitle() }}</h2>
+                @if (currentWikiName() && !showSignInCta()) {
+                  <p class="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--line-strong)] bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+                    <span class="material-symbols-outlined text-[0.95rem] text-[var(--accent)]">menu_book</span>
+                    <span class="truncate max-w-[18rem] text-[var(--text)]">{{ currentWikiName() }}</span>
+                  </p>
+                }
                 <p class="mt-4 max-w-xl text-base leading-8 text-[var(--muted)]">
                   {{ emptyStateDescription() }}
                 </p>

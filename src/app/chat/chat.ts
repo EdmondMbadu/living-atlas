@@ -177,30 +177,53 @@ export class ChatComponent implements AfterViewChecked {
     }
     return 'Signed-in visitors can ask unlimited questions. The atlas owner can see your name, email, and questions.';
   });
-  readonly emptyStateEyebrow = computed(() => (this.isWorkspaceMode() ? 'General query' : 'Public chat'));
+  readonly currentWikiName = computed(() => {
+    const atlas = this.isPublicView() ? this.publicAtlas() : this.atlasService.activeAtlas();
+    if (!atlas) {
+      return '';
+    }
+    const name = this.atlasService.displayName(atlas);
+    return name && name !== 'Select atlas' ? name : '';
+  });
+  readonly currentWikiSummary = computed(() => {
+    const atlas = this.isPublicView() ? this.publicAtlas() : this.atlasService.activeAtlas();
+    const description = atlas?.description?.trim();
+    if (description) {
+      return description;
+    }
+    const name = this.currentWikiName();
+    if (name) {
+      return `${name} is a living wiki built from your uploaded sources, with answers grounded in pre-compiled knowledge entries. Ask anything below and Living Wiki will respond with citations tied to exact passages from your library.`;
+    }
+    return 'Living Wiki is grounded in pre-compiled knowledge entries built from your uploaded sources. Ask anything below and you will get answers with citations tied to exact passages.';
+  });
+  readonly emptyStateEyebrow = computed(() => (this.isWorkspaceMode() ? 'Living Wiki' : 'Living Wiki · Public chat'));
   readonly emptyStateTitle = computed(() => {
+    const name = this.currentWikiName();
     if (this.isWorkspaceMode()) {
-      return 'Ask your Wiki';
+      return name ? `Ask ${name}` : 'Ask your Wiki';
     }
     if (this.showSignInCta()) {
       return 'Sign in to keep chatting';
     }
-    return 'Ask this Wiki';
+    return name ? `Ask ${name}` : 'Ask this Wiki';
   });
   readonly emptyStateDescription = computed(() => {
     if (this.isWorkspaceMode()) {
-      return 'Living Wiki answers from pre-compiled knowledge entries and returns citation passages tied to exact stored source spans.';
+      return this.currentWikiSummary();
     }
     if (this.showSignInCta()) {
       return 'You have used all 5 anonymous public questions for this atlas. Sign in to continue the conversation and keep your chat history.';
     }
     if (this.isAnonymousPublicVisitor()) {
       const remaining = this.publicRemainingQuestions();
-      return remaining === null
-        ? 'Ask questions about this public atlas without signing in. Anonymous visitors can ask up to 5 questions.'
-        : `Ask questions about this public atlas without signing in. You have ${remaining} anonymous question${remaining === 1 ? '' : 's'} remaining.`;
+      const base = this.currentWikiSummary();
+      const limitNote = remaining === null
+        ? 'Anonymous visitors can ask up to 5 questions without signing in.'
+        : `You have ${remaining} anonymous question${remaining === 1 ? '' : 's'} remaining.`;
+      return `${base} ${limitNote}`;
     }
-    return 'Ask questions about this public atlas. Signed-in visitors can chat without limits, and the atlas owner can see who asked.';
+    return this.currentWikiSummary();
   });
   readonly composerHelperText = computed(() => {
     if (this.isWorkspaceMode()) {
