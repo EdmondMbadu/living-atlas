@@ -246,9 +246,9 @@ export class ChatComponent implements AfterViewChecked {
   });
 
   private cachedPromptsKey: string | null = null;
-  private cachedPrompts: string[] = [];
+  private cachedPrompts: { label: string; prompt: string }[] = [];
 
-  readonly quickPrompts = computed<string[]>(() => {
+  readonly quickPrompts = computed<{ label: string; prompt: string }[]>(() => {
     if (!this.isWorkspaceMode()) {
       return [];
     }
@@ -285,20 +285,23 @@ export class ChatComponent implements AfterViewChecked {
       }
     }
 
-    const shorten = (label: string, max = 38) => {
+    const shortenLabel = (label: string, max = 36) => {
       const clean = label.replace(/\s+/g, ' ').trim();
       return clean.length > max ? `${clean.slice(0, max - 1).trim()}…` : clean;
     };
 
     const templates = [
-      (label: string) => `What is ${shorten(label, 32)}?`,
-      (label: string) => `Why does ${shorten(label, 30)} matter?`,
+      (label: string) => `What is ${label}?`,
+      (label: string) => `Why does ${label} matter?`,
     ];
 
-    const prompts = picks.map((label, i) => templates[i % templates.length](label));
+    const built = picks.map((label, i) => ({
+      label: shortenLabel(label),
+      prompt: templates[i % templates.length](label),
+    }));
     this.cachedPromptsKey = cacheKey;
-    this.cachedPrompts = prompts;
-    return prompts;
+    this.cachedPrompts = built;
+    return built;
   });
 
   readonly userInitials = () => {
