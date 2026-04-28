@@ -64,7 +64,9 @@ export class GraphAnimationComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.initGraph();
     if (this.isBrowser) {
-      this.animate();
+      // Defer animation until after the initial render to avoid
+      // ExpressionChangedAfterItHasBeenCheckedError during first paint.
+      this.frameId = requestAnimationFrame(() => this.animate());
     }
   }
 
