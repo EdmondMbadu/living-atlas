@@ -158,9 +158,7 @@ export class ChatComponent implements AfterViewChecked {
   );
   readonly pageSubtitle = computed(() => {
     if (this.isWorkspaceMode()) {
-      return this.isInternetMode()
-        ? 'Answer with full internet context and live web sources'
-        : 'Query pre-compiled knowledge with citations';
+      return '';
     }
     if (this.showSignInCta()) {
       return 'Public question limit reached';
