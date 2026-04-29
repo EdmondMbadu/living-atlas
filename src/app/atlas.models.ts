@@ -50,6 +50,7 @@ export interface AtlasItem {
 
 export interface AtlasUsage {
   documents: number;
+  wiki_articles: number;
   knowledge_entries: number;
   wiki_topics: number;
   queries: number;

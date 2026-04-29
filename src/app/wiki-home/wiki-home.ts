@@ -75,7 +75,7 @@ export class WikiHomeComponent {
   }
 
   articleCount(atlas: AtlasItem): number {
-    return atlas.stats?.wiki_articles ?? this.usage(atlas.id)?.wiki_topics ?? 0;
+    return atlas.stats?.wiki_articles ?? this.usage(atlas.id)?.wiki_articles ?? 0;
   }
 
   chatCount(atlas: AtlasItem): number {

@@ -986,8 +986,9 @@ export const getPublicAtlasUsage = onCall(
 
     const atlas = await loadPublicAtlasById(atlasId);
 
-    const [documents, knowledgeEntries, wikiTopics, chatThreads] = await Promise.all([
+    const [documents, wikiArticles, knowledgeEntries, wikiTopics, chatThreads] = await Promise.all([
       countPublicAtlasCollection('documents', atlas.user_id, atlasId),
+      countPublicAtlasCollection('wiki_articles', atlas.user_id, atlasId),
       countPublicAtlasCollection('knowledge_entries', atlas.user_id, atlasId),
       countPublicAtlasCollection('wiki_topics', atlas.user_id, atlasId),
       countPublicAtlasCollection('chat_threads', atlas.user_id, atlasId),
@@ -995,11 +996,12 @@ export const getPublicAtlasUsage = onCall(
 
     return {
       documents,
+      wiki_articles: wikiArticles,
       knowledge_entries: knowledgeEntries,
       wiki_topics: wikiTopics,
       queries: 0,
       chat_threads: chatThreads,
-      total: documents + knowledgeEntries + wikiTopics + chatThreads,
+      total: documents + wikiArticles + knowledgeEntries + wikiTopics + chatThreads,
     };
   },
 );

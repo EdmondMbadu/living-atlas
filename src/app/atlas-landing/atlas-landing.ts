@@ -92,8 +92,8 @@ export class AtlasLandingComponent {
   private usageAtlasId: string | null = null;
   readonly aboutTypedLine = signal('');
   readonly animatedAboutDocuments = signal(0);
-  readonly animatedAboutEntries = signal(0);
-  readonly animatedAboutTopics = signal(0);
+  readonly animatedAboutWikiPages = signal(0);
+  readonly animatedAboutChats = signal(0);
   readonly displayUsage = computed<AtlasUsage | null>(() => {
     const usage = this.usage();
     if (usage) return usage;
@@ -102,12 +102,14 @@ export class AtlasLandingComponent {
     if (atlas.stats) {
       return {
         documents: atlas.stats.documents,
+        wiki_articles: atlas.stats.wiki_articles,
         knowledge_entries: atlas.stats.knowledge_entries,
         wiki_topics: atlas.stats.wiki_topics,
         queries: 0,
         chat_threads: atlas.stats.chat_threads,
         total:
           atlas.stats.documents +
+          atlas.stats.wiki_articles +
           atlas.stats.knowledge_entries +
           atlas.stats.wiki_topics +
           atlas.stats.chat_threads,
@@ -116,22 +118,22 @@ export class AtlasLandingComponent {
     return null;
   });
   readonly aboutDocumentsCount = computed(() => this.displayUsage()?.documents ?? 0);
-  readonly aboutEntriesCount = computed(() => this.displayUsage()?.knowledge_entries ?? 0);
-  readonly aboutTopicsCount = computed(() => this.displayUsage()?.wiki_topics ?? 0);
+  readonly aboutWikiPagesCount = computed(() => this.displayUsage()?.wiki_articles ?? 0);
+  readonly aboutChatsCount = computed(() => (this.displayUsage()?.queries ?? 0) + (this.displayUsage()?.chat_threads ?? 0));
   readonly aboutSummaryLine = computed(() => {
     if (this.usageLoading()) {
       return 'Loading indexed knowledge…';
     }
 
     const docs = this.aboutDocumentsCount();
-    const entries = this.aboutEntriesCount();
-    const topics = this.aboutTopicsCount();
+    const wikiPages = this.aboutWikiPagesCount();
+    const chats = this.aboutChatsCount();
 
-    if (docs === 0 && entries === 0 && topics === 0) {
+    if (docs === 0 && wikiPages === 0 && chats === 0) {
       return 'Searchable knowledge with receipts, ready to grow.';
     }
 
-    return `${docs} document${docs === 1 ? '' : 's'} • ${entries} knowledge entr${entries === 1 ? 'y' : 'ies'} • ${topics} wiki topic${topics === 1 ? '' : 's'}`;
+    return `${docs} document${docs === 1 ? '' : 's'} • ${wikiPages} wiki page${wikiPages === 1 ? '' : 's'} • ${chats} chat thread${chats === 1 ? '' : 's'}`;
   });
 
   constructor() {
@@ -207,13 +209,13 @@ export class AtlasLandingComponent {
 
     effect((onCleanup) => {
       const docs = this.aboutDocumentsCount();
-      const entries = this.aboutEntriesCount();
-      const topics = this.aboutTopicsCount();
+      const wikiPages = this.aboutWikiPagesCount();
+      const chats = this.aboutChatsCount();
 
       if (this.usageLoading()) {
         this.animatedAboutDocuments.set(0);
-        this.animatedAboutEntries.set(0);
-        this.animatedAboutTopics.set(0);
+        this.animatedAboutWikiPages.set(0);
+        this.animatedAboutChats.set(0);
         return;
       }
 
@@ -225,8 +227,8 @@ export class AtlasLandingComponent {
         const eased = 1 - Math.pow(1 - progress, 3);
 
         this.animatedAboutDocuments.set(Math.round(docs * eased));
-        this.animatedAboutEntries.set(Math.round(entries * eased));
-        this.animatedAboutTopics.set(Math.round(topics * eased));
+        this.animatedAboutWikiPages.set(Math.round(wikiPages * eased));
+        this.animatedAboutChats.set(Math.round(chats * eased));
 
         if (progress >= 1) {
           clearInterval(interval);

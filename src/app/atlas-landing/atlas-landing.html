@@ -255,19 +255,19 @@
                   <span>docs</span>
                 </span>
                 <span class="atlas-about__stat-pill">
-                  <span class="atlas-about__stat-value">{{ usageLoading() ? '—' : animatedAboutEntries() }}</span>
-                  <span>entries</span>
+                  <span class="atlas-about__stat-value">{{ usageLoading() ? '—' : animatedAboutWikiPages() }}</span>
+                  <span>wiki pages</span>
                 </span>
                 <span class="atlas-about__stat-pill">
-                  <span class="atlas-about__stat-value">{{ usageLoading() ? '—' : animatedAboutTopics() }}</span>
-                  <span>topics</span>
+                  <span class="atlas-about__stat-value">{{ usageLoading() ? '—' : animatedAboutChats() }}</span>
+                  <span>chats</span>
                 </span>
               </div>
               @if (a.description) {
                 <p class="mb-6 text-lg leading-relaxed text-[var(--muted)]">{{ a.description }}</p>
               } @else {
                 <p class="mb-6 text-lg leading-relaxed text-[var(--muted)]">
-                  This Wiki is a growing archive of documents, claims, and topics — organized, cross-referenced, and ready to answer questions with receipts.
+                  This Wiki is a growing archive of documents and wiki pages — organized, cross-referenced, and ready to answer questions with receipts.
                 </p>
               }
               <p class="mb-8 text-base leading-relaxed text-[var(--muted)]">
@@ -471,19 +471,19 @@
                 </div>
                 <div>
                   <div class="mb-1 font-headline text-4xl font-extrabold text-[var(--accent)]">
-                    {{ usageLoading() ? '—' : (displayUsage()?.knowledge_entries ?? 0) }}
+                    {{ usageLoading() ? '—' : (displayUsage()?.wiki_articles ?? 0) }}
                   </div>
-                  <div class="text-sm font-medium text-[var(--muted)]">Knowledge entries</div>
+                  <div class="text-sm font-medium text-[var(--muted)]">Wiki pages</div>
                 </div>
                 <div>
                   <div class="mb-1 font-headline text-4xl font-extrabold text-[var(--accent)]">
-                    {{ usageLoading() ? '—' : (displayUsage()?.wiki_topics ?? 0) }}
+                    {{ usageLoading() ? '—' : ((displayUsage()?.documents ?? 0) + (displayUsage()?.wiki_articles ?? 0)) }}
                   </div>
-                  <div class="text-sm font-medium text-[var(--muted)]">Wiki topics</div>
+                  <div class="text-sm font-medium text-[var(--muted)]">Indexed sources</div>
                 </div>
                 <div>
                   <div class="mb-1 font-headline text-4xl font-extrabold text-[var(--accent)]">
-                    {{ usageLoading() ? '—' : (displayUsage()?.chat_threads ?? 0) }}
+                    {{ usageLoading() ? '—' : ((displayUsage()?.queries ?? 0) + (displayUsage()?.chat_threads ?? 0)) }}
                   </div>
                   <div class="text-sm font-medium text-[var(--muted)]">Chat threads</div>
                 </div>

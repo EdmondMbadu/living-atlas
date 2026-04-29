@@ -291,6 +291,7 @@ export class AtlasService {
     if (!this.firestore) {
       return {
         documents: 0,
+        wiki_articles: 0,
         knowledge_entries: 0,
         wiki_topics: 0,
         queries: 0,
@@ -303,6 +304,7 @@ export class AtlasService {
     if (!uid) {
       return {
         documents: 0,
+        wiki_articles: 0,
         knowledge_entries: 0,
         wiki_topics: 0,
         queries: 0,
@@ -311,8 +313,9 @@ export class AtlasService {
       };
     }
 
-    const [documents, knowledgeEntries, wikiTopics, queriesCount, chatThreads] = await Promise.all([
+    const [documents, wikiArticles, knowledgeEntries, wikiTopics, queriesCount, chatThreads] = await Promise.all([
       this.countAtlasCollection('documents', uid, atlasId),
+      this.countAtlasCollection('wiki_articles', uid, atlasId),
       this.countAtlasCollection('knowledge_entries', uid, atlasId),
       this.countAtlasCollection('wiki_topics', uid, atlasId),
       this.countAtlasCollection('queries', uid, atlasId),
@@ -321,11 +324,12 @@ export class AtlasService {
 
     return {
       documents,
+      wiki_articles: wikiArticles,
       knowledge_entries: knowledgeEntries,
       wiki_topics: wikiTopics,
       queries: queriesCount,
       chat_threads: chatThreads,
-      total: documents + knowledgeEntries + wikiTopics + queriesCount + chatThreads,
+      total: documents + wikiArticles + knowledgeEntries + wikiTopics + queriesCount + chatThreads,
     };
   }
 
@@ -333,6 +337,7 @@ export class AtlasService {
     if (!this.functions) {
       return {
         documents: 0,
+        wiki_articles: 0,
         knowledge_entries: 0,
         wiki_topics: 0,
         queries: 0,
@@ -474,7 +479,7 @@ export class AtlasService {
   }
 
   private async countAtlasCollection(
-    collectionName: 'documents' | 'knowledge_entries' | 'wiki_topics' | 'queries' | 'chat_threads',
+    collectionName: 'documents' | 'wiki_articles' | 'knowledge_entries' | 'wiki_topics' | 'queries' | 'chat_threads',
     userId: string,
     atlasId: string,
   ): Promise<number> {
@@ -492,6 +497,7 @@ export class AtlasService {
   private formatAtlasUsageError(usage: AtlasUsage): string {
     const parts = [
       usage.documents ? `${usage.documents} document${usage.documents === 1 ? '' : 's'}` : null,
+      usage.wiki_articles ? `${usage.wiki_articles} wiki page${usage.wiki_articles === 1 ? '' : 's'}` : null,
       usage.knowledge_entries ? `${usage.knowledge_entries} knowledge entr${usage.knowledge_entries === 1 ? 'y' : 'ies'}` : null,
       usage.wiki_topics ? `${usage.wiki_topics} wiki topic${usage.wiki_topics === 1 ? '' : 's'}` : null,
       usage.queries ? `${usage.queries} legacy chat${usage.queries === 1 ? '' : 's'}` : null,
