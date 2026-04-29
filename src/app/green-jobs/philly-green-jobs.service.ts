@@ -489,7 +489,7 @@ export class PhillyGreenJobsService {
 
   private scrapePwdApprenticeships(html: string, source: SourceDefinition): PhillyGreenJobListing[] {
     const document = parseDocument(html);
-    const allItems = Array.from(document.querySelectorAll('li'))
+    const listedPathways = Array.from(document.querySelectorAll('li'))
       .map((item) => cleanText(item.textContent))
       .filter((item) =>
         [
@@ -505,27 +505,31 @@ export class PhillyGreenJobsService {
         ].includes(item),
       );
 
-    return allItems.map((item) => {
-      const tags = buildTags(`${item} water stormwater apprenticeship`);
-      return {
-        id: source.id + ':' + stableId(item),
-        title: item,
+    if (listedPathways.length === 0) {
+      return [];
+    }
+
+    const tags = buildTags(`${listedPathways.join(' ')} water stormwater apprenticeship`);
+    return [
+      {
+        id: source.id + ':apprenticeship-program',
+        title: 'PWD Apprenticeship Program',
         organization: 'Philadelphia Water Department',
-        summary: 'PWD apprenticeship pathway with a six-month temporary start and a route into permanent civil service roles.',
+        summary: `Public-sector apprenticeship pathway into water, treatment, skilled trades, STEM, and green stormwater infrastructure work. Apprentices start with six months of temporary employment before becoming eligible for permanent civil service promotion. Included roles: ${listedPathways.join(', ')}.`,
         location: PHILADELPHIA,
         sourceId: source.id,
         sourceLabel: source.label,
         sourceUrl: source.url,
         detailsUrl: source.url,
-        applyUrl: 'https://water.phila.gov/careers/apprenticeship/apply/',
+        applyUrl: source.url,
         bucket: 'pathways',
         fit: 'pathway',
         postedLabel: null,
         compensation: null,
         greenReason: 'Public-sector pathway into water, treatment, and green stormwater infrastructure work.',
         tags,
-      };
-    });
+      },
+    ];
   }
 }
 
