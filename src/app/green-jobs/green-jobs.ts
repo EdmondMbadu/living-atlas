@@ -191,6 +191,31 @@ export class GreenJobsComponent {
     return this.sourceStatuses().find((source) => source.id === sourceId)?.label ?? sourceId;
   }
 
+  bucketCount(bucket: 'all' | 'jobs' | 'pathways'): number {
+    if (bucket === 'all') return this.listings().length;
+    return this.listings().filter((l) => l.bucket === bucket).length;
+  }
+
+  sourceCountFor(sourceId: 'all' | string): number {
+    if (sourceId === 'all') return this.listings().length;
+    return this.listings().filter((l) => l.sourceId === sourceId).length;
+  }
+
+  bucketIcon(bucket: 'jobs' | 'pathways'): string {
+    return bucket === 'jobs' ? 'work' : 'school';
+  }
+
+  bucketAccent(listing: PhillyGreenJobListing): string {
+    if (listing.bucket === 'pathways') return 'pathway';
+    return listing.fit === 'support' ? 'support' : 'direct';
+  }
+
+  fitIcon(listing: PhillyGreenJobListing): string {
+    if (listing.bucket === 'pathways') return 'school';
+    if (listing.fit === 'support') return 'handshake';
+    return 'eco';
+  }
+
   private formatTimestamp(value: string | null): string {
     if (!value) {
       return 'No refresh yet';

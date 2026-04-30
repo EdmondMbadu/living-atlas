@@ -8,13 +8,17 @@
     <header class="theme-nav sticky top-0 z-40 border-b px-5 py-4 backdrop-blur-xl md:px-8">
       <div class="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
         <div>
-          <a [routerLink]="['/atlas', routeSlug() ?? 'philly']" class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
+          <a [routerLink]="['/atlas', routeSlug() ?? 'philly']" class="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--accent)] hover:underline">
+            <span class="material-symbols-outlined text-[14px]">arrow_back</span>
             Back to Philly
           </a>
-          <h1 class="mt-2 text-3xl font-black tracking-[-0.07em] text-[var(--text)] md:text-4xl">Philly Green Jobs</h1>
-          <p class="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
-            Live opportunities and career pathways across Philadelphia’s clean-energy, water, building retrofit, and environmental workforce ecosystem.
-          </p>
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <h1 class="text-3xl font-black tracking-[-0.07em] text-[var(--text)] md:text-4xl">Philly Green Jobs</h1>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--soft-fill)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">
+              <span class="material-symbols-outlined text-[12px]">location_on</span>
+              Philadelphia
+            </span>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <a
@@ -90,61 +94,86 @@
 
         <section class="grid grid-cols-1 gap-5 lg:grid-cols-4">
           <article class="green-jobs-hero glass-card rounded-[2rem] p-6 lg:col-span-2">
-            <p class="green-jobs-hero__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Living pipeline</p>
-            <h2 class="green-jobs-hero__title mt-3 text-3xl font-black tracking-[-0.07em]">A Philly-specific green workforce page that can stay current.</h2>
-            <p class="green-jobs-hero__body mt-4 max-w-2xl text-sm leading-7">
-              The page refreshes directly from institutional source pages and keeps jobs separate from training pathways, so you can build a local dataset instead of a dead list of outbound links.
-            </p>
-            <div class="mt-6 flex flex-wrap gap-2">
-              @for (tag of availableTags(); track tag) {
-                <span class="green-jobs-hero__tag rounded-full px-3 py-1.5 text-xs font-semibold">{{ tag }}</span>
-              }
+            <div class="green-jobs-hero__live flex items-center gap-2">
+              <span class="relative flex h-2 w-2">
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70"></span>
+                <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-300"></span>
+              </span>
+              <p class="green-jobs-hero__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Living pipeline</p>
             </div>
+            <h2 class="green-jobs-hero__title mt-3 text-3xl font-black tracking-[-0.07em]">A Philly-specific green workforce page that stays current.</h2>
+            <p class="green-jobs-hero__body mt-4 max-w-2xl text-sm leading-7">
+              Refreshed directly from institutional source pages — jobs and training pathways stay separate, so this is a real local dataset, not a dead list of links.
+            </p>
+            @if (availableTags().length > 0) {
+              <div class="mt-6 flex flex-wrap gap-2">
+                @for (tag of availableTags(); track tag) {
+                  <span class="green-jobs-hero__tag rounded-full px-3 py-1.5 text-xs font-semibold">{{ tag }}</span>
+                }
+              </div>
+            }
           </article>
 
-          <article class="glass-card rounded-[2rem] p-6">
-            <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Open jobs</p>
-            <div class="mt-3 text-4xl font-black tracking-[-0.07em] text-[var(--text)]">{{ totalJobs() }}</div>
-            <p class="mt-2 text-sm text-[var(--muted)]">Direct roles plus support roles inside Philly clean-energy institutions.</p>
+          <article class="green-jobs-stat green-jobs-stat--jobs glass-card rounded-[2rem] p-6">
+            <div class="flex items-start justify-between">
+              <span class="green-jobs-stat__icon green-jobs-stat__icon--jobs material-symbols-outlined">work</span>
+              <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Live</span>
+            </div>
+            <div class="mt-4 font-headline text-[2.6rem] font-black leading-none tracking-[-0.08em] text-[var(--text)]" style="font-variant-numeric: tabular-nums;">{{ totalJobs() }}</div>
+            <p class="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Open jobs</p>
+            <p class="mt-3 text-xs leading-6 text-[var(--muted)]">Direct + support roles in Philly clean-energy institutions.</p>
           </article>
 
-          <article class="glass-card rounded-[2rem] p-6">
-            <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Pathways</p>
-            <div class="mt-3 text-4xl font-black tracking-[-0.07em] text-[var(--text)]">{{ totalPathways() }}</div>
-            <p class="mt-2 text-sm text-[var(--muted)]">Training, apprenticeships, and structured on-ramps into green-sector work.</p>
+          <article class="green-jobs-stat green-jobs-stat--pathways glass-card rounded-[2rem] p-6">
+            <div class="flex items-start justify-between">
+              <span class="green-jobs-stat__icon green-jobs-stat__icon--pathways material-symbols-outlined">school</span>
+              <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">{{ sourceCount() }} sources</span>
+            </div>
+            <div class="mt-4 font-headline text-[2.6rem] font-black leading-none tracking-[-0.08em] text-[var(--text)]" style="font-variant-numeric: tabular-nums;">{{ totalPathways() }}</div>
+            <p class="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[var(--muted)]">Pathways</p>
+            <p class="mt-3 text-xs leading-6 text-[var(--muted)]">Training, apprenticeships, and on-ramps into green-sector work.</p>
           </article>
         </section>
 
         <section class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
           <div class="space-y-6">
             <div class="glass-card rounded-[2rem] p-5 md:p-6">
-              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Refresh policy</p>
-                  <p class="mt-2 text-sm leading-7 text-[var(--muted)]">
-                    Jobs sources are designed for daily refreshes. Training and apprenticeship sources refresh weekly.
-                    Latest pull:
-                    <span class="green-jobs-refresh__meta">{{ refreshedLabel() }}</span>
-                  </p>
-                  @if (!isOwner()) {
-                    <p class="mt-3 rounded-[1rem] border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-3 text-sm font-semibold leading-6 text-[var(--text)]">
-                      Admin manual refresh is only shown after signing in as the Philly atlas owner. Public visitors see the latest stored snapshot.
-                    </p>
-                  }
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-[var(--muted)]">
+                  <span class="material-symbols-outlined text-[18px]">schedule</span>
+                  <span class="text-[11px] font-black uppercase tracking-[0.22em]">Latest pull</span>
+                  <span class="green-jobs-refresh__meta">{{ refreshedLabel() }}</span>
                 </div>
+                <p class="text-[11px] text-[var(--muted)]">Jobs · daily &nbsp;·&nbsp; Pathways · weekly</p>
               </div>
 
-              <div class="mt-5 flex flex-wrap gap-2">
-                <button type="button" [class]="bucketClasses('all')" (click)="setBucket('all')">All</button>
-                <button type="button" [class]="bucketClasses('jobs')" (click)="setBucket('jobs')">Jobs</button>
-                <button type="button" [class]="bucketClasses('pathways')" (click)="setBucket('pathways')">Pathways</button>
+              @if (!isOwner()) {
+                <p class="mt-4 rounded-[1rem] border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-3 text-xs leading-6 text-[var(--muted)]">
+                  Public visitors see the latest stored snapshot. Manual refresh is owner-only.
+                </p>
+              }
+
+              <div class="mt-5 flex flex-wrap items-center gap-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Show</span>
+                <button type="button" [class]="bucketClasses('all')" (click)="setBucket('all')">
+                  All <span class="green-jobs-filter__count">{{ bucketCount('all') }}</span>
+                </button>
+                <button type="button" [class]="bucketClasses('jobs')" (click)="setBucket('jobs')">
+                  Jobs <span class="green-jobs-filter__count">{{ bucketCount('jobs') }}</span>
+                </button>
+                <button type="button" [class]="bucketClasses('pathways')" (click)="setBucket('pathways')">
+                  Pathways <span class="green-jobs-filter__count">{{ bucketCount('pathways') }}</span>
+                </button>
               </div>
 
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" [class]="sourceClasses('all')" (click)="setSource('all')">All sources</button>
+              <div class="mt-3 flex flex-wrap items-center gap-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Source</span>
+                <button type="button" [class]="sourceClasses('all')" (click)="setSource('all')">
+                  All <span class="green-jobs-filter__count">{{ sourceCountFor('all') }}</span>
+                </button>
                 @for (source of sourceStatuses(); track source.id) {
                   <button type="button" [class]="sourceClasses(source.id)" (click)="setSource(source.id)">
-                    {{ source.label }}
+                    {{ source.label }} <span class="green-jobs-filter__count">{{ sourceCountFor(source.id) }}</span>
                   </button>
                 }
               </div>
@@ -167,9 +196,11 @@
             } @else {
               <div class="grid grid-cols-1 gap-3">
                 @for (listing of filteredListings(); track listing.id) {
-                  <article class="green-jobs-card rounded-xl px-4 py-3.5">
-                    <div class="flex items-start gap-2.5">
-                      <span [class]="fitDotClasses(listing)" [title]="fitLabel(listing)" aria-hidden="true"></span>
+                  <article class="green-jobs-card green-jobs-card--{{ bucketAccent(listing) }} rounded-xl px-4 py-3.5">
+                    <div class="flex items-start gap-3">
+                      <span class="green-jobs-card__badge green-jobs-card__badge--{{ bucketAccent(listing) }}" [title]="fitLabel(listing)" aria-hidden="true">
+                        <span class="material-symbols-outlined text-[16px]">{{ fitIcon(listing) }}</span>
+                      </span>
 
                       <div class="min-w-0 flex-1">
                         <div class="flex items-start justify-between gap-3">
@@ -272,27 +303,32 @@
 
               <div class="mt-5 space-y-3">
                 @for (source of sourceStatuses(); track source.id) {
-                  <article class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--soft-fill)] p-4">
+                  <article class="green-jobs-source-card rounded-[1.5rem] border border-[var(--line)] bg-[var(--soft-fill)] p-4">
                     <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 class="text-base font-bold text-[var(--text)]">{{ source.label }}</h3>
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="green-jobs-source-card__status" [class.green-jobs-source-card__status--error]="source.error" [class.green-jobs-source-card__status--empty]="!source.error && source.itemCount === 0" aria-hidden="true"></span>
+                          <h3 class="truncate text-base font-bold text-[var(--text)]">{{ source.label }}</h3>
+                        </div>
                         <p class="mt-1 text-xs leading-6 text-[var(--muted)]">{{ source.note }}</p>
                       </div>
                       <span class="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--accent)]" style="background: color-mix(in srgb, var(--accent) 16%, transparent)">
                         {{ source.cadence }}
                       </span>
                     </div>
-                    <div class="mt-3 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-                      <span>{{ source.itemCount }} items</span>
-                      <span>•</span>
-                      <span>{{ source.bucket }}</span>
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                      <span class="font-bold text-[var(--text)]">{{ source.itemCount }}</span>
+                      <span>{{ source.itemCount === 1 ? 'item' : 'items' }}</span>
+                      <span class="opacity-50">•</span>
+                      <span class="capitalize">{{ source.bucket }}</span>
                     </div>
                     @if (source.error) {
                       <p class="mt-3 text-xs leading-6 text-[var(--danger-text)]">{{ source.error }}</p>
                     }
                     <div class="mt-3">
-                      <a [href]="source.url" target="_blank" rel="noreferrer noopener" class="text-sm font-semibold text-[var(--accent)] hover:underline">
-                        Open source page
+                      <a [href]="source.url" target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1 text-sm font-semibold text-[var(--accent)] hover:underline">
+                        <span>Open source page</span>
+                        <span class="material-symbols-outlined text-[14px]">open_in_new</span>
                       </a>
                     </div>
                   </article>
