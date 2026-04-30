@@ -400,6 +400,69 @@ export class AtlasLandingComponent {
     return this.cityPulseService.formatMetric(metric, this.cityPulseNowMs());
   }
 
+  cityPulseMetricIcon(metric: CityPulseMetric): string {
+    switch (metric.id) {
+      case 'population-now':
+      case 'population-change-annual':
+        return 'groups';
+      case 'median-household-income':
+        return 'payments';
+      case 'median-gross-rent':
+        return 'apartment';
+      case 'median-home-value':
+        return 'home_work';
+      case 'green-jobs-open':
+        return 'eco';
+      default:
+        return metric.format === 'currency'
+          ? 'attach_money'
+          : metric.format === 'percent'
+            ? 'percent'
+            : 'monitoring';
+    }
+  }
+
+  cityPulseMetricAccent(metric: CityPulseMetric): string {
+    switch (metric.id) {
+      case 'population-now':
+      case 'population-change-annual':
+        return 'from-[#34d399] to-[#0ea5e9]';
+      case 'median-household-income':
+        return 'from-[#facc15] to-[#f97316]';
+      case 'median-gross-rent':
+        return 'from-[#f472b6] to-[#a855f7]';
+      case 'median-home-value':
+        return 'from-[#22d3ee] to-[#3b82f6]';
+      case 'green-jobs-open':
+        return 'from-[#bef264] to-[#16a34a]';
+      default:
+        return 'from-[#86efac] to-[#10b981]';
+    }
+  }
+
+  cityPulseSparkPath(metric: CityPulseMetric): string {
+    let seed = 0;
+    for (let i = 0; i < metric.id.length; i++) {
+      seed = (seed * 31 + metric.id.charCodeAt(i)) % 9973;
+    }
+    const points: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      seed = (seed * 1103515245 + 12345) % 0x7fffffff;
+      const t = i / 11;
+      const trend = 30 - t * 18;
+      const noise = ((seed % 1000) / 1000 - 0.5) * 14;
+      points.push(Math.max(4, Math.min(36, trend + noise)));
+    }
+    const stepX = 100 / (points.length - 1);
+    return points
+      .map((y, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(2)} ${y.toFixed(2)}`)
+      .join(' ');
+  }
+
+  cityPulseIsLive(metric: CityPulseMetric): boolean {
+    return !!metric.realtime || metric.cadence === 'realtime';
+  }
+
   cityPulseMetricAsOf(metric: CityPulseMetric): string {
     if (!metric.as_of) {
       return 'No timestamp';
