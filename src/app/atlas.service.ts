@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import type { AtlasItem, AtlasUsage } from './atlas.models';
+import type { AtlasItem, AtlasUsage, CityAtlasConfig, CityPulseMetric } from './atlas.models';
 import { AuthService } from './auth.service';
 import { getFirebaseFirestore, getFirebaseFunctions, getFirebaseStorage } from './firebase.client';
 
@@ -276,6 +276,14 @@ export class AtlasService {
     });
   }
 
+  async updateCityConfig(atlasId: string, config: CityAtlasConfig | null): Promise<void> {
+    if (!this.firestore) return;
+    await updateDoc(doc(this.firestore, 'atlases', atlasId), {
+      city_config: config,
+      updated_at: serverTimestamp(),
+    });
+  }
+
   async renameAtlas(atlasId: string, name: string): Promise<void> {
     if (!this.firestore) return;
     const trimmed = name.trim();
@@ -460,8 +468,93 @@ export class AtlasService {
       hero_url: typeof data['hero_url'] === 'string' ? data['hero_url'] : null,
       video_url: typeof data['video_url'] === 'string' ? data['video_url'] : null,
       cover_color: typeof data['cover_color'] === 'string' ? data['cover_color'] : null,
+      city_config: this.hydrateCityConfig(data['city_config']),
       created_at: this.hydrateDateValue(data['created_at']),
       updated_at: this.hydrateDateValue(data['updated_at']),
+    };
+  }
+
+  private hydrateCityConfig(value: unknown): CityAtlasConfig | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const data = value as Record<string, unknown>;
+    return {
+      enabled: data['enabled'] === true,
+      city_name: typeof data['city_name'] === 'string' ? data['city_name'] : null,
+      region_name: typeof data['region_name'] === 'string' ? data['region_name'] : null,
+      country_code: typeof data['country_code'] === 'string' ? data['country_code'] : null,
+      timezone: typeof data['timezone'] === 'string' ? data['timezone'] : null,
+      census_state_code: typeof data['census_state_code'] === 'string' ? data['census_state_code'] : null,
+      census_place_code: typeof data['census_place_code'] === 'string' ? data['census_place_code'] : null,
+      airnow_zip_code: typeof data['airnow_zip_code'] === 'string' ? data['airnow_zip_code'] : null,
+      manual_metrics: Array.isArray(data['manual_metrics'])
+        ? data['manual_metrics'].map((metric) => this.hydrateCityPulseMetric(metric)).filter(Boolean) as CityPulseMetric[]
+        : null,
+    };
+  }
+
+  private hydrateCityPulseMetric(value: unknown): CityPulseMetric | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const data = value as Record<string, unknown>;
+    const id = String(data['id'] ?? '').trim();
+    const label = String(data['label'] ?? '').trim();
+    if (!id || !label) {
+      return null;
+    }
+
+    const numericValue = Number(data['value']);
+    if (!Number.isFinite(numericValue)) {
+      return null;
+    }
+
+    return {
+      id,
+      label,
+      short_label: String(data['short_label'] ?? label).trim() || label,
+      description: String(data['description'] ?? '').trim(),
+      format: data['format'] === 'currency' || data['format'] === 'percent' ? data['format'] : 'number',
+      value: numericValue,
+      decimals: typeof data['decimals'] === 'number' ? data['decimals'] : undefined,
+      unit_prefix: typeof data['unit_prefix'] === 'string' ? data['unit_prefix'] : null,
+      unit_suffix: typeof data['unit_suffix'] === 'string' ? data['unit_suffix'] : null,
+      source_label: String(data['source_label'] ?? 'Manual').trim() || 'Manual',
+      source_url: typeof data['source_url'] === 'string' ? data['source_url'] : null,
+      cadence:
+        data['cadence'] === 'realtime' ||
+        data['cadence'] === 'daily' ||
+        data['cadence'] === 'weekly' ||
+        data['cadence'] === 'monthly' ||
+        data['cadence'] === 'yearly'
+          ? data['cadence']
+          : 'manual',
+      as_of: typeof data['as_of'] === 'string' ? data['as_of'] : null,
+      realtime: this.hydrateRealtimeConfig(data['realtime']),
+    };
+  }
+
+  private hydrateRealtimeConfig(value: unknown) {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const data = value as Record<string, unknown>;
+    const anchorIso = String(data['anchor_iso'] ?? '').trim();
+    const baselineValue = Number(data['baseline_value']);
+    const ratePerSecond = Number(data['rate_per_second']);
+    if (!anchorIso || !Number.isFinite(baselineValue) || !Number.isFinite(ratePerSecond)) {
+      return null;
+    }
+
+    return {
+      anchor_iso: anchorIso,
+      baseline_value: baselineValue,
+      rate_per_second: ratePerSecond,
+      min_value: typeof data['min_value'] === 'number' ? data['min_value'] : null,
     };
   }
 

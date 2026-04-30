@@ -26,6 +26,53 @@ export interface DocumentAiUsage {
   summary_call_count: number;
 }
 
+export type CityPulseMetricFormat = 'number' | 'currency' | 'percent';
+
+export interface CityPulseMetricRealtimeConfig {
+  anchor_iso: string;
+  baseline_value: number;
+  rate_per_second: number;
+  min_value?: number | null;
+}
+
+export interface CityPulseMetric {
+  id: string;
+  label: string;
+  short_label: string;
+  description: string;
+  format: CityPulseMetricFormat;
+  value: number;
+  decimals?: number;
+  unit_prefix?: string | null;
+  unit_suffix?: string | null;
+  source_label: string;
+  source_url?: string | null;
+  cadence: 'realtime' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
+  as_of?: string | null;
+  realtime?: CityPulseMetricRealtimeConfig | null;
+}
+
+export interface CityPulseSnapshot {
+  atlas_id: string;
+  city_name: string;
+  region_name: string | null;
+  refreshed_at: string;
+  metrics: CityPulseMetric[];
+  notes?: string[];
+}
+
+export interface CityAtlasConfig {
+  enabled: boolean;
+  city_name: string | null;
+  region_name: string | null;
+  country_code: string | null;
+  timezone: string | null;
+  census_state_code: string | null;
+  census_place_code: string | null;
+  airnow_zip_code: string | null;
+  manual_metrics?: CityPulseMetric[] | null;
+}
+
 export interface AtlasItem {
   id: string;
   user_id: string;
@@ -37,6 +84,7 @@ export interface AtlasItem {
   hero_url: string | null;
   video_url: string | null;
   cover_color: string | null;
+  city_config?: CityAtlasConfig | null;
   created_at?: { toDate(): Date } | Date | null;
   updated_at?: { toDate(): Date } | Date | null;
   stats?: {

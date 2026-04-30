@@ -26,6 +26,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'wiki/:slug', renderMode: RenderMode.Client },
   { path: 'atlases', renderMode: RenderMode.Client },
   { path: 'atlas/:slug/green-jobs', renderMode: RenderMode.Client },
+  { path: 'atlas/:slug/worldometers', renderMode: RenderMode.Client },
   { path: 'atlas/:slug', renderMode: RenderMode.Client },
 
   // Fallback

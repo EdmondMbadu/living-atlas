@@ -17,6 +17,7 @@ import { WebScraperComponent } from './web-scraper/web-scraper';
 import { WikiHomeComponent } from './wiki-home/wiki-home';
 import { SharedChatComponent } from './shared-chat/shared-chat';
 import { GreenJobsComponent } from './green-jobs/green-jobs';
+import { CityPulseAdminComponent } from './city-pulse-admin/city-pulse-admin';
 import { authGuard, guestOnlyGuard } from './auth.guards';
 
 export const routes: Routes = [
@@ -36,6 +37,7 @@ export const routes: Routes = [
   { path: 'public-wikis', component: PublicWikisComponent, title: 'Public Wikis | Living Wiki' },
   { path: 'atlases', component: AtlasManageComponent, title: 'Atlas Settings | Living Wiki', canActivate: [authGuard] },
   { path: 'atlas/:slug/green-jobs', component: GreenJobsComponent, title: 'Philly Green Jobs | Living Wiki' },
+  { path: 'atlas/:slug/worldometers', component: CityPulseAdminComponent, title: 'Worldometers Maintenance | Living Wiki' },
   { path: 'atlas/:slug', component: AtlasLandingComponent, title: 'Atlas | Living Wiki' },
   { path: 'privacy', component: LegalComponent, title: 'Privacy Policy | Living Wiki', data: { legalPage: 'privacy' } },
   { path: 'terms', component: LegalComponent, title: 'Terms and Conditions | Living Wiki', data: { legalPage: 'terms' } },

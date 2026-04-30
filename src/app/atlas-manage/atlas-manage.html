@@ -101,6 +101,154 @@
                   }
                 </p>
 
+                <div class="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-4">
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">City pulse</p>
+                      <p class="mt-1 text-sm font-semibold text-[var(--text)]">{{ cityConfigSummary(atlas) }}</p>
+                    </div>
+                    @if (atlas.city_config?.enabled) {
+                      <a
+                        [routerLink]="['/atlas', atlas.slug || atlas.id, 'worldometers']"
+                        class="inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/30 bg-[var(--soft-fill)] px-4 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[var(--accent)]/50 hover:bg-[var(--soft-fill-strong)]"
+                      >
+                        <span class="material-symbols-outlined text-[1rem]">monitoring</span>
+                        <span>Maintenance</span>
+                      </a>
+                    }
+                  </div>
+
+                  @if (cityEditingId() === atlas.id && cityDraft(); as draft) {
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                      <label class="rounded-2xl border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-3 md:col-span-2">
+                        <span class="flex items-center justify-between gap-4">
+                          <span>
+                            <span class="block text-sm font-bold text-[var(--text)]">Enable city pulse</span>
+                            <span class="block text-xs text-[var(--muted)]">Turns this wiki into a city-aware landing page with worldometer-style metrics.</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            class="h-5 w-5 cursor-pointer accent-[var(--accent)]"
+                            [checked]="draft.enabled"
+                            (change)="updateCityDraft('enabled', $any($event.target).checked)"
+                          />
+                        </span>
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">City name</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.city_name"
+                          (input)="updateCityDraft('city_name', $any($event.target).value)"
+                        />
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Region / state</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.region_name"
+                          (input)="updateCityDraft('region_name', $any($event.target).value)"
+                        />
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Country code</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.country_code"
+                          (input)="updateCityDraft('country_code', $any($event.target).value)"
+                        />
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Timezone</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.timezone"
+                          (input)="updateCityDraft('timezone', $any($event.target).value)"
+                        />
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Census state code</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.census_state_code"
+                          (input)="updateCityDraft('census_state_code', $any($event.target).value)"
+                          placeholder="42"
+                        />
+                      </label>
+
+                      <label class="block">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Census place code</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.census_place_code"
+                          (input)="updateCityDraft('census_place_code', $any($event.target).value)"
+                          placeholder="60000"
+                        />
+                      </label>
+
+                      <label class="block md:col-span-2">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">AirNow zip code</span>
+                        <input
+                          type="text"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-sm"
+                          [value]="draft.airnow_zip_code"
+                          (input)="updateCityDraft('airnow_zip_code', $any($event.target).value)"
+                          placeholder="19102"
+                        />
+                      </label>
+
+                      <label class="block md:col-span-2">
+                        <span class="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted)]">Manual metrics JSON</span>
+                        <textarea
+                          rows="10"
+                          class="theme-input w-full rounded-2xl px-4 py-3 text-xs"
+                          [value]="draft.manual_metrics_json"
+                          (input)="updateCityDraft('manual_metrics_json', $any($event.target).value)"
+                          placeholder='[{"id":"aqi-now","label":"AQI now","short_label":"AQI","format":"number","value":42,"source_label":"AirNow manual import","cadence":"manual"}]'
+                        ></textarea>
+                        <p class="mt-2 text-xs leading-5 text-[var(--muted)]">Use this for weekly imports or one-off metrics until a source is automated. Matching `id`s override generated metrics.</p>
+                      </label>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        class="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-contrast)] disabled:opacity-50"
+                        [disabled]="savingCityConfig()"
+                        (click)="saveCityConfig(atlas)"
+                      >{{ savingCityConfig() ? 'Saving...' : 'Save city pulse settings' }}</button>
+                      <button
+                        type="button"
+                        class="rounded-full border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--muted)] hover:text-[var(--text)]"
+                        [disabled]="savingCityConfig()"
+                        (click)="cancelCityEdit()"
+                      >Cancel</button>
+                    </div>
+                  } @else {
+                    <div class="mt-4">
+                      <button
+                        type="button"
+                        (click)="startCityEdit(atlas)"
+                        class="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-2 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)]/35 hover:bg-[var(--soft-fill-strong)]"
+                      >
+                        <span class="material-symbols-outlined text-[1rem]">location_city</span>
+                        <span>{{ atlas.city_config?.enabled ? 'Edit city pulse' : 'Set up city pulse' }}</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+
                 @if (usage(atlas.id); as details) {
                   <div class="mt-4 grid gap-2 sm:grid-cols-4">
                     <div class="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3">

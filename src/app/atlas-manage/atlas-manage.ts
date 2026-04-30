@@ -1,9 +1,21 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import type { AtlasItem, AtlasUsage } from '../atlas.models';
+import type { AtlasItem, AtlasUsage, CityAtlasConfig, CityPulseMetric } from '../atlas.models';
 import { AtlasService } from '../atlas.service';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
+
+interface CityConfigDraft {
+  enabled: boolean;
+  city_name: string;
+  region_name: string;
+  country_code: string;
+  timezone: string;
+  census_state_code: string;
+  census_place_code: string;
+  airnow_zip_code: string;
+  manual_metrics_json: string;
+}
 
 @Component({
   selector: 'app-atlas-manage',
@@ -21,6 +33,9 @@ export class AtlasManageComponent {
   readonly renamingId = signal<string | null>(null);
   readonly renameDraft = signal('');
   readonly renaming = signal(false);
+  readonly cityEditingId = signal<string | null>(null);
+  readonly cityDraft = signal<CityConfigDraft | null>(null);
+  readonly savingCityConfig = signal(false);
   readonly deletingId = signal<string | null>(null);
   readonly pageError = signal<string | null>(null);
 
@@ -72,6 +87,20 @@ export class AtlasManageComponent {
     return parts.join(' • ');
   }
 
+  cityConfigSummary(atlas: AtlasItem): string {
+    const config = atlas.city_config;
+    if (!config?.enabled) {
+      return 'City pulse disabled';
+    }
+
+    const parts = [
+      config.city_name?.trim() || this.displayName(atlas),
+      config.region_name?.trim() || null,
+      config.timezone?.trim() || null,
+    ].filter(Boolean);
+    return parts.join(' • ');
+  }
+
   selectAtlas(atlasId: string): void {
     this.atlasService.setActive(atlasId);
   }
@@ -85,6 +114,35 @@ export class AtlasManageComponent {
   cancelRename(): void {
     this.renamingId.set(null);
     this.renameDraft.set('');
+  }
+
+  startCityEdit(atlas: AtlasItem): void {
+    const config = atlas.city_config;
+    this.pageError.set(null);
+    this.cityEditingId.set(atlas.id);
+    this.cityDraft.set({
+      enabled: config?.enabled === true,
+      city_name: config?.city_name ?? '',
+      region_name: config?.region_name ?? '',
+      country_code: config?.country_code ?? 'US',
+      timezone: config?.timezone ?? 'America/New_York',
+      census_state_code: config?.census_state_code ?? '',
+      census_place_code: config?.census_place_code ?? '',
+      airnow_zip_code: config?.airnow_zip_code ?? '',
+      manual_metrics_json: this.stringifyManualMetrics(config?.manual_metrics ?? null),
+    });
+  }
+
+  cancelCityEdit(): void {
+    if (this.savingCityConfig()) {
+      return;
+    }
+    this.cityEditingId.set(null);
+    this.cityDraft.set(null);
+  }
+
+  updateCityDraft<K extends keyof CityConfigDraft>(key: K, value: CityConfigDraft[K]): void {
+    this.cityDraft.update((current) => (current ? { ...current, [key]: value } : current));
   }
 
   onRenameInput(event: Event): void {
@@ -109,6 +167,36 @@ export class AtlasManageComponent {
       this.pageError.set(error instanceof Error ? error.message : 'Failed to rename atlas.');
     } finally {
       this.renaming.set(false);
+    }
+  }
+
+  async saveCityConfig(atlas: AtlasItem): Promise<void> {
+    const draft = this.cityDraft();
+    if (!draft) {
+      return;
+    }
+
+    this.savingCityConfig.set(true);
+    this.pageError.set(null);
+    try {
+      const manualMetrics = this.parseManualMetricsJson(draft.manual_metrics_json);
+      const nextConfig: CityAtlasConfig = {
+        enabled: draft.enabled,
+        city_name: draft.city_name.trim() || null,
+        region_name: draft.region_name.trim() || null,
+        country_code: draft.country_code.trim() || null,
+        timezone: draft.timezone.trim() || null,
+        census_state_code: draft.census_state_code.trim() || null,
+        census_place_code: draft.census_place_code.trim() || null,
+        airnow_zip_code: draft.airnow_zip_code.trim() || null,
+        manual_metrics: manualMetrics,
+      };
+      await this.atlasService.updateCityConfig(atlas.id, nextConfig);
+      this.cancelCityEdit();
+    } catch (error) {
+      this.pageError.set(error instanceof Error ? error.message : 'Failed to save city pulse settings.');
+    } finally {
+      this.savingCityConfig.set(false);
     }
   }
 
@@ -197,5 +285,82 @@ export class AtlasManageComponent {
         }
       }),
     );
+  }
+
+  private stringifyManualMetrics(metrics: CityPulseMetric[] | null): string {
+    if (!metrics || metrics.length === 0) {
+      return '';
+    }
+
+    return JSON.stringify(metrics, null, 2);
+  }
+
+  private parseManualMetricsJson(raw: string): CityPulseMetric[] | null {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error('Manual metrics JSON is not valid JSON.');
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error('Manual metrics JSON must be an array of metric objects.');
+    }
+
+    return parsed.map((metric) => this.parseManualMetric(metric)).filter((metric): metric is CityPulseMetric => !!metric);
+  }
+
+  private parseManualMetric(value: unknown): CityPulseMetric | null {
+    if (!value || typeof value !== 'object') {
+      throw new Error('Each manual metric must be an object.');
+    }
+
+    const data = value as Record<string, unknown>;
+    const id = String(data['id'] ?? '').trim();
+    const label = String(data['label'] ?? '').trim();
+    const numericValue = Number(data['value']);
+    if (!id || !label || !Number.isFinite(numericValue)) {
+      throw new Error('Each manual metric needs string `id`, string `label`, and numeric `value`.');
+    }
+
+    return {
+      id,
+      label,
+      short_label: String(data['short_label'] ?? label).trim() || label,
+      description: String(data['description'] ?? '').trim(),
+      format: data['format'] === 'currency' || data['format'] === 'percent' ? data['format'] : 'number',
+      value: numericValue,
+      decimals: typeof data['decimals'] === 'number' ? data['decimals'] : undefined,
+      unit_prefix: typeof data['unit_prefix'] === 'string' ? data['unit_prefix'] : null,
+      unit_suffix: typeof data['unit_suffix'] === 'string' ? data['unit_suffix'] : null,
+      source_label: String(data['source_label'] ?? 'Manual').trim() || 'Manual',
+      source_url: typeof data['source_url'] === 'string' ? data['source_url'] : null,
+      cadence:
+        data['cadence'] === 'realtime' ||
+        data['cadence'] === 'daily' ||
+        data['cadence'] === 'weekly' ||
+        data['cadence'] === 'monthly' ||
+        data['cadence'] === 'yearly'
+          ? data['cadence']
+          : 'manual',
+      as_of: typeof data['as_of'] === 'string' ? data['as_of'] : null,
+      realtime:
+        data['realtime'] && typeof data['realtime'] === 'object'
+          ? {
+              anchor_iso: String((data['realtime'] as Record<string, unknown>)['anchor_iso'] ?? ''),
+              baseline_value: Number((data['realtime'] as Record<string, unknown>)['baseline_value'] ?? numericValue),
+              rate_per_second: Number((data['realtime'] as Record<string, unknown>)['rate_per_second'] ?? 0),
+              min_value:
+                typeof (data['realtime'] as Record<string, unknown>)['min_value'] === 'number'
+                  ? ((data['realtime'] as Record<string, unknown>)['min_value'] as number)
+                  : null,
+            }
+          : null,
+    };
   }
 }

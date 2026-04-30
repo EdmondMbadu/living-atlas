@@ -237,7 +237,19 @@ export interface AtlasRecord {
   is_public: boolean;
   logo_url: string | null;
   hero_url: string | null;
+  video_url?: string | null;
   cover_color: string | null;
+  city_config?: {
+    enabled?: boolean;
+    city_name?: string | null;
+    region_name?: string | null;
+    country_code?: string | null;
+    timezone?: string | null;
+    census_state_code?: string | null;
+    census_place_code?: string | null;
+    airnow_zip_code?: string | null;
+    manual_metrics?: unknown[] | null;
+  } | null;
   created_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
   updated_at: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp;
 }

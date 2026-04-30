@@ -8,6 +8,11 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db, storage } from './firebase';
 import { geminiApiKey } from './gemini';
 import {
+  getStoredCityPulseSnapshot,
+  listEnabledCityAtlasIds,
+  refreshStoredCityPulseSnapshot,
+} from './city-pulse';
+import {
   getStoredPhillyGreenJobsSnapshot,
   refreshStoredPhillyGreenJobsSnapshot,
 } from './green-jobs';
@@ -1003,6 +1008,89 @@ export const getPublicAtlasUsage = onCall(
       chat_threads: chatThreads,
       total: documents + wikiArticles + knowledgeEntries + wikiTopics + chatThreads,
     };
+  },
+);
+
+export const getCityPulseSnapshot = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+    cors: true,
+  },
+  async (request) => {
+    const atlasId = String(request.data?.atlasId ?? '').trim();
+    if (!atlasId) {
+      throw new HttpsError('invalid-argument', 'atlasId is required.');
+    }
+
+    if (request.auth?.uid) {
+      const atlasSnapshot = await db.collection('atlases').doc(atlasId).get();
+      if (!atlasSnapshot.exists) {
+        throw new HttpsError('not-found', 'Atlas not found.');
+      }
+      const atlasData = atlasSnapshot.data() as Record<string, unknown> | undefined;
+      const readable =
+        atlasData?.is_public === true || String(atlasData?.user_id ?? '') === request.auth.uid;
+      if (!readable) {
+        throw new HttpsError('permission-denied', 'Atlas is not readable.');
+      }
+    } else {
+      await loadPublicAtlasById(atlasId);
+    }
+
+    const existing = await getStoredCityPulseSnapshot(atlasId);
+    if (existing) {
+      return existing;
+    }
+
+    return await refreshStoredCityPulseSnapshot(atlasId, 'bootstrap');
+  },
+);
+
+export const refreshCityPulseSnapshot = onCall(
+  {
+    region: callableRegion,
+    timeoutSeconds: 120,
+    memory: '512MiB',
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError('unauthenticated', 'Authentication is required.');
+    }
+
+    const atlasId = String(request.data?.atlasId ?? '').trim();
+    if (!atlasId) {
+      throw new HttpsError('invalid-argument', 'atlasId is required.');
+    }
+
+    await assertAtlasOwner(atlasId, request.auth.uid);
+    return await refreshStoredCityPulseSnapshot(atlasId, 'admin');
+  },
+);
+
+export const refreshCityPulseDaily = onSchedule(
+  {
+    region: callableRegion,
+    schedule: '0 6 * * *',
+    timeZone: 'America/New_York',
+    timeoutSeconds: 540,
+    memory: '1GiB',
+    maxInstances: 1,
+  },
+  async () => {
+    const atlasIds = await listEnabledCityAtlasIds();
+    for (const atlasId of atlasIds) {
+      try {
+        await refreshStoredCityPulseSnapshot(atlasId, 'schedule');
+      } catch (error) {
+        logger.warn('refreshCityPulseDaily failed for atlas', {
+          atlasId,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   },
 );
 

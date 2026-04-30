@@ -1,0 +1,137 @@
+<div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+  <header class="theme-nav sticky top-0 z-40 border-b px-5 py-4 backdrop-blur-xl md:px-8">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4">
+      <div>
+        <a [routerLink]="['/atlas', routeSlug() ?? '']" class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">
+          Back to wiki
+        </a>
+        <h1 class="mt-2 text-3xl font-black tracking-[-0.07em]">Worldometers Maintenance</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)]">
+          Refresh official city metrics, inspect the stored snapshot, and validate what the public landing page will render.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <app-theme-toggle></app-theme-toggle>
+        <a routerLink="/atlases" class="inline-flex rounded-full border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-2 text-sm font-bold text-[var(--text)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
+          Atlas settings
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-5 py-8 md:px-8">
+    @if (!atlas()) {
+      <section class="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-8 text-center text-[var(--muted)]">
+        Loading city pulse settings…
+      </section>
+    } @else if (!isOwner()) {
+      <section class="rounded-[2rem] border border-[var(--error-border)] bg-[var(--error-bg)] p-8">
+        <h2 class="text-2xl font-black tracking-tight text-[var(--error-text)]">Owner access required</h2>
+        <p class="mt-3 text-sm leading-7 text-[var(--error-text)]">
+          This maintenance page is only available to the owner of the atlas.
+        </p>
+      </section>
+    } @else if (!hasCityPulse()) {
+      <section class="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-8">
+        <h2 class="text-2xl font-black tracking-tight">City pulse is not enabled yet</h2>
+        <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+          Go to Atlas settings and turn on city pulse before using this maintenance page.
+        </p>
+      </section>
+    } @else {
+      <section class="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]">
+        <article class="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6">
+          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">Snapshot status</p>
+          <h2 class="mt-3 text-3xl font-black tracking-[-0.06em]">{{ atlas()?.city_config?.city_name || atlas()?.name }}</h2>
+          <p class="mt-3 text-sm leading-7 text-[var(--muted)]">
+            Latest stored refresh:
+            <span class="font-semibold text-[var(--text)]">{{ refreshedLabel() }}</span>
+          </p>
+          <div class="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="primary-btn !px-4 !py-2.5 text-sm"
+              [disabled]="isRefreshing()"
+              (click)="refresh()"
+            >
+              {{ isRefreshing() ? 'Refreshing…' : 'Refresh official metrics' }}
+            </button>
+            <a [routerLink]="['/atlas', routeSlug() ?? '']" class="inline-flex items-center rounded-full border border-[var(--line)] bg-[var(--soft-fill)] px-4 py-2.5 text-sm font-bold text-[var(--text)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
+              Preview landing page
+            </a>
+          </div>
+          @if (loadError()) {
+            <div class="mt-4 rounded-2xl border border-[var(--error-border)] bg-[var(--error-bg)] px-4 py-3 text-sm text-[var(--error-text)]">
+              {{ loadError() }}
+            </div>
+          }
+          @if (notes().length > 0) {
+            <div class="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--soft-fill)] p-4">
+              <p class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Refresh notes</p>
+              <div class="mt-3 space-y-2 text-sm leading-6 text-[var(--muted)]">
+                @for (note of notes(); track note) {
+                  <p>{{ note }}</p>
+                }
+              </div>
+            </div>
+          }
+        </article>
+
+        <article class="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6">
+          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--muted)]">Config</p>
+          <div class="mt-4 space-y-3 text-sm">
+            <div>
+              <div class="font-semibold text-[var(--text)]">Timezone</div>
+              <div class="text-[var(--muted)]">{{ atlas()?.city_config?.timezone || 'Not set' }}</div>
+            </div>
+            <div>
+              <div class="font-semibold text-[var(--text)]">Census state code</div>
+              <div class="text-[var(--muted)]">{{ atlas()?.city_config?.census_state_code || 'Not set' }}</div>
+            </div>
+            <div>
+              <div class="font-semibold text-[var(--text)]">Census place code</div>
+              <div class="text-[var(--muted)]">{{ atlas()?.city_config?.census_place_code || 'Not set' }}</div>
+            </div>
+            <div>
+              <div class="font-semibold text-[var(--text)]">Manual metrics</div>
+              <div class="text-[var(--muted)]">{{ atlas()?.city_config?.manual_metrics?.length ?? 0 }} configured override(s)</div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="mt-6 rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-6">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--accent)]">Landing preview</p>
+            <h2 class="mt-2 text-2xl font-black tracking-[-0.05em]">Worldometers cards</h2>
+          </div>
+          @if (isLoading()) {
+            <span class="text-sm text-[var(--muted)]">Loading…</span>
+          }
+        </div>
+
+        @if (metrics().length === 0 && !isLoading()) {
+          <div class="mt-6 rounded-[1.5rem] border border-[var(--line)] bg-[var(--soft-fill)] px-6 py-8 text-center text-[var(--muted)]">
+            No metrics yet. Save city settings and refresh the snapshot.
+          </div>
+        } @else {
+          <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            @for (metric of metrics(); track metric.id) {
+              <article class="rounded-[1.5rem] border border-[var(--line)] bg-[var(--soft-fill)] p-4">
+                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">{{ metric.short_label }}</p>
+                <p class="mt-3 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">{{ formatMetricValue(metric.id) }}</p>
+                <p class="mt-3 text-sm font-semibold text-[var(--text)]">{{ metric.label }}</p>
+                <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ metric.description }}</p>
+                <div class="mt-4 flex items-center justify-between gap-3 text-[11px] text-[var(--muted)]">
+                  <span>{{ metric.source_label }}</span>
+                  <span>{{ metricAsOf(metric.id) }}</span>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    }
+  </main>
+</div>

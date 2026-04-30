@@ -5,7 +5,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { AtlasService } from '../atlas.service';
-import type { AtlasItem, AtlasUsage } from '../atlas.models';
+import type { AtlasItem, AtlasUsage, CityPulseMetric, CityPulseSnapshot } from '../atlas.models';
+import { CityPulseService } from '../city-pulse.service';
 import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 
 @Component({
@@ -16,6 +17,7 @@ import { ThemeToggleComponent } from '../theme-toggle/theme-toggle';
 export class AtlasLandingComponent {
   private readonly authService = inject(AuthService);
   private readonly atlasService = inject(AtlasService);
+  private readonly cityPulseService = inject(CityPulseService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly elementRef = inject(ElementRef);
@@ -90,6 +92,10 @@ export class AtlasLandingComponent {
   readonly usage = signal<AtlasUsage | null>(null);
   readonly usageLoading = signal(false);
   private usageAtlasId: string | null = null;
+  readonly cityPulseSnapshot = signal<CityPulseSnapshot | null>(null);
+  readonly cityPulseLoading = signal(false);
+  readonly cityPulseError = signal<string | null>(null);
+  readonly cityPulseNowMs = signal(Date.now());
   readonly aboutTypedLine = signal('');
   readonly animatedAboutDocuments = signal(0);
   readonly animatedAboutWikiPages = signal(0);
@@ -117,6 +123,8 @@ export class AtlasLandingComponent {
     }
     return null;
   });
+  readonly isCityAtlas = computed(() => this.atlas()?.city_config?.enabled === true);
+  readonly cityPulseMetrics = computed(() => this.cityPulseSnapshot()?.metrics.slice(0, 8) ?? []);
   readonly aboutDocumentsCount = computed(() => this.displayUsage()?.documents ?? 0);
   readonly aboutWikiPagesCount = computed(() => this.displayUsage()?.wiki_articles ?? 0);
   readonly aboutChatsCount = computed(() => (this.displayUsage()?.queries ?? 0) + (this.displayUsage()?.chat_threads ?? 0));
@@ -185,6 +193,56 @@ export class AtlasLandingComponent {
           .catch(() => this.usage.set(null))
           .finally(() => this.usageLoading.set(false));
       }
+    });
+
+    effect((onCleanup) => {
+      const atlas = this.atlas();
+      if (!atlas?.city_config?.enabled) {
+        this.cityPulseSnapshot.set(null);
+        this.cityPulseLoading.set(false);
+        this.cityPulseError.set(null);
+        return;
+      }
+
+      const cached = this.cityPulseService.readCachedSnapshot(atlas.id);
+      if (cached) {
+        this.cityPulseSnapshot.set(cached);
+      }
+
+      this.cityPulseLoading.set(true);
+      this.cityPulseError.set(null);
+      let cancelled = false;
+
+      void this.cityPulseService
+        .getStoredSnapshot(atlas.id)
+        .then((snapshot) => {
+          if (!cancelled) {
+            this.cityPulseSnapshot.set(snapshot);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            this.cityPulseError.set(error instanceof Error ? error.message : 'Failed to load city pulse.');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            this.cityPulseLoading.set(false);
+          }
+        });
+
+      onCleanup(() => {
+        cancelled = true;
+      });
+    });
+
+    effect((onCleanup) => {
+      if (!this.isCityAtlas() || !this.cityPulseSnapshot()) {
+        return;
+      }
+
+      const interval = setInterval(() => this.cityPulseNowMs.set(Date.now()), 1000);
+      onCleanup(() => clearInterval(interval));
     });
 
     effect((onCleanup) => {
@@ -328,6 +386,35 @@ export class AtlasLandingComponent {
       return;
     }
     void this.router.navigateByUrl(`/atlas/${slug}/green-jobs`);
+  }
+
+  openWorldometers(): void {
+    const slug = (this.routeSlug() ?? this.publicAtlasSlug() ?? '').trim();
+    if (!slug) {
+      return;
+    }
+    void this.router.navigateByUrl(`/atlas/${slug}/worldometers`);
+  }
+
+  formatCityPulseMetric(metric: CityPulseMetric): string {
+    return this.cityPulseService.formatMetric(metric, this.cityPulseNowMs());
+  }
+
+  cityPulseMetricAsOf(metric: CityPulseMetric): string {
+    if (!metric.as_of) {
+      return 'No timestamp';
+    }
+
+    const date = new Date(metric.as_of);
+    if (Number.isNaN(date.getTime())) {
+      return 'No timestamp';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
   }
 
   startEdit(): void {
