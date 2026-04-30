@@ -158,27 +158,6 @@ export class GreenJobsComponent {
     return 'Career pathway';
   }
 
-  fitClasses(listing: PhillyGreenJobListing): string {
-    if (listing.fit === 'direct') {
-      return 'green-jobs-pill green-jobs-pill--direct';
-    }
-    if (listing.fit === 'support') {
-      return 'green-jobs-pill green-jobs-pill--support';
-    }
-    return 'green-jobs-pill green-jobs-pill--pathway';
-  }
-
-  fitDotClasses(listing: PhillyGreenJobListing): string {
-    const base = 'green-jobs-card__dot';
-    if (listing.fit === 'direct') {
-      return `${base} green-jobs-card__dot--direct`;
-    }
-    if (listing.fit === 'support') {
-      return `${base} green-jobs-card__dot--support`;
-    }
-    return `${base} green-jobs-card__dot--pathway`;
-  }
-
   bucketClasses(bucket: 'all' | 'jobs' | 'pathways'): string {
     return this.selectedBucket() === bucket ? 'green-jobs-filter green-jobs-filter--active' : 'green-jobs-filter';
   }
@@ -199,10 +178,6 @@ export class GreenJobsComponent {
   sourceCountFor(sourceId: 'all' | string): number {
     if (sourceId === 'all') return this.listings().length;
     return this.listings().filter((l) => l.sourceId === sourceId).length;
-  }
-
-  bucketIcon(bucket: 'jobs' | 'pathways'): string {
-    return bucket === 'jobs' ? 'work' : 'school';
   }
 
   bucketAccent(listing: PhillyGreenJobListing): string {

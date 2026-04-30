@@ -10,52 +10,33 @@
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.04) 42%, transparent 70%);
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.04) 42%, transparent 70%);
   pointer-events: none;
 }
 
-.green-jobs-hero__eyebrow {
-  color: #a5f0bb;
-}
-
-.green-jobs-hero__title {
-  color: #f7fff9;
-}
-
-.green-jobs-hero__body {
-  color: rgba(247, 255, 249, 0.82);
-}
-
+.green-jobs-hero__eyebrow,
+.green-jobs-hero__live { color: #a5f0bb; }
+.green-jobs-hero__title { color: #f7fff9; }
+.green-jobs-hero__body { color: rgba(247, 255, 249, 0.82); }
 .green-jobs-hero__tag {
   background: rgba(255, 255, 255, 0.1);
   color: #f7fff9;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.green-jobs-hero__live {
-  color: #a5f0bb;
-}
-
 /* Stat tiles */
-.green-jobs-stat {
-  position: relative;
-  overflow: hidden;
-}
-
+.green-jobs-stat { position: relative; overflow: hidden; }
 .green-jobs-stat::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 110% -20%, rgba(59, 175, 98, 0.18), transparent 55%);
   opacity: 0.6;
+  background: radial-gradient(circle at 110% -20%, rgba(59, 175, 98, 0.18), transparent 55%);
 }
-
 .green-jobs-stat--pathways::after {
   background: radial-gradient(circle at 110% -20%, rgba(234, 179, 8, 0.2), transparent 55%);
 }
-
 .green-jobs-stat__icon {
   display: inline-flex;
   align-items: center;
@@ -68,25 +49,54 @@
   color: var(--accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
 }
-
-.green-jobs-stat__icon--jobs {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-}
-
 .green-jobs-stat__icon--pathways {
   background: rgba(234, 179, 8, 0.18);
   color: #b8860b;
   box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.32);
 }
+:root[data-theme='dark'] .green-jobs-stat__icon--pathways { color: #fde68a; background: rgba(234, 179, 8, 0.2); }
 
-:host-context([data-theme='dark']) .green-jobs-stat__icon--pathways,
-:root[data-theme='dark'] .green-jobs-stat__icon--pathways {
-  color: #fde68a;
-  background: rgba(234, 179, 8, 0.2);
+/* Owner admin toolbar */
+.green-jobs-admin__divider { width: 1px; height: 16px; background: var(--line); }
+.green-jobs-admin__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: background-color 0.16s ease, color 0.16s ease;
 }
+.green-jobs-admin__link:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+.green-jobs-admin__refresh--spinning { animation: green-jobs-spin 1s linear infinite; }
+@keyframes green-jobs-spin { to { transform: rotate(360deg); } }
 
-/* Filter count badge */
+/* Filters */
+.green-jobs-filter,
+.green-jobs-source-filter {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--soft-fill);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.7rem 0.95rem;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.green-jobs-filter:hover,
+.green-jobs-source-filter:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  transform: translateY(-1px);
+}
+.green-jobs-filter--active,
+.green-jobs-source-filter--active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
 .green-jobs-filter__count {
   display: inline-flex;
   align-items: center;
@@ -101,147 +111,11 @@
   font-weight: 800;
   line-height: 1.4;
 }
-
 .green-jobs-filter--active .green-jobs-filter__count,
 .green-jobs-source-filter--active .green-jobs-filter__count {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--text);
 }
-
-/* Listing card accent edge */
-.green-jobs-card {
-  border-left-width: 3px;
-}
-
-.green-jobs-card--direct {
-  border-left-color: var(--accent);
-}
-
-.green-jobs-card--support {
-  border-left-color: #6366f1;
-}
-
-.green-jobs-card--pathway {
-  border-left-color: #eab308;
-}
-
-.green-jobs-card__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  flex-shrink: 0;
-  margin-top: 0.05rem;
-}
-
-.green-jobs-card__badge--direct {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
-}
-
-.green-jobs-card__badge--support {
-  background: rgba(99, 102, 241, 0.16);
-  color: #4f46e5;
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.32);
-}
-
-.green-jobs-card__badge--pathway {
-  background: rgba(234, 179, 8, 0.18);
-  color: #b8860b;
-  box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.34);
-}
-
-:host-context([data-theme='dark']) .green-jobs-card__badge--support,
-:root[data-theme='dark'] .green-jobs-card__badge--support {
-  color: #c7d2fe;
-}
-
-:host-context([data-theme='dark']) .green-jobs-card__badge--pathway,
-:root[data-theme='dark'] .green-jobs-card__badge--pathway {
-  color: #fde68a;
-}
-
-/* Source registry status dot */
-.green-jobs-source-card__status {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
-  flex-shrink: 0;
-}
-
-.green-jobs-source-card__status--empty {
-  background: #94a3b8;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
-}
-
-.green-jobs-source-card__status--error {
-  background: var(--danger-text, #dc2626);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger-text, #dc2626) 22%, transparent);
-}
-
-/* Owner admin toolbar */
-.green-jobs-admin__divider {
-  width: 1px;
-  height: 16px;
-  background: var(--line);
-}
-
-.green-jobs-admin__link {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  color: var(--muted);
-  transition: background-color 0.16s ease, color 0.16s ease;
-}
-
-.green-jobs-admin__link:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--text);
-}
-
-.green-jobs-admin__refresh--spinning {
-  animation: green-jobs-spin 1s linear infinite;
-}
-
-@keyframes green-jobs-spin {
-  to { transform: rotate(360deg); }
-}
-
-.green-jobs-filter,
-.green-jobs-source-filter {
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--soft-fill);
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1;
-  padding: 0.7rem 0.95rem;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-}
-
-.green-jobs-filter:hover,
-.green-jobs-source-filter:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-  color: var(--text);
-  transform: translateY(-1px);
-}
-
-.green-jobs-filter--active,
-.green-jobs-source-filter--active {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
 .green-jobs-refresh__meta {
   display: inline-flex;
   align-items: center;
@@ -255,79 +129,73 @@
   padding: 0.38rem 0.62rem;
 }
 
+/* Listing cards */
 .green-jobs-card {
   position: relative;
   background: var(--bg-alt);
   border: 1px solid var(--line-strong);
+  border-left-width: 3px;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
   transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
-
 .green-jobs-card:hover {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--line-strong));
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 8px 20px -10px color-mix(in srgb, var(--accent) 28%, transparent);
   transform: translateY(-1px);
 }
+.green-jobs-card--direct { border-left-color: var(--accent); }
+.green-jobs-card--support { border-left-color: #6366f1; }
+.green-jobs-card--pathway { border-left-color: #eab308; }
 
 :root[data-theme='light'] .green-jobs-card {
   background: #ffffff;
   border-color: rgba(15, 23, 42, 0.14);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 2px 8px -4px rgba(15, 23, 42, 0.06);
 }
-
 :root[data-theme='light'] .green-jobs-card:hover {
   border-color: rgba(42, 145, 80, 0.45);
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 10px 24px -12px rgba(42, 145, 80, 0.32);
 }
-
-:host-context([data-theme='dark']) .green-jobs-card,
 :root[data-theme='dark'] .green-jobs-card {
   background: rgba(255, 255, 255, 0.025);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: none;
 }
-
-:host-context([data-theme='dark']) .green-jobs-card:hover,
 :root[data-theme='dark'] .green-jobs-card:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.16));
   background: rgba(255, 255, 255, 0.04);
   box-shadow: 0 8px 24px -12px rgba(59, 175, 98, 0.35);
 }
 
-.green-jobs-card__dot {
-  display: block;
-  width: 7px;
-  height: 7px;
-  margin-top: 0.5rem;
-  border-radius: 999px;
+.green-jobs-card__title { word-break: break-word; }
+.green-jobs-card__sep { display: inline-block; margin: 0 0.1rem; opacity: 0.5; }
+
+.green-jobs-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
   flex-shrink: 0;
+  margin-top: 0.05rem;
 }
-
-.green-jobs-card__dot--direct {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+.green-jobs-card__badge--direct {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
-
-.green-jobs-card__dot--support {
-  background: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+.green-jobs-card__badge--support {
+  background: rgba(99, 102, 241, 0.16);
+  color: #4f46e5;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.32);
 }
-
-.green-jobs-card__dot--pathway {
-  background: #eab308;
-  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.2);
+.green-jobs-card__badge--pathway {
+  background: rgba(234, 179, 8, 0.18);
+  color: #b8860b;
+  box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.34);
 }
-
-.green-jobs-card__title {
-  word-break: break-word;
-}
-
-.green-jobs-card__sep,
-.green-jobs-card__meta-sep {
-  display: inline-block;
-  margin: 0 0.1rem;
-  opacity: 0.5;
-}
+:root[data-theme='dark'] .green-jobs-card__badge--support { color: #c7d2fe; }
+:root[data-theme='dark'] .green-jobs-card__badge--pathway { color: #fde68a; }
 
 .green-jobs-card__cta {
   display: inline-flex;
@@ -340,17 +208,14 @@
   color: var(--accent-contrast);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0;
   line-height: 1;
   white-space: nowrap;
   transition: background-color 0.16s ease, transform 0.16s ease;
 }
-
 .green-jobs-card__cta:hover {
   background: color-mix(in srgb, var(--accent) 88%, #000);
   transform: translateY(-1px);
 }
-
 .green-jobs-card__toggle {
   display: inline-flex;
   align-items: center;
@@ -363,13 +228,11 @@
   color: var(--muted);
   transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease;
 }
-
 .green-jobs-card__toggle:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
   color: var(--text);
   background: var(--soft-fill);
 }
-
 .green-jobs-card__tag {
   display: inline-flex;
   align-items: center;
@@ -382,145 +245,21 @@
   border: 1px solid var(--line);
 }
 
-.green-jobs-pill {
-  display: inline-flex;
-  align-items: center;
+/* Source registry status dot */
+.green-jobs-source-card__status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0;
-  padding: 0.42rem 0.7rem;
-  text-transform: uppercase;
-  border: 1px solid transparent;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  flex-shrink: 0;
 }
-
-.green-jobs-pill--direct {
-  background: #bbf7d0;
-  border-color: #86efac;
-  color: #052e16;
+.green-jobs-source-card__status--empty {
+  background: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
 }
-
-.green-jobs-pill--support {
-  background: #dfe2ff;
-  border-color: #b8c0ff;
-  color: #172554;
-}
-
-.green-jobs-pill--pathway {
-  background: #fde68a;
-  border-color: #facc15;
-  color: #4a2a00;
-}
-
-.green-jobs-card-chip {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #111827;
-}
-
-.green-jobs-card-chip--bucket {
-  color: #111827;
-}
-
-.green-jobs-card-chip--source {
-  font-weight: 700;
-}
-
-.green-jobs-card-chip--meta {
-  background: #ffffff;
-}
-
-:host-context([data-theme='dark']) .green-jobs-pill--direct {
-  background: rgba(59, 175, 98, 0.18);
-  border-color: rgba(165, 240, 187, 0.24);
-  color: #bbf7d0;
-}
-
-:host-context([data-theme='dark']) .green-jobs-pill--support {
-  background: rgba(99, 102, 241, 0.24);
-  border-color: rgba(199, 210, 254, 0.2);
-  color: #e0e7ff;
-}
-
-:host-context([data-theme='dark']) .green-jobs-pill--pathway {
-  background: rgba(234, 179, 8, 0.2);
-  border-color: rgba(253, 230, 138, 0.22);
-  color: #fef3c7;
-}
-
-:host-context([data-theme='dark']) .green-jobs-card-chip {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-}
-
-:host-context([data-theme='dark']) .green-jobs-card-chip--bucket {
-  color: #f8fafc;
-}
-
-:root[data-theme='light'] .green-jobs-filter,
-:root[data-theme='light'] .green-jobs-source-filter {
-  background: rgba(15, 23, 42, 0.05);
-  border-color: rgba(15, 23, 42, 0.12);
-  color: #20303b;
-}
-
-:root[data-theme='light'] .green-jobs-filter:hover,
-:root[data-theme='light'] .green-jobs-source-filter:hover {
-  background: rgba(15, 23, 42, 0.08);
-  border-color: rgba(42, 145, 80, 0.3);
-  color: #0f1720;
-}
-
-:root[data-theme='light'] .green-jobs-filter--active,
-:root[data-theme='light'] .green-jobs-source-filter--active {
-  background: rgba(59, 175, 98, 0.16);
-  border-color: rgba(42, 145, 80, 0.38);
-  color: #12311d;
-}
-
-:root[data-theme='light'] .green-jobs-refresh__meta {
-  background: rgba(59, 175, 98, 0.12);
-  border-color: rgba(42, 145, 80, 0.28);
-  color: #12311d;
-}
-
-:root[data-theme='light'] .green-jobs-pill--direct {
-  background: rgba(59, 175, 98, 0.18);
-  border-color: rgba(42, 145, 80, 0.3);
-  color: #12311d;
-}
-
-:root[data-theme='light'] .green-jobs-pill--support {
-  background: rgba(99, 102, 241, 0.16);
-  border-color: rgba(99, 102, 241, 0.26);
-  color: #24315f;
-}
-
-:root[data-theme='light'] .green-jobs-pill--pathway {
-  background: rgba(234, 179, 8, 0.2);
-  border-color: rgba(217, 119, 6, 0.28);
-  color: #6a4208;
-}
-
-:root[data-theme='light'] .green-jobs-card-chip {
-  border-color: rgba(15, 23, 42, 0.12);
-  background: rgba(15, 23, 42, 0.04);
-  color: #17232d;
-}
-
-:root[data-theme='light'] .green-jobs-card-chip--bucket {
-  color: #3f4c58;
-}
-
-:root[data-theme='light'] .green-jobs-card-chip--source {
-  background: rgba(15, 23, 42, 0.03);
-  color: #1d2933;
-}
-
-:root[data-theme='light'] .green-jobs-card-chip--meta {
-  background: #fff;
-  color: #1d2933;
+.green-jobs-source-card__status--error {
+  background: var(--danger-text, #dc2626);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger-text, #dc2626) 22%, transparent);
 }
