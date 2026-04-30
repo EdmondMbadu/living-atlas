@@ -65,6 +65,11 @@
               {{ loadError() }}
             </div>
           }
+          @if (missingCensusConfig()) {
+            <div class="mt-4 rounded-2xl border border-[var(--error-border)] bg-[var(--error-bg)] px-4 py-3 text-sm text-[var(--error-text)]">
+              Census state code and Census place code are missing. City demographics cannot refresh until both are saved in Atlas settings.
+            </div>
+          }
           @if (notes().length > 0) {
             <div class="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--soft-fill)] p-4">
               <p class="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Refresh notes</p>

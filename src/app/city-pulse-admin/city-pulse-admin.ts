@@ -48,6 +48,14 @@ export class CityPulseAdminComponent {
   });
   readonly isOwner = computed(() => this.atlas()?.user_id === this.authService.uid());
   readonly hasCityPulse = computed(() => this.atlas()?.city_config?.enabled === true);
+  readonly missingCensusConfig = computed(() => {
+    const config = this.atlas()?.city_config;
+    if (!config?.enabled) {
+      return false;
+    }
+
+    return !config.census_state_code?.trim() || !config.census_place_code?.trim();
+  });
   readonly metrics = computed(() => this.snapshot()?.metrics ?? []);
   readonly notes = computed(() => this.snapshot()?.notes ?? []);
 

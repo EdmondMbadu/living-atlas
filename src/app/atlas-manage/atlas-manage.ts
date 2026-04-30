@@ -179,6 +179,12 @@ export class AtlasManageComponent {
     this.savingCityConfig.set(true);
     this.pageError.set(null);
     try {
+      const censusStateCode = draft.census_state_code.trim();
+      const censusPlaceCode = draft.census_place_code.trim();
+      if (draft.enabled && (!censusStateCode || !censusPlaceCode)) {
+        throw new Error('Census state code and Census place code are required for city pulse demographics.');
+      }
+
       const manualMetrics = this.parseManualMetricsJson(draft.manual_metrics_json);
       const nextConfig: CityAtlasConfig = {
         enabled: draft.enabled,
@@ -186,8 +192,8 @@ export class AtlasManageComponent {
         region_name: draft.region_name.trim() || null,
         country_code: draft.country_code.trim() || null,
         timezone: draft.timezone.trim() || null,
-        census_state_code: draft.census_state_code.trim() || null,
-        census_place_code: draft.census_place_code.trim() || null,
+        census_state_code: censusStateCode || null,
+        census_place_code: censusPlaceCode || null,
         airnow_zip_code: draft.airnow_zip_code.trim() || null,
         manual_metrics: manualMetrics,
       };
