@@ -161,16 +161,11 @@ export class CityPulseAdminComponent {
 
   liveEstimate(metricId: string): string | null {
     const metric = this.metrics().find((item) => item.id === metricId);
-    if (!metric?.realtime) {
+    if (!metric) {
       return null;
     }
 
-    const value = this.cityPulseService.metricValue(metric, this.nowMs());
-    const decimals = metric.id === 'population-now' ? 3 : 2;
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
+    return this.cityPulseService.formatModeledMetric(metric, this.nowMs());
   }
 
   metricAsOf(metricId: string): string {

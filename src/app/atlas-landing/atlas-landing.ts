@@ -400,29 +400,12 @@ export class AtlasLandingComponent {
     return this.cityPulseService.formatMetric(metric, this.cityPulseNowMs());
   }
 
-  cityPulseLiveEstimate(metric: CityPulseMetric): string | null {
-    if (!metric.realtime) {
-      return null;
-    }
-
-    const value = this.cityPulseService.metricValue(metric, this.cityPulseNowMs());
-    const decimals = metric.id === 'population-now' ? 3 : 2;
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
+  cityPulseLiveEstimate(metric: CityPulseMetric): string {
+    return this.cityPulseService.formatModeledMetric(metric, this.cityPulseNowMs());
   }
 
-  cityPulseLiveCaption(metric: CityPulseMetric): string | null {
-    if (!metric.realtime) {
-      return null;
-    }
-
-    if (metric.id === 'population-now') {
-      return 'Modeled live estimate';
-    }
-
-    return 'Live interpolation';
+  cityPulseLiveCaption(metric: CityPulseMetric): string {
+    return 'Modeled live estimate';
   }
 
   cityPulseMetricIcon(metric: CityPulseMetric): string {
