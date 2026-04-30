@@ -339,7 +339,9 @@ export class AtlasManageComponent {
       unit_prefix: typeof data['unit_prefix'] === 'string' ? data['unit_prefix'] : null,
       unit_suffix: typeof data['unit_suffix'] === 'string' ? data['unit_suffix'] : null,
       source_label: String(data['source_label'] ?? 'Manual').trim() || 'Manual',
+      source_detail: typeof data['source_detail'] === 'string' ? data['source_detail'] : null,
       source_url: typeof data['source_url'] === 'string' ? data['source_url'] : null,
+      methodology: typeof data['methodology'] === 'string' ? data['methodology'] : null,
       cadence:
         data['cadence'] === 'realtime' ||
         data['cadence'] === 'daily' ||

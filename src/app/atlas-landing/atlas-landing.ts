@@ -124,7 +124,7 @@ export class AtlasLandingComponent {
     return null;
   });
   readonly isCityAtlas = computed(() => this.atlas()?.city_config?.enabled === true);
-  readonly cityPulseMetrics = computed(() => this.cityPulseSnapshot()?.metrics.slice(0, 8) ?? []);
+  readonly cityPulseMetrics = computed(() => this.cityPulseSnapshot()?.metrics.slice(0, 6) ?? []);
   readonly aboutDocumentsCount = computed(() => this.displayUsage()?.documents ?? 0);
   readonly aboutWikiPagesCount = computed(() => this.displayUsage()?.wiki_articles ?? 0);
   readonly aboutChatsCount = computed(() => (this.displayUsage()?.queries ?? 0) + (this.displayUsage()?.chat_threads ?? 0));

@@ -46,7 +46,9 @@ export interface CityPulseMetric {
   unit_prefix?: string | null;
   unit_suffix?: string | null;
   source_label: string;
+  source_detail?: string | null;
   source_url?: string | null;
+  methodology?: string | null;
   cadence: 'realtime' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
   as_of?: string | null;
   realtime?: CityPulseMetricRealtimeConfig | null;

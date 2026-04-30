@@ -6,6 +6,14 @@ import { getFirebaseFunctions } from './firebase.client';
 
 const CACHE_PREFIX = 'living-wiki:city-pulse:';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const LANDING_METRIC_ORDER = [
+  'population-now',
+  'population-change-annual',
+  'median-household-income',
+  'median-gross-rent',
+  'median-home-value',
+  'green-jobs-open',
+] as const;
 
 @Injectable({ providedIn: 'root' })
 export class CityPulseService {
@@ -34,7 +42,7 @@ export class CityPulseService {
         return null;
       }
 
-      return parsed.snapshot;
+      return this.normalizeSnapshot(parsed.snapshot);
     } catch {
       return null;
     }
@@ -50,8 +58,9 @@ export class CityPulseService {
       'getCityPulseSnapshot',
     );
     const { data } = await getCityPulseSnapshot({ atlasId });
-    this.writeCache(atlasId, data);
-    return data;
+    const snapshot = this.normalizeSnapshot(data);
+    this.writeCache(atlasId, snapshot);
+    return snapshot;
   }
 
   async refreshStoredSnapshot(atlasId: string): Promise<CityPulseSnapshot> {
@@ -64,8 +73,9 @@ export class CityPulseService {
       'refreshCityPulseSnapshot',
     );
     const { data } = await refreshCityPulseSnapshot({ atlasId });
-    this.writeCache(atlasId, data);
-    return data;
+    const snapshot = this.normalizeSnapshot(data);
+    this.writeCache(atlasId, snapshot);
+    return snapshot;
   }
 
   metricValue(metric: CityPulseMetric, nowMs = Date.now()): number {
@@ -129,5 +139,25 @@ export class CityPulseService {
 
   private cacheKey(atlasId: string): string {
     return `${CACHE_PREFIX}${atlasId}`;
+  }
+
+  private normalizeSnapshot(snapshot: CityPulseSnapshot): CityPulseSnapshot {
+    const allowed = new Set<string>(LANDING_METRIC_ORDER);
+    const rank = new Map<string, number>(LANDING_METRIC_ORDER.map((id, index) => [id, index]));
+    const metrics = [...(snapshot.metrics ?? [])]
+      .filter((metric): metric is CityPulseMetric => !!metric && allowed.has(metric.id))
+      .sort((left, right) => {
+        const leftRank = rank.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+        const rightRank = rank.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+        return left.label.localeCompare(right.label);
+      });
+
+    return {
+      ...snapshot,
+      metrics,
+    };
   }
 }

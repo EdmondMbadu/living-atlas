@@ -123,6 +123,12 @@
                 <p class="mt-3 text-3xl font-black tracking-[-0.06em] text-[var(--text)]">{{ formatMetricValue(metric.id) }}</p>
                 <p class="mt-3 text-sm font-semibold text-[var(--text)]">{{ metric.label }}</p>
                 <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ metric.description }}</p>
+                @if (metric.source_detail) {
+                  <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ metric.source_detail }}</p>
+                }
+                @if (metric.methodology) {
+                  <p class="mt-2 text-xs leading-5 text-[var(--muted)]">{{ metric.methodology }}</p>
+                }
                 <div class="mt-4 flex items-center justify-between gap-3 text-[11px] text-[var(--muted)]">
                   <span>{{ metric.source_label }}</span>
                   <span>{{ metricAsOf(metric.id) }}</span>

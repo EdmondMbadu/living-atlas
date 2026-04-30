@@ -24,7 +24,9 @@ export interface CityPulseMetric {
   unit_prefix?: string | null;
   unit_suffix?: string | null;
   source_label: string;
+  source_detail?: string | null;
   source_url?: string | null;
+  methodology?: string | null;
   cadence: 'realtime' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'manual';
   as_of?: string | null;
   realtime?: CityPulseMetricRealtimeConfig | null;
@@ -43,6 +45,14 @@ const cityPulseCollection = db.collection('city_pulse_snapshots');
 const ATLASES_COLLECTION = db.collection('atlases');
 const CENSUS_POPULATION_YEARS = [2024, 2023, 2022];
 const ACS_YEARS = [2024, 2023, 2022];
+const LANDING_METRIC_ORDER = [
+  'population-now',
+  'population-change-annual',
+  'median-household-income',
+  'median-gross-rent',
+  'median-home-value',
+  'green-jobs-open',
+] as const;
 
 export async function getStoredCityPulseSnapshot(atlasId: string): Promise<CityPulseSnapshot | null> {
   const snapshot = await cityPulseCollection.doc(atlasId).get();
@@ -60,7 +70,7 @@ export async function getStoredCityPulseSnapshot(atlasId: string): Promise<CityP
     city_name: String(data.city_name),
     region_name: typeof data.region_name === 'string' ? data.region_name : null,
     refreshed_at: String(data.refreshed_at),
-    metrics: sanitizeMetrics(data.metrics),
+    metrics: sortMetricsForLanding(filterSupportedLandingMetrics(sanitizeMetrics(data.metrics))),
     notes: Array.isArray(data.notes) ? data.notes.map((note) => String(note)) : [],
   };
 }
@@ -102,85 +112,30 @@ export async function refreshStoredCityPulseSnapshot(
     notes.push('Set Census state and place codes in city settings to enable official city demographics.');
   }
 
-  const [documents, wikiArticles, chatThreads] = await Promise.all([
-    countAtlasCollection('documents', atlas.user_id, atlasId),
-    countAtlasCollection('wiki_articles', atlas.user_id, atlasId),
-    countAtlasCollection('chat_threads', atlas.user_id, atlasId),
-  ]);
-
-  metrics.push(
-    {
-      id: 'local-wiki-pages',
-      label: 'Local wiki pages',
-      short_label: 'wiki pages',
-      description: 'Compiled pages currently published inside this city wiki.',
-      format: 'number',
-      value: wikiArticles,
-      source_label: 'Living Wiki atlas',
-      cadence: 'daily',
-      as_of: refreshedAt,
-    },
-    {
-      id: 'local-source-files',
-      label: 'Source files',
-      short_label: 'source files',
-      description: 'Visible source documents currently attached to this city wiki.',
-      format: 'number',
-      value: documents,
-      source_label: 'Living Wiki atlas',
-      cadence: 'daily',
-      as_of: refreshedAt,
-    },
-    {
-      id: 'chat-threads',
-      label: 'Chat threads',
-      short_label: 'chat threads',
-      description: 'Saved conversation threads grounded in this city wiki.',
-      format: 'number',
-      value: chatThreads,
-      source_label: 'Living Wiki atlas',
-      cadence: 'daily',
-      as_of: refreshedAt,
-    },
-  );
-
   if ((atlas.slug ?? '').trim().toLowerCase() === 'philly') {
     const greenJobsSnapshot = await getStoredPhillyGreenJobsSnapshot();
     if (greenJobsSnapshot) {
       const openJobs = greenJobsSnapshot.listings.filter((listing) => listing.bucket === 'jobs').length;
-      const pathways = greenJobsSnapshot.listings.filter((listing) => listing.bucket === 'pathways').length;
-      metrics.push(
-        {
-          id: 'green-jobs-open',
-          label: 'Open green jobs',
-          short_label: 'green jobs',
-          description: 'Open roles currently aggregated across Philly clean-energy and workforce sources.',
-          format: 'number',
-          value: openJobs,
-          source_label: 'Philly Green Jobs snapshot',
-          source_url: 'https://philaenergy.org/',
-          cadence: 'daily',
-          as_of: greenJobsSnapshot.refreshedAt,
-        },
-        {
-          id: 'green-job-pathways',
-          label: 'Training pathways',
-          short_label: 'pathways',
-          description: 'Training and apprenticeship pathways currently aggregated for Philadelphia.',
-          format: 'number',
-          value: pathways,
-          source_label: 'Philly Green Jobs snapshot',
-          source_url: 'https://water.phila.gov/careers/apprenticeship/',
-          cadence: 'weekly',
-          as_of: greenJobsSnapshot.refreshedAt,
-        },
-      );
+      metrics.push({
+        id: 'green-jobs-open',
+        label: 'Open green jobs',
+        short_label: 'green jobs',
+        description: 'Open roles currently aggregated across Philly clean-energy and workforce sources.',
+        format: 'number',
+        value: openJobs,
+        source_label: 'Philly institutional jobs snapshot',
+        source_detail: 'Philadelphia Energy Authority, Energy Coordinating Agency, and Philadelphia Water Department apprenticeship pages.',
+        source_url: 'https://philaenergy.org/',
+        methodology: 'Curated institutional source pages are refreshed into a stored snapshot. This is a local aggregation, not an official citywide labor-force statistic.',
+        cadence: 'daily',
+        as_of: greenJobsSnapshot.refreshedAt,
+      });
     } else {
       notes.push('Philly green jobs metrics will appear after the green jobs snapshot has been generated.');
     }
   }
 
-  const mergedMetrics = mergeManualMetrics(metrics, cityConfig.manual_metrics);
+  const mergedMetrics = sortMetricsForLanding(mergeManualMetrics(metrics, cityConfig.manual_metrics));
   const snapshot: CityPulseSnapshot = {
     atlas_id: atlasId,
     city_name: cityName,
@@ -269,8 +224,10 @@ async function fetchPopulationMetrics(stateCode: string, placeCode: string): Pro
       description: 'Interpolated from the latest official Census annual population estimate.',
       format: 'number',
       value: latest.population,
-      source_label: `U.S. Census Population Estimates ${latest.year}`,
+      source_label: 'U.S. Census Population Estimates API',
+      source_detail: `Population Estimates Program, place-level annual estimate (${latest.year}).`,
       source_url: 'https://www.census.gov/data/developers/data-sets/popest-popproj/popest.html',
+      methodology: 'Anchored to the latest annual July 1 estimate, then interpolated client-side using the latest year-over-year change expressed per second.',
       cadence: 'realtime',
       as_of: metricAsOf,
       realtime: {
@@ -287,8 +244,10 @@ async function fetchPopulationMetrics(stateCode: string, placeCode: string): Pro
       description: 'Year-over-year population change using the latest two official Census annual estimates.',
       format: 'number',
       value: annualDelta,
-      source_label: `U.S. Census Population Estimates ${prior ? `${prior.year}-${latest.year}` : latest.year}`,
+      source_label: 'U.S. Census Population Estimates API',
+      source_detail: `Population Estimates Program annual change (${prior ? `${prior.year} to ${latest.year}` : latest.year}).`,
       source_url: 'https://www.census.gov/data/developers/data-sets/popest-popproj/popest.html',
+      methodology: 'Computed as the most recent annual city population estimate minus the prior annual estimate.',
       cadence: 'yearly',
       as_of: metricAsOf,
     },
@@ -320,8 +279,10 @@ async function fetchAcsMetrics(stateCode: string, placeCode: string): Promise<Ci
         description: 'Median household income from the American Community Survey 5-year profile.',
         format: 'currency',
         value: Number.isFinite(medianIncome) ? medianIncome : 0,
-        source_label: `U.S. Census ACS 5-year ${year}`,
+        source_label: 'U.S. Census ACS 5-Year API',
+        source_detail: `Variable B19013_001E from ACS 5-year ${year}.`,
         source_url: 'https://www.census.gov/data/developers/data-sets/acs-5year.html',
+        methodology: 'Displayed as the published ACS 5-year estimate for the configured city place geography.',
         cadence: 'yearly',
         as_of: asOf,
       },
@@ -332,8 +293,10 @@ async function fetchAcsMetrics(stateCode: string, placeCode: string): Promise<Ci
         description: 'Median gross rent from the American Community Survey 5-year profile.',
         format: 'currency',
         value: Number.isFinite(medianRent) ? medianRent : 0,
-        source_label: `U.S. Census ACS 5-year ${year}`,
+        source_label: 'U.S. Census ACS 5-Year API',
+        source_detail: `Variable B25064_001E from ACS 5-year ${year}.`,
         source_url: 'https://www.census.gov/data/developers/data-sets/acs-5year.html',
+        methodology: 'Displayed as the published ACS 5-year estimate for the configured city place geography.',
         cadence: 'yearly',
         as_of: asOf,
       },
@@ -344,8 +307,10 @@ async function fetchAcsMetrics(stateCode: string, placeCode: string): Promise<Ci
         description: 'Median owner-occupied home value from the American Community Survey 5-year profile.',
         format: 'currency',
         value: Number.isFinite(medianHomeValue) ? medianHomeValue : 0,
-        source_label: `U.S. Census ACS 5-year ${year}`,
+        source_label: 'U.S. Census ACS 5-Year API',
+        source_detail: `Variable B25077_001E from ACS 5-year ${year}.`,
         source_url: 'https://www.census.gov/data/developers/data-sets/acs-5year.html',
+        methodology: 'Displayed as the published ACS 5-year estimate for the configured city place geography.',
         cadence: 'yearly',
         as_of: asOf,
       },
@@ -385,16 +350,6 @@ async function fetchCensusRow(url: string): Promise<Record<string, string> | nul
   }
 }
 
-async function countAtlasCollection(collectionName: string, userId: string, atlasId: string): Promise<number> {
-  const snapshot = await db
-    .collection(collectionName)
-    .where('user_id', '==', userId)
-    .where('atlas_id', '==', atlasId)
-    .count()
-    .get();
-  return snapshot.data().count;
-}
-
 function sanitizeMetrics(metrics: unknown[]): CityPulseMetric[] {
   return metrics
     .map((metric) => sanitizeMetric(metric))
@@ -429,7 +384,9 @@ function sanitizeMetric(metric: unknown): CityPulseMetric | null {
     unit_prefix: typeof data.unit_prefix === 'string' ? data.unit_prefix : null,
     unit_suffix: typeof data.unit_suffix === 'string' ? data.unit_suffix : null,
     source_label: String(data.source_label ?? 'Manual').trim() || 'Manual',
+    source_detail: typeof data.source_detail === 'string' ? data.source_detail : null,
     source_url: typeof data.source_url === 'string' ? data.source_url : null,
+    methodology: typeof data.methodology === 'string' ? data.methodology : null,
     cadence:
       data.cadence === 'realtime' ||
       data.cadence === 'daily' ||
@@ -478,4 +435,21 @@ function mergeManualMetrics(metrics: CityPulseMetric[], manualMetrics: unknown):
   }
 
   return Array.from(merged.values());
+}
+
+function filterSupportedLandingMetrics(metrics: CityPulseMetric[]): CityPulseMetric[] {
+  const allowed = new Set<string>(LANDING_METRIC_ORDER);
+  return metrics.filter((metric) => allowed.has(metric.id));
+}
+
+function sortMetricsForLanding(metrics: CityPulseMetric[]): CityPulseMetric[] {
+  const rank = new Map<string, number>(LANDING_METRIC_ORDER.map((id, index) => [id, index]));
+  return [...metrics].sort((left, right) => {
+    const leftRank = rank.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightRank = rank.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+    return left.label.localeCompare(right.label);
+  });
 }
