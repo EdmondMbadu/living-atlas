@@ -1379,10 +1379,6 @@
     "source": "Sign in to create a board.",
     "file": "src/app/boards/boards.ts"
   },
-  "1900652734060382700": {
-    "source": "Turn your actual photos into a visual memory board.",
-    "file": "src/app/boards/boards.ts"
-  },
   "1910853702226231310": {
     "source": "{$START_TAG_SPAN}more_horiz{$CLOSE_TAG_SPAN} More sharing options ",
     "file": "src/app/boards/boards.html"
@@ -7483,6 +7479,10 @@
     "source": "(optional)",
     "file": "src/app/boards/boards.html"
   },
+  "5880999586834392268": {
+    "source": "Talking Photo Memories",
+    "file": "src/app/boards/boards.ts"
+  },
   "5882923490690313525": {
     "source": "Say you’re interested. We’ll notify the organizer and email you when a plan is ready to confirm.",
     "file": "src/app/boards/boards.html"
@@ -8489,10 +8489,6 @@
   },
   "6513565723574706707": {
     "source": "Location permission was denied. Allow location access and try again.",
-    "file": "src/app/boards/boards.ts"
-  },
-  "6513946951038879243": {
-    "source": "Use photos",
     "file": "src/app/boards/boards.ts"
   },
   "6516285359606459572": {
@@ -11658,6 +11654,10 @@
   "8764914467347531922": {
     "source": "No LivingWiki connection needed",
     "file": "src/app/boards/boards.html"
+  },
+  "8771700196696384900": {
+    "source": "Turn your photos into narrated memory cards.",
+    "file": "src/app/boards/boards.ts"
   },
   "8774165344727486216": {
     "source": "Live public sources",

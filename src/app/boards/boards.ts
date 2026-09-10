@@ -1138,9 +1138,9 @@ const BOARD_WIZARD_MODES: Array<{
   },
   {
     id: 'photos',
-    label: $localize`Use photos`,
-    description: $localize`Turn your actual photos into a visual memory board.`,
-    icon: 'photo_library',
+    label: $localize`Talking Photo Memories`,
+    description: $localize`Turn your photos into narrated memory cards.`,
+    icon: 'record_voice_over',
   },
   {
     id: 'off-grid',
@@ -1214,14 +1214,8 @@ const BOARD_WIZARD_DOORWAY_VISUALS: Record<
   'nearby-gems': { imageUrl: '/assets/public-wikis/portland-hero.jpg', imagePosition: 'center' },
   'driving-tour': { imageUrl: '/assets/membership/hero.jpg', imagePosition: 'center 66%' },
   photos: {
-    imageUrl: '/assets/membership/waterfall.jpg',
+    imageUrl: '/assets/board-wizard/talking-photo-memories.jpg',
     imagePosition: 'center',
-    collageUrls: [
-      '/assets/membership/waterfall.jpg',
-      '/assets/membership/sushi.jpg',
-      '/assets/membership/coffee.jpg',
-      '/assets/public-wikis/san-francisco-hero.jpg',
-    ],
   },
   'real-estate': { imageUrl: '/assets/board-wizard/real-estate-hero.jpg', imagePosition: 'center 58%' },
   'rental-properties': { imageUrl: '/assets/board-wizard/rental-property-talkthru.jpg', imagePosition: 'center 54%' },
