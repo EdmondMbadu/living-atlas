@@ -38,7 +38,7 @@ function cleanAgency(value: string, name: string): string {
 export function isListingContactCard(card: ListingContactCardLike | null | undefined): boolean {
   if (!card) return false;
   const tags = new Set((card.tags ?? []).map((tag) => clean(tag).toLowerCase()));
-  if (tags.has('listing-contact')) return true;
+  if (tags.has('listing-contact') || tags.has('contact-card')) return true;
   const isLegacyClosingCard = tags.has('group-next-step')
     && tags.has('real-estate')
     && /^contact\b/i.test(clean(card.title));
@@ -83,12 +83,19 @@ export function listingContactCardDetails(card: ListingContactCardLike): Listing
 
 export function listingContactNarration(card: ListingContactCardLike): string {
   const contact = listingContactCardDetails(card);
-  const opening = 'Interested in this home?';
-  const person = contact.name ? ` Contact ${contact.name}` : ' Get in touch with the listing agent';
+  const tags = new Set((card.tags ?? []).map((tag) => clean(tag).toLowerCase()));
+  const isRealEstate = tags.has('real-estate') || tags.has('listing-contact');
+  const opening = isRealEstate ? 'Interested in this home?' : 'Want to get in touch?';
+  const person = contact.name
+    ? ` Contact ${contact.name}`
+    : isRealEstate
+      ? ' Get in touch with the listing agent'
+      : ' Use the contact details on this card';
   const methods = [
     contact.phone ? `call ${contact.phone}` : '',
     contact.email ? `email ${contact.email}` : '',
   ].filter(Boolean);
   const connection = methods.length ? ` You can ${methods.join(' or ')}.` : '';
-  return `${opening}${person} to ask a question or arrange a private showing.${connection}`.replace(/\s+/g, ' ').trim();
+  const purpose = isRealEstate ? ' to ask a question or arrange a private showing.' : ' to continue the conversation.';
+  return `${opening}${person}${purpose}${connection}`.replace(/\s+/g, ' ').trim();
 }

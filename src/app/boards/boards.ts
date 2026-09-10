@@ -180,6 +180,15 @@ import { cardPresentationSubtitle } from './card-numbering';
 import { cardNotesForPersistence, cardNotesSummary } from './card-notes';
 import { cardPhotoLimit } from './board-card-photo-limit';
 import {
+  CARD_CREATION_OPTIONS,
+  emptySpecialCardDraft,
+  isQrCodeCardLike,
+  specialCardDraftError,
+  type CardCreationKind,
+  type SpecialCardCreationKind,
+  type SpecialCardDraft,
+} from './card-creation';
+import {
   isListingGroupCard,
   listingCardPresentationImages,
   normalizeListingCardPresentation,
@@ -198,6 +207,7 @@ import {
 import {
   buildListingAgentPersonaPrompt,
   hasListingTalkingCard,
+  isRealEstateTalkThru,
   isListingTalkingCardPlaceholder as isListingTalkingCardPlaceholderRecord,
   placeListingTalkingCard,
   shouldOfferListingTalkingCardSetup,
@@ -1200,7 +1210,7 @@ const BOARD_WIZARD_DOORWAY_VISUALS: Record<
   manual: { imageUrl: '/assets/atlas-landing/wiki-bg.png', imagePosition: 'center' },
   paste: { imageUrl: '/assets/knowledge_graph.png', imagePosition: 'center' },
   url: { imageUrl: '/assets/public-wikis/boston-hero.jpg', imagePosition: 'center' },
-  'off-grid': { imageUrl: '/assets/membership/canyon.jpg', imagePosition: 'center' },
+  'off-grid': { imageUrl: '/assets/board-wizard/off-grid-red-pin.png', imagePosition: 'center' },
   'nearby-gems': { imageUrl: '/assets/public-wikis/portland-hero.jpg', imagePosition: 'center' },
   'driving-tour': { imageUrl: '/assets/membership/hero.jpg', imagePosition: 'center 66%' },
   photos: {
@@ -1642,7 +1652,7 @@ type BoardLoadContext = {
   imports: [WorkspaceSidebarComponent, MobileMenuComponent, ThemeToggleComponent, AccountMenuComponent, RouterLink, BoardCollectionCreateComponent, BoardCollectionListComponent, CustomPublicUrlDialogComponent, BoardPromoImageDialogComponent, NearbyGemsBoardComponent, TalkingCardEditorComponent, TalkingCardConversationComponent, BackdropDismissDirective],
   providers: [DocxExportService],
   templateUrl: './boards.html',
-  styleUrls: ['./boards.css', './boards-mobile-create.css', './tour-experience.css', './board-wizard-drafts.css', './board-wizard-media-mode.css', './board-narration-style.css', './board-wizard-redesign.css', './card-image-tools.css', './wizard-card-editor.css', './youtube-video.css', './board-live-entry.css', './board-learning.css', './tour-order.css', './tour-stop-editor.css', './stack-audio.css', './stack-voice.css', './stack-script.css', './stack-listing-groups.css', './listing-contact-card.css', './listing-talking-card.css', './stack-cover-final.css', './stack-doc-export.css', './stack-studio-redesign.css', './board-city-tag.css', './board-custom-link.css', './nearby-gems-gallery.css', './talking-card.css', './board-settings.css'],
+  styleUrls: ['./boards.css', './boards-mobile-create.css', './tour-experience.css', './board-wizard-drafts.css', './board-wizard-media-mode.css', './board-narration-style.css', './board-wizard-redesign.css', './card-image-tools.css', './wizard-card-editor.css', './youtube-video.css', './board-live-entry.css', './board-learning.css', './tour-order.css', './tour-stop-editor.css', './stack-audio.css', './stack-voice.css', './stack-script.css', './stack-listing-groups.css', './listing-contact-card.css', './listing-talking-card.css', './card-type-chooser.css', './stack-cover-final.css', './stack-doc-export.css', './stack-studio-redesign.css', './board-city-tag.css', './board-custom-link.css', './nearby-gems-gallery.css', './talking-card.css', './board-settings.css'],
 })
 export class BoardsComponent implements AfterViewInit, OnDestroy {
   private readonly localeId = inject(LOCALE_ID);
@@ -1868,6 +1878,24 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
   readonly boardDialogOpen = signal(false);
   readonly creatingBoardInside = signal<BoardInsideContext | null>(null);
   readonly cardDialogOpen = signal(false);
+  readonly cardCreationOptions = CARD_CREATION_OPTIONS;
+  readonly cardTypeChooserBoardId = signal<string | null>(null);
+  readonly specialCardEditorBoardId = signal<string | null>(null);
+  readonly specialCardDraft = signal<SpecialCardDraft>(emptySpecialCardDraft('intro'));
+  readonly specialQrPreviewUrl = computed(() => {
+    const value = this.specialCardDraft().qrValue.trim();
+    return value ? generateQrSvgDataUrl(value.slice(0, 2000), { margin: 4 }) : '';
+  });
+  readonly specialCardSaving = signal(false);
+  readonly specialCardError = signal<string | null>(null);
+  readonly cardTypeChooserBoard = computed(() => {
+    const boardId = this.cardTypeChooserBoardId();
+    return boardId ? this.boards().find((board) => board.id === boardId) ?? null : null;
+  });
+  readonly specialCardEditorBoard = computed(() => {
+    const boardId = this.specialCardEditorBoardId();
+    return boardId ? this.boards().find((board) => board.id === boardId) ?? null : null;
+  });
   readonly talkingCardEditorBoardId = signal<string | null>(null);
   readonly talkingCardEditingCardId = signal<string | null>(null);
   readonly listingTalkingCardSetup = signal<{ boardId: string; placeholderCardId: string } | null>(null);
@@ -7465,6 +7493,171 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       this.boardsSyncError.set($localize`Only the board owner can add cards.`);
       return;
     }
+    if (this.isSongBoard(board)) {
+      this.openGeneralCardEditor(board.id);
+      return;
+    }
+    this.selectedBoardId.set(board.id);
+    this.cardTypeChooserBoardId.set(board.id);
+    this.specialCardEditorBoardId.set(null);
+    this.specialCardError.set(null);
+  }
+
+  closeCardTypeChooser(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.cardTypeChooserBoardId.set(null);
+  }
+
+  selectCardCreationType(kind: CardCreationKind, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const board = this.cardTypeChooserBoard();
+    if (!board || !this.canEditBoard(board)) return;
+    this.cardTypeChooserBoardId.set(null);
+    if (kind === 'general') {
+      this.openGeneralCardEditor(board.id);
+      return;
+    }
+    if (kind === 'talking') {
+      if (isRealEstateTalkThru(board)) this.openListingTalkingCardSetup(board);
+      else this.openTalkingCardEditor(board.id);
+      return;
+    }
+    this.openSpecialCardEditor(board, kind);
+  }
+
+  backToCardTypeChooser(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const boardId = this.specialCardEditorBoardId();
+    this.specialCardEditorBoardId.set(null);
+    this.specialCardError.set(null);
+    if (boardId) this.cardTypeChooserBoardId.set(boardId);
+  }
+
+  closeSpecialCardEditor(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (this.specialCardSaving()) return;
+    this.specialCardEditorBoardId.set(null);
+    this.specialCardError.set(null);
+  }
+
+  updateSpecialCardDraft<K extends keyof SpecialCardDraft>(key: K, value: SpecialCardDraft[K]): void {
+    this.specialCardDraft.update((draft) => ({ ...draft, [key]: value }));
+    this.specialCardError.set(null);
+  }
+
+  isQrCodeCard(card: Pick<BoardCard, 'tags'> | null | undefined): boolean {
+    return isQrCodeCardLike(card);
+  }
+
+  specialQrPreview(): string {
+    return this.specialQrPreviewUrl();
+  }
+
+  async saveSpecialCard(event: Event): Promise<void> {
+    event.preventDefault();
+    const board = this.specialCardEditorBoard();
+    const draft = this.specialCardDraft();
+    if (!board || !this.canEditBoard(board) || this.specialCardSaving()) return;
+    const validationError = specialCardDraftError(draft);
+    if (validationError) {
+      this.specialCardError.set(validationError);
+      return;
+    }
+    this.specialCardSaving.set(true);
+    this.specialCardError.set(null);
+    try {
+      const now = new Date().toISOString();
+      const realEstate = isRealEstateTalkThru(board);
+      const clean = (value: string, max: number) => value.replace(/\s+/g, ' ').trim().slice(0, max);
+      let record: Record<string, unknown>;
+      let placement: 'start' | 'end' = 'end';
+      if (draft.kind === 'intro') {
+        const name = clean(this.userName() || board.ownerDisplayName, 80);
+        record = {
+          title: name ? `Welcome from ${name}` : 'Welcome',
+          subtitle: realEstate ? `A personal introduction to ${board.title}` : 'A personal introduction',
+          notes: clean(draft.message, 800),
+          imageUrl: realEstate ? board.imageUrl : this.userPhotoUrl() || board.imageUrl,
+          tags: ['intro-card', 'story-intro', 'agent-intro', ...(realEstate ? ['real-estate'] : [])],
+        };
+        placement = 'start';
+      } else if (draft.kind === 'contact') {
+        const name = clean(draft.name, 120);
+        const organization = clean(draft.organization, 140);
+        const email = draft.email.trim().toLowerCase().slice(0, 180);
+        const phone = clean(draft.phone, 60);
+        record = {
+          title: `Contact ${name}`,
+          subtitle: [organization, phone ? `Phone: ${phone}` : '', email ? `Email: ${email}` : ''].filter(Boolean).join(' · '),
+          notes: [name, organization, phone ? `Phone: ${phone}` : '', email ? `Email: ${email}` : ''].filter(Boolean).join('\n'),
+          imageUrl: this.userPhotoUrl() || board.imageUrl,
+          tags: ['contact-card', ...(realEstate ? ['listing-contact', 'real-estate', 'group-next-step'] : [])],
+        };
+      } else {
+        const value = draft.qrValue.trim().slice(0, 2000);
+        const label = clean(draft.qrLabel, 80) || 'Scan this QR code';
+        record = {
+          title: label,
+          subtitle: 'Scan with your phone',
+          notes: value,
+          imageUrl: generateQrSvgDataUrl(value, { margin: 4 }),
+          tags: ['qr-code-card', 'qr-code'],
+          sourceUrl: /^https:\/\//i.test(value) ? value : '',
+        };
+      }
+      const card = this.cardFromRecord({
+        id: this.createId(),
+        ...record,
+        type: 'note',
+        scope: 'place',
+        status: 'saved',
+        rating: 5,
+        imageUrls: record['imageUrl'] ? [record['imageUrl']] : [],
+        audioPreviewUrl: '',
+        spotifyTrackId: '',
+        spotifyTrackUrl: '',
+        spotifyUri: '',
+        spotifyArtistName: '',
+        spotifyAlbumName: '',
+        spotifyArtworkUrl: '',
+        placeId: '',
+        googleMapsUrl: '',
+        stickers: [],
+        tour: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      if (!card) throw new Error('The card could not be prepared.');
+      const cards = placement === 'start' ? [card, ...board.cards] : [...board.cards, card];
+      const nextBoard = { ...board, cards, updatedAt: now };
+      const saved = await this.persistAndReplaceBoard(nextBoard);
+      if (!saved) throw new Error('The card could not be saved. Please try again.');
+      this.specialCardEditorBoardId.set(null);
+    } catch (error) {
+      this.specialCardError.set(error instanceof Error ? error.message : 'The card could not be saved.');
+    } finally {
+      this.specialCardSaving.set(false);
+    }
+  }
+
+  private openSpecialCardEditor(board: Board, kind: SpecialCardCreationKind): void {
+    this.specialCardDraft.set(emptySpecialCardDraft(kind, {
+      name: kind === 'contact' ? this.userName() || board.ownerDisplayName : '',
+      email: kind === 'contact' ? this.userEmail() : '',
+      qrValue: kind === 'qr-code' ? this.stackShareUrl(board) : '',
+      qrLabel: kind === 'qr-code' ? 'Scan this board' : '',
+    }));
+    this.specialCardError.set(null);
+    this.specialCardEditorBoardId.set(board.id);
+  }
+
+  private openGeneralCardEditor(boardId: string): void {
+    const board = this.boards().find((item) => item.id === boardId);
+    if (!board || !this.canEditBoard(board)) return;
     void this.ensureCitiesLoaded();
     const songMode = this.isSongBoard(board);
     this.selectedBoardId.set(boardId);
@@ -7631,7 +7824,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       this.boardsSyncError.set($localize`Save the parent card before adding related cards.`);
       return;
     }
-    this.openCreateCard(board.id);
+    this.openGeneralCardEditor(board.id);
     this.relatedCardParentId.set(parent.id);
     this.relatedCardEditingId.set(null);
   }

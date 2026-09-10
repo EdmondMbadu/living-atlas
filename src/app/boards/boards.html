@@ -90,9 +90,15 @@
                 } @else if (frame.kind === 'card') {
                   @if (frame.card; as card) {
                     @if (stackCurrentCardImage(); as activeCardImage) {
-                      <img class="stack-preview__media" [src]="activeCardImage" [alt]="card.title + (stackCardPhotoPosition() ? ' · photo ' + stackCardPhotoPosition() : '')" decoding="async" />
+                      <img class="stack-preview__media" [class.stack-preview__media--qr]="isQrCodeCard(card)" [src]="activeCardImage" [alt]="card.title + (stackCardPhotoPosition() ? ' · photo ' + stackCardPhotoPosition() : '')" decoding="async" />
                     }
-                    @if (isListingContactCard(card)) {
+                    @if (isQrCodeCard(card)) {
+                      <div class="stack-preview__content stack-preview__content--qr-card">
+                        <span>QR code</span>
+                        <h4>{{ card.title }}</h4>
+                        <p>Open your camera and scan.</p>
+                      </div>
+                    } @else if (isListingContactCard(card)) {
                       @if (listingContactDetails(card); as contact) {
                         <div class="stack-preview__shade stack-preview__shade--contact"></div>
                         <div class="stack-preview__content stack-preview__content--contact">
@@ -101,13 +107,13 @@
                             Let’s connect
                           </span>
                           <div class="listing-contact-live__heading">
-                            <h4>Interested in this home?</h4>
-                            <p>Contact {{ contact.name || 'the listing agent' }}</p>
+                            <h4>{{ card.tags.includes('real-estate') || card.tags.includes('listing-contact') ? 'Interested in this home?' : 'Want to get in touch?' }}</h4>
+                            <p>Contact {{ contact.name || (card.tags.includes('real-estate') ? 'the listing agent' : 'the person behind this board') }}</p>
                           </div>
                           @if (contact.agency) {
                             <span class="listing-contact-live__agency">{{ contact.agency }}</span>
                           }
-                          <p class="listing-contact-live__invitation">I’d be happy to answer your questions or arrange a private showing.</p>
+                          <p class="listing-contact-live__invitation">{{ card.tags.includes('real-estate') || card.tags.includes('listing-contact') ? 'I’d be happy to answer your questions or arrange a private showing.' : 'Use the details below to continue the conversation.' }}</p>
                           @if (contact.phoneHref || contact.emailHref) {
                             <div class="listing-contact-live__actions" [class.listing-contact-live__actions--single]="!contact.phoneHref || !contact.emailHref">
                               @if (contact.phoneHref) {
@@ -3225,6 +3231,7 @@
                   [class.detail-card--inside-alongside]="isAlongsideInnerCard(board, card)"
                   [class.detail-card--photo-only]="isPhotoOnlyCard(card)"
                   [class.detail-card--listing-contact]="isListingContactCard(card)"
+                  [class.detail-card--qr-code]="isQrCodeCard(card)"
                   [class.detail-card--talking]="isTalkingCard(card)"
                   [class.detail-card--listing-talking-setup]="isListingTalkingCardPlaceholder(card)"
                   [class.detail-card--listing-intro-setup]="isListingIntroCardPlaceholder(card)"
@@ -3531,7 +3538,13 @@
                         }
                       </div>
 
-                      @if (isListingIntroCardPlaceholder(card)) {
+                      @if (isQrCodeCard(card)) {
+                        <div class="qr-code-board-card">
+                          <span>QR code</span>
+                          <strong>{{ card.title }}</strong>
+                          <small>Open your camera and scan</small>
+                        </div>
+                      } @else if (isListingIntroCardPlaceholder(card)) {
                         <div class="listing-intro-setup-card__content">
                           <span><span class="material-symbols-outlined">visibility_lock</span>Only you can see this setup card</span>
                           <strong>Welcome buyers in your own words</strong>
@@ -3554,8 +3567,8 @@
                       } @else if (isListingContactCard(card)) {
                         @if (listingContactDetails(card); as contact) {
                           <div class="listing-contact-board">
-                            <span class="listing-contact-board__eyebrow">Questions about this home?</span>
-                            <strong>Contact {{ contact.name || 'the listing agent' }}</strong>
+                            <span class="listing-contact-board__eyebrow">{{ card.tags.includes('real-estate') || card.tags.includes('listing-contact') ? 'Questions about this home?' : 'Want to get in touch?' }}</span>
+                            <strong>Contact {{ contact.name || (card.tags.includes('real-estate') ? 'the listing agent' : 'the person behind this board') }}</strong>
                             @if (contact.agency) { <small>{{ contact.agency }}</small> }
                             @if (contact.phoneHref || contact.emailHref) {
                               <div class="listing-contact-board__actions">
@@ -3628,7 +3641,7 @@
                         </div>
                       }
 
-                      @if (!isPhotoOnlyCard(card) && !isListingContactCard(card) && !isListingTalkingCardPlaceholder(card) && !isListingIntroCardPlaceholder(card)) {
+                      @if (!isPhotoOnlyCard(card) && !isListingContactCard(card) && !isQrCodeCard(card) && !isListingTalkingCardPlaceholder(card) && !isListingIntroCardPlaceholder(card)) {
                       <div class="detail-card__body">
                         <div class="detail-card__line">
                           <span>
@@ -3699,7 +3712,7 @@
                       </div>
                       }
 
-                      @if (!isListingContactCard(card) && !isListingTalkingCardPlaceholder(card)) {
+                      @if (!isListingContactCard(card) && !isQrCodeCard(card) && !isListingTalkingCardPlaceholder(card)) {
                         <div class="detail-card__footer">
                           <span i18n>Updated {{ cardUpdatedLabel(card) }}</span>
                         </div>
@@ -9761,6 +9774,121 @@
     }
   }
 
+  @if (cardTypeChooserBoard(); as chooserBoard) {
+    <div class="boards-modal-backdrop card-type-chooser-backdrop" appBackdropDismiss (backdropDismiss)="closeCardTypeChooser()">
+      <section class="card-type-chooser" role="dialog" aria-modal="true" aria-labelledby="card-type-chooser-title" (click)="$event.stopPropagation()">
+        <header class="card-type-chooser__header">
+          <span>
+            <h3 id="card-type-chooser-title">Add a card</h3>
+            <small>{{ chooserBoard.title }}</small>
+          </span>
+          <button type="button" aria-label="Close card type chooser" (click)="closeCardTypeChooser($event)">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <div class="card-type-chooser__body">
+          <div class="card-type-chooser__intro">
+            <h4>What kind of card are you adding?</h4>
+            <p>Choose a starting point. You’ll add the details next.</p>
+          </div>
+          @for (option of cardCreationOptions; track option.kind) {
+            @if (option.kind === 'general') {
+              <button type="button" class="card-type-option card-type-option--general" (click)="selectCardCreationType(option.kind, $event)">
+                <span class="card-type-option__icon material-symbols-outlined">{{ option.icon }}</span>
+                <span><strong>{{ option.title }}</strong><small>{{ option.description }}</small></span>
+                <span class="material-symbols-outlined">arrow_forward_ios</span>
+              </button>
+            }
+          }
+          <div class="card-type-chooser__section-label"><span>Special cards</span><i></i></div>
+          <div class="card-type-chooser__grid">
+            @for (option of cardCreationOptions; track option.kind) {
+              @if (option.kind !== 'general') {
+                <button type="button" class="card-type-option" (click)="selectCardCreationType(option.kind, $event)">
+                  <span class="card-type-option__icon material-symbols-outlined">{{ option.icon }}</span>
+                  <span><strong>{{ option.title }}</strong><small>{{ option.description }}</small></span>
+                  <span class="material-symbols-outlined">arrow_forward_ios</span>
+                </button>
+              }
+            }
+          </div>
+        </div>
+        <footer class="card-type-chooser__footer">
+          <small>Select a card type to continue.</small>
+          <button type="button" (click)="closeCardTypeChooser($event)">Cancel</button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if (specialCardEditorBoard(); as specialBoard) {
+    <div class="boards-modal-backdrop special-card-editor-backdrop" appBackdropDismiss (backdropDismiss)="closeSpecialCardEditor()">
+      <section class="special-card-editor" role="dialog" aria-modal="true" aria-labelledby="special-card-editor-title" (click)="$event.stopPropagation()">
+        <header class="special-card-editor__header">
+          <button type="button" class="special-card-editor__back" aria-label="Back to card types" [disabled]="specialCardSaving()" (click)="backToCardTypeChooser($event)">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <span>
+            <small>{{ specialBoard.title }}</small>
+            <h3 id="special-card-editor-title">
+              {{ specialCardDraft().kind === 'intro' ? 'Create an Intro card' : specialCardDraft().kind === 'contact' ? 'Create a Contact card' : 'Create a QR code card' }}
+            </h3>
+          </span>
+          <button type="button" aria-label="Close card editor" [disabled]="specialCardSaving()" (click)="closeSpecialCardEditor($event)">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </header>
+        <form class="special-card-editor__form" (submit)="saveSpecialCard($event)">
+          @if (specialCardDraft().kind === 'intro') {
+            <div class="special-card-editor__purpose">
+              <span class="material-symbols-outlined">waving_hand</span>
+              <span><strong>Welcome visitors in your own words</strong><small>This card will be placed at the beginning of the board.</small></span>
+            </div>
+            <label>
+              <span>Welcome message</span>
+              <textarea rows="7" maxlength="800" required placeholder="Welcome! Here’s what I’d love you to notice as you explore this board…" [value]="specialCardDraft().message" (input)="updateSpecialCardDraft('message', $any($event.target).value)"></textarea>
+              <small>{{ specialCardDraft().message.length }}/800</small>
+            </label>
+          } @else if (specialCardDraft().kind === 'contact') {
+            <div class="special-card-editor__purpose">
+              <span class="material-symbols-outlined">contact_mail</span>
+              <span><strong>Make it easy to reach the right person</strong><small>Add at least an email address or phone number.</small></span>
+            </div>
+            <div class="special-card-editor__split">
+              <label><span>Name</span><input type="text" maxlength="120" required [value]="specialCardDraft().name" (input)="updateSpecialCardDraft('name', $any($event.target).value)" /></label>
+              <label><span>Organization <small>(optional)</small></span><input type="text" maxlength="140" [value]="specialCardDraft().organization" (input)="updateSpecialCardDraft('organization', $any($event.target).value)" /></label>
+              <label><span>Email</span><input type="email" maxlength="180" [value]="specialCardDraft().email" (input)="updateSpecialCardDraft('email', $any($event.target).value)" /></label>
+              <label><span>Phone</span><input type="tel" maxlength="60" [value]="specialCardDraft().phone" (input)="updateSpecialCardDraft('phone', $any($event.target).value)" /></label>
+            </div>
+          } @else {
+            <div class="special-card-editor__purpose">
+              <span class="material-symbols-outlined">qr_code_2</span>
+              <span><strong>Create one clear, scannable QR code</strong><small>The board link is ready, or replace it with another link or text.</small></span>
+            </div>
+            <div class="special-card-editor__qr-layout">
+              <span class="special-card-editor__qr-preview">
+                @if (specialQrPreview()) { <img [src]="specialQrPreview()" alt="QR code preview" /> }
+                @else { <span class="material-symbols-outlined">qr_code_2</span> }
+              </span>
+              <span class="special-card-editor__qr-fields">
+                <label><span>Link or text</span><textarea rows="4" maxlength="2000" required [value]="specialCardDraft().qrValue" (input)="updateSpecialCardDraft('qrValue', $any($event.target).value)"></textarea></label>
+                <label><span>Label <small>(optional)</small></span><input type="text" maxlength="80" placeholder="Scan this board" [value]="specialCardDraft().qrLabel" (input)="updateSpecialCardDraft('qrLabel', $any($event.target).value)" /></label>
+              </span>
+            </div>
+          }
+          @if (specialCardError()) { <p class="boards-form__soft-error" role="alert">{{ specialCardError() }}</p> }
+          <footer class="special-card-editor__actions">
+            <button type="button" class="boards-ghost-action" [disabled]="specialCardSaving()" (click)="closeSpecialCardEditor($event)">Cancel</button>
+            <button type="submit" class="boards-primary-action" [disabled]="specialCardSaving()">
+              <span class="material-symbols-outlined">{{ specialCardSaving() ? 'progress_activity' : specialCardDraft().kind === 'qr-code' ? 'qr_code_2' : 'check' }}</span>
+              {{ specialCardSaving() ? 'Saving…' : specialCardDraft().kind === 'intro' ? 'Add Intro card' : specialCardDraft().kind === 'contact' ? 'Add Contact card' : 'Add QR code card' }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
+
   @if (cardDialogOpen()) {
     <div class="boards-modal-backdrop" appBackdropDismiss (backdropDismiss)="closeCardDialog()">
       <section class="boards-modal boards-modal--wide" aria-label="Card form" (click)="$event.stopPropagation()" i18n-aria-label>
@@ -10365,7 +10493,7 @@
                 }
               </label>
               <label>
-                <span i18n>Type</span>
+                <span i18n>Category</span>
                 <select
                   [value]="cardDraft().type"
                   (change)="updateCardDraft('type', $any($event.target).value)"

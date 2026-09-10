@@ -25,6 +25,12 @@ describe('listing contact card', () => {
     expect(isListingContactCard({ title: 'Reach out', tags: ['listing-contact'] })).toBeTrue();
   });
 
+  it('recognizes a reusable contact card outside real estate', () => {
+    expect(isListingContactCard({ title: 'Contact Maya', tags: ['contact-card'] })).toBeTrue();
+    expect(listingContactNarration({ title: 'Contact Maya', tags: ['contact-card'], notes: 'Email: maya@example.com' }))
+      .toContain('continue the conversation');
+  });
+
   it('extracts only the useful contact details from legacy copy', () => {
     expect(listingContactCardDetails(legacyCard)).toEqual({
       name: 'Edmond Mbadu',
