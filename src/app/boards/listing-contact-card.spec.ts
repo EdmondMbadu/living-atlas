@@ -1,5 +1,6 @@
 import {
   isListingContactCard,
+  listingContactCardEditRecord,
   listingContactCardDetails,
   listingContactNarration,
   listingContactScript,
@@ -125,5 +126,44 @@ describe('listing contact card', () => {
       phoneHref: 'tel:4842559613',
       emailHref: 'mailto:jim.walker@mindpalace.com',
     });
+  });
+
+  it('round-trips edited contact fields into working call and email actions', () => {
+    const edited = listingContactCardEditRecord({
+      name: '  Taylor   Thornton ',
+      organization: ' Northstar Realty ',
+      phone: ' (303) 555-0198 ',
+      email: ' TAYLOR@EXAMPLE.COM ',
+      script: 'Call or email me with any questions about this home.',
+      tags: ['listing-contact', 'real-estate'],
+    });
+
+    expect(edited.title).toBe('Contact Taylor Thornton');
+    expect(edited.subtitle).toBe('Northstar Realty · Phone: (303) 555-0198 · Email: taylor@example.com');
+    expect(edited.notes).toBe('Call or email me with any questions about this home.');
+    expect(edited.stackNarration).toBe(edited.notes);
+    expect(listingContactCardDetails(edited)).toEqual({
+      name: 'Taylor Thornton',
+      agency: 'Northstar Realty',
+      phone: '(303) 555-0198',
+      email: 'taylor@example.com',
+      phoneHref: 'tel:3035550198',
+      emailHref: 'mailto:taylor@example.com',
+    });
+  });
+
+  it('generates a useful narration when an edited Contact Card script is left blank', () => {
+    const edited = listingContactCardEditRecord({
+      name: 'Taylor Thornton',
+      organization: '',
+      phone: '',
+      email: 'taylor@example.com',
+      script: '   ',
+      tags: ['listing-contact', 'real-estate'],
+    });
+
+    expect(edited.stackNarration).toContain('Interested in this home?');
+    expect(edited.stackNarration).toContain('taylor@example.com');
+    expect(edited.notes).toBe(edited.stackNarration);
   });
 });

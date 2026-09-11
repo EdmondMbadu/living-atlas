@@ -24,6 +24,23 @@ export type ListingContactCardDetails = {
   emailHref: string;
 };
 
+export type ListingContactCardEditInput = {
+  name: string;
+  organization: string;
+  phone: string;
+  email: string;
+  script: string;
+  tags?: readonly string[] | null;
+};
+
+export type ListingContactCardEditRecord = {
+  title: string;
+  subtitle: string;
+  notes: string;
+  stackNarration: string;
+  contactDetails: ListingContactData;
+};
+
 const INVITATION_LANGUAGE = /\b(?:interested|questions?|happy to help|private showing|show you|arrange|contact|get in touch)\b/i;
 
 function clean(value: string | null | undefined): string {
@@ -113,6 +130,33 @@ export function listingContactNarration(card: ListingContactCardLike): string {
   const connection = methods.length ? ` You can ${methods.join(' or ')}.` : '';
   const purpose = isRealEstate ? ' to ask a question or arrange a private showing.' : ' to continue the conversation.';
   return `${opening}${person}${purpose}${connection}`.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Build the canonical fields saved by the Contact Card editor. Contact data is
+ * stored separately from narration so changing the script cannot remove the
+ * Call or Email actions.
+ */
+export function listingContactCardEditRecord(input: ListingContactCardEditInput): ListingContactCardEditRecord {
+  const name = clean(input.name).slice(0, 120);
+  const organization = clean(input.organization).slice(0, 140);
+  const phone = clean(input.phone).slice(0, 60);
+  const email = clean(input.email).toLowerCase().slice(0, 180);
+  const contactDetails: ListingContactData = { name, organization, phone, email };
+  const contactCard = {
+    title: `Contact ${name}`,
+    subtitle: [organization, phone ? `Phone: ${phone}` : '', email ? `Email: ${email}` : '']
+      .filter(Boolean)
+      .join(' · '),
+    tags: input.tags,
+    contactDetails,
+  };
+  const script = input.script.trim() || listingContactNarration(contactCard);
+  return {
+    ...contactCard,
+    notes: script,
+    stackNarration: script,
+  };
 }
 
 /**

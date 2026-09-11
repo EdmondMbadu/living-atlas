@@ -197,6 +197,7 @@ import {
 } from './listing-card-presentation';
 import {
   isListingContactCard as isListingContactCardRecord,
+  listingContactCardEditRecord,
   listingContactCardDetails as contactDetailsForListingCard,
   listingContactNarration,
   listingContactScript,
@@ -690,6 +691,10 @@ type CardDraft = {
   title: string;
   subtitle: string;
   notes: string;
+  contactName: string;
+  contactOrganization: string;
+  contactPhone: string;
+  contactEmail: string;
   type: BoardCardType;
   scope: BoardCardScope;
   status: BoardCardStatus;
@@ -2442,6 +2447,10 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
     title: '',
     subtitle: '',
     notes: '',
+    contactName: '',
+    contactOrganization: '',
+    contactPhone: '',
+    contactEmail: '',
     type: 'place',
     scope: 'place',
     status: 'saved',
@@ -2706,6 +2715,15 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
   readonly isSongCardForm = computed(() => {
     const board = this.selectedBoard();
     return !!board && this.isSongBoard(board);
+  });
+  readonly editingListingContactCard = computed(() => {
+    const boardId = this.editingCardBoardId();
+    const cardId = this.editingCardId();
+    if (!boardId || !cardId) return null;
+    const card = this.boards()
+      .find((board) => board.id === boardId)
+      ?.cards.find((candidate) => candidate.id === cardId);
+    return card && isListingContactCardRecord(card) ? card : null;
   });
   readonly canManageBoardFriends = computed(() => this.isOwnBoardsProfile());
   readonly canCreateBoard = computed(() => this.isOwnBoardsProfile());
@@ -7678,6 +7696,10 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       title: '',
       subtitle: '',
       notes: '',
+      contactName: '',
+      contactOrganization: '',
+      contactPhone: '',
+      contactEmail: '',
       type: songMode ? 'note' : 'place',
       scope: 'place',
       status: 'saved',
@@ -7735,10 +7757,15 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
     this.resetCardWizard();
     this.cardImageLocked.set(!!card.imageUrl);
     const tour = card.tour;
+    const contact = this.isListingContactCard(card) ? contactDetailsForListingCard(card) : null;
     this.cardDraft.set({
       title: card.title,
       subtitle: card.subtitle,
-      notes: card.notes,
+      notes: contact ? listingContactScript(card) : card.notes,
+      contactName: contact?.name ?? '',
+      contactOrganization: contact?.agency ?? '',
+      contactPhone: contact?.phone ?? '',
+      contactEmail: contact?.email ?? '',
       type: card.type,
       scope: card.scope,
       status: card.status,
@@ -9072,11 +9099,42 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       ? this.boards().find((candidate) => candidate.id === editingBoardId) ?? null
       : this.selectedBoard();
     const draft = this.cardDraft();
-    const title = draft.title.trim();
-    if (!board || !title) {
+    if (!board) {
       return;
     }
-    if (draft.what3wordsAddress.trim() && !normalizeWhat3WordsAddress(draft.what3wordsAddress)) {
+    const editingId = this.editingCardId();
+    const editingCard = editingId ? board.cards.find((card) => card.id === editingId) ?? null : null;
+    const editingContactCard = !!editingCard && this.isListingContactCard(editingCard);
+    const contactValidationError = editingContactCard
+      ? specialCardDraftError({
+        kind: 'contact',
+        message: '',
+        name: draft.contactName,
+        organization: draft.contactOrganization,
+        phone: draft.contactPhone,
+        email: draft.contactEmail,
+        qrValue: '',
+        qrLabel: '',
+      })
+      : '';
+    if (contactValidationError) {
+      this.imageUploadError.set(contactValidationError);
+      return;
+    }
+    const contactEdit = editingContactCard
+      ? listingContactCardEditRecord({
+        name: draft.contactName,
+        organization: draft.contactOrganization,
+        phone: draft.contactPhone,
+        email: draft.contactEmail,
+        script: cardNotesForPersistence(draft.notes),
+        tags: editingCard.tags,
+      })
+      : null;
+    const title = contactEdit?.title ?? draft.title.trim();
+    const subtitle = contactEdit?.subtitle ?? draft.subtitle.trim();
+    if (!title) return;
+    if (!editingContactCard && draft.what3wordsAddress.trim() && !normalizeWhat3WordsAddress(draft.what3wordsAddress)) {
       this.imageUploadError.set($localize`Fix the what3words address before saving. Use exactly three words separated by periods.`);
       return;
     }
@@ -9094,7 +9152,6 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       .slice(0, 6);
     const tags = songMode ? this.mergeWizardTags(rawTags, ['song', 'music']) : rawTags;
     const rating = Math.max(1, Math.min(5, Number.parseInt(draft.rating, 10) || 1));
-    const editingId = this.editingCardId();
     const draftTour = songMode ? null : this.cardTourFromDraft(draft);
     const draftImages = this.cardDraftImages(draft);
     const imageUrl = draftImages[0] || (songMode ? draft.spotifyArtworkUrl.trim() : '');
@@ -9109,37 +9166,22 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
     const effectiveTags = relatedParentId
       ? this.mergeWizardTags(tags, ['related-card']).slice(0, 6)
       : tags;
-    const editingCard = editingId ? board.cards.find((card) => card.id === editingId) ?? null : null;
     const completingAuthorOnlyCard = editingCard?.authorOnly === true
       && draft.notes.trim().length > 0
       && draft.notes.trim() !== 'Add a short welcome message about the property and invite buyers to look around.';
     const persistedTags = completingAuthorOnlyCard
       ? effectiveTags.filter((tag) => tag !== 'author-only' && tag !== 'intro-placeholder')
       : effectiveTags;
-    const persistedNotes = cardNotesForPersistence(draft.notes);
-    const editedContact = editingCard && this.isListingContactCard(editingCard)
-      ? contactDetailsForListingCard({
-        ...editingCard,
-        title,
-        subtitle: draft.subtitle.trim(),
-        notes: persistedNotes,
-        contactDetails: null,
-      })
-      : null;
+    const persistedNotes = contactEdit?.notes ?? cardNotesForPersistence(draft.notes);
     const cardFromDraft = (existing: BoardCard | null = null): BoardCard => ({
       ...(existing ?? {}),
       id: existing?.id ?? this.createId(),
       title,
-      subtitle: draft.subtitle.trim(),
+      subtitle,
       notes: persistedNotes,
-      ...(editedContact ? {
-        stackNarration: persistedNotes,
-        contactDetails: {
-          name: editedContact.name,
-          organization: editedContact.agency,
-          phone: editedContact.phone,
-          email: editedContact.email,
-        },
+      ...(contactEdit ? {
+        stackNarration: contactEdit.stackNarration,
+        contactDetails: contactEdit.contactDetails,
       } : {}),
       type: cardType,
       entityType: existing?.type === cardType
@@ -10054,6 +10096,14 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
 
   updateCardDraft<K extends keyof CardDraft>(field: K, value: CardDraft[K]): void {
     this.cardDraft.update((draft) => ({ ...draft, [field]: value }));
+  }
+
+  updateContactCardDraft<K extends 'contactName' | 'contactOrganization' | 'contactPhone' | 'contactEmail' | 'notes'>(
+    field: K,
+    value: CardDraft[K],
+  ): void {
+    this.updateCardDraft(field, value);
+    this.imageUploadError.set(null);
   }
 
   isTourWizardMode(mode = this.wizardMode()): mode is 'walking-tour' | 'driving-tour' {

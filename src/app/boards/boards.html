@@ -9902,7 +9902,7 @@
               <p>{{ relatedCardEditingId() ? 'Edit card' : 'New card' }}</p>
               <h3>Inside {{ collectionParent.title }}</h3>
             } @else {
-              <p>{{ editingCardId() ? (isSongCardForm() ? 'Edit song' : 'Edit card') : (isSongCardForm() ? 'New song' : 'New card') }}</p>
+              <p>{{ editingCardId() ? (isSongCardForm() ? 'Edit song' : editingListingContactCard() ? 'Edit Contact Card' : 'Edit card') : (isSongCardForm() ? 'New song' : 'New card') }}</p>
               <h3>{{ selectedBoardTitle() }}</h3>
             }
           </div>
@@ -10216,7 +10216,8 @@
             </section>
 
           } @else {
-            <section class="boards-card-wizard">
+            @if (!editingListingContactCard()) {
+              <section class="boards-card-wizard">
               <div class="boards-card-wizard__head">
                 <span class="material-symbols-outlined">auto_awesome</span>
                 <div>
@@ -10243,16 +10244,83 @@
               @if (cardWizardError()) {
                 <div class="boards-form__soft-error">{{ cardWizardError() }}</div>
               }
-            </section>
+              </section>
+            }
 
             <section class="boards-form-section boards-form-section--feature">
               <div class="boards-form-section__head">
-                <span class="material-symbols-outlined">sticky_note_2</span>
+                <span class="material-symbols-outlined">{{ editingListingContactCard() ? 'contact_mail' : 'sticky_note_2' }}</span>
                 <div>
                   <p i18n>Review</p>
-                  <h4 i18n>Edit anything before saving</h4>
+                  <h4>{{ editingListingContactCard() ? 'Contact details and narration' : 'Edit anything before saving' }}</h4>
                 </div>
               </div>
+            @if (editingListingContactCard()) {
+              <div class="special-card-editor__purpose">
+                <span class="material-symbols-outlined">contact_phone</span>
+                <span>
+                  <strong>Restore the Call and Email buttons</strong>
+                  <small>Add at least a phone number or email address. These details are saved separately from the narration.</small>
+                </span>
+              </div>
+              <div class="special-card-editor__split">
+                <label>
+                  <span>Name</span>
+                  <input
+                    type="text"
+                    required
+                    maxlength="120"
+                    autocomplete="name"
+                    placeholder="Taylor Thornton"
+                    [value]="cardDraft().contactName"
+                    (input)="updateContactCardDraft('contactName', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Organization <small>(optional)</small></span>
+                  <input
+                    type="text"
+                    maxlength="140"
+                    autocomplete="organization"
+                    placeholder="Realty company"
+                    [value]="cardDraft().contactOrganization"
+                    (input)="updateContactCardDraft('contactOrganization', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    maxlength="60"
+                    autocomplete="tel"
+                    placeholder="(303) 555-0198"
+                    [value]="cardDraft().contactPhone"
+                    (input)="updateContactCardDraft('contactPhone', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    maxlength="180"
+                    autocomplete="email"
+                    placeholder="taylor@example.com"
+                    [value]="cardDraft().contactEmail"
+                    (input)="updateContactCardDraft('contactEmail', $any($event.target).value)"
+                  />
+                </label>
+              </div>
+              <label>
+                <span>Script / narration <small>(optional)</small></span>
+                <textarea
+                  rows="5"
+                  placeholder="What should this card say when it is read aloud?"
+                  [value]="cardDraft().notes"
+                  (input)="updateContactCardDraft('notes', $any($event.target).value)"
+                ></textarea>
+                <small>If left blank, LivingWiki creates a short invitation using the contact details above.</small>
+              </label>
+            }
             <section id="card-photo-editor" class="card-memory-gallery" aria-label="Card photo memories" i18n-aria-label>
               <div class="card-memory-gallery__head">
                 <div>
@@ -10427,7 +10495,8 @@
                 }
               </section>
             }
-              <div class="boards-form__split">
+              @if (!editingListingContactCard()) {
+                <div class="boards-form__split">
                 <label>
                   <span i18n>Title</span>
                   <input
@@ -10506,7 +10575,8 @@
                     <option [value]="type.id" [selected]="type.id === cardDraft().type">{{ type.label }}</option>
                   }
                 </select>
-              </label>
+                </label>
+              }
             </section>
 
           }
@@ -10519,7 +10589,7 @@
             <button type="button" class="boards-ghost-action" (click)="closeCardDialog()" i18n>Cancel</button>
             <button type="submit" class="boards-primary-action">
               <span class="material-symbols-outlined">check</span>
-              <span>{{ isSongCardForm() ? 'Save song' : 'Save card' }}</span>
+              <span>{{ isSongCardForm() ? 'Save song' : editingListingContactCard() ? 'Save Contact Card' : 'Save card' }}</span>
             </button>
           </div>
         </form>
