@@ -535,6 +535,7 @@ describe('TalkingCardEditorComponent', () => {
       durationSeconds: 72,
       name: 'Edmond',
       replacingVoiceId: 'voice-1',
+      onUploadProgress: jasmine.any(Function),
     });
     expect(fixture.componentInstance.voiceChoice()).toBe('personal');
     expect(fixture.componentInstance.personalVoiceId()).toBe('voice-1');

@@ -6559,10 +6559,6 @@
     "source": "Plant your flag early in a launch city with launch placement, a founding badge, and a stronger voice in how the wiki grows.",
     "file": "src/app/business/business.ts"
   },
-  "5291237410034550628": {
-    "source": "Audio only · 20–180 seconds · up to 15 MB",
-    "file": "src/app/boards/boards.html"
-  },
   "5291253231807019337": {
     "source": "Pull in live internet context and discussion themes.",
     "file": "src/app/chat/chat.ts"
@@ -8054,6 +8050,10 @@
   "6264442811047557626": {
     "source": "No wikis match \"{$INTERPOLATION}\".",
     "file": "src/app/wiki-home/wiki-home.html"
+  },
+  "6268294311396861093": {
+    "source": "Audio only · 20–180 seconds · up to 60 MB",
+    "file": "src/app/boards/boards.html"
   },
   "6269202464699193298": {
     "source": "Arabic",

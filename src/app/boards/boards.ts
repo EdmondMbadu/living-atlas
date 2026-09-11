@@ -36,6 +36,7 @@ import { MobileMenuComponent } from '../mobile-menu/mobile-menu';
 import type { AtlasItem } from '../atlas.models';
 import { PlaceReviewsService, type CityPlaceCandidate } from '../place-reviews.service';
 import {
+  personalVoiceFileValidationError,
   PersonalVoiceService,
   type PersonalVoice as PersonalNarratorVoice,
   type PersonalVoiceLibrary as PersonalNarratorVoiceResponse,
@@ -198,6 +199,8 @@ import {
   isListingContactCard as isListingContactCardRecord,
   listingContactCardDetails as contactDetailsForListingCard,
   listingContactNarration,
+  listingContactScript,
+  type ListingContactData,
   type ListingContactCardDetails,
 } from './listing-contact-card';
 import {
@@ -512,6 +515,8 @@ type BoardCard = {
   shortSummary?: string;
   rank?: number;
   nearby?: NearbyGemCardMetrics;
+  contactDetails?: ListingContactData;
+  stackNarration?: string;
   videoNarrationRevision?: number;
   stackNarrationSource?: string;
   videoIntent?: boolean;
@@ -2352,6 +2357,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
   readonly personalVoiceOwnVoiceConfirmed = signal(false);
   readonly personalVoiceConsentConfirmed = signal(false);
   readonly personalVoiceCreating = signal(false);
+  readonly personalVoiceUploadProgress = signal<number | null>(null);
   readonly personalVoiceDeleting = signal(false);
   readonly personalVoiceDeletingId = signal<string | null>(null);
   readonly personalVoiceError = signal<string | null>(null);
@@ -7584,12 +7590,18 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
         const organization = clean(draft.organization, 140);
         const email = draft.email.trim().toLowerCase().slice(0, 180);
         const phone = clean(draft.phone, 60);
-        record = {
+        const contactDetails: ListingContactData = { name, organization, phone, email };
+        const contactRecord = {
           title: `Contact ${name}`,
           subtitle: [organization, phone ? `Phone: ${phone}` : '', email ? `Email: ${email}` : ''].filter(Boolean).join(' · '),
-          notes: [name, organization, phone ? `Phone: ${phone}` : '', email ? `Email: ${email}` : ''].filter(Boolean).join('\n'),
           imageUrl: this.userPhotoUrl() || board.imageUrl,
           tags: ['contact-card', ...(realEstate ? ['listing-contact', 'real-estate', 'group-next-step'] : [])],
+          contactDetails,
+        };
+        record = {
+          ...contactRecord,
+          notes: listingContactNarration(contactRecord),
+          stackNarration: listingContactNarration(contactRecord),
         };
       } else {
         const value = draft.qrValue.trim().slice(0, 2000);
@@ -9104,12 +9116,31 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
     const persistedTags = completingAuthorOnlyCard
       ? effectiveTags.filter((tag) => tag !== 'author-only' && tag !== 'intro-placeholder')
       : effectiveTags;
+    const persistedNotes = cardNotesForPersistence(draft.notes);
+    const editedContact = editingCard && this.isListingContactCard(editingCard)
+      ? contactDetailsForListingCard({
+        ...editingCard,
+        title,
+        subtitle: draft.subtitle.trim(),
+        notes: persistedNotes,
+        contactDetails: null,
+      })
+      : null;
     const cardFromDraft = (existing: BoardCard | null = null): BoardCard => ({
       ...(existing ?? {}),
       id: existing?.id ?? this.createId(),
       title,
       subtitle: draft.subtitle.trim(),
-      notes: cardNotesForPersistence(draft.notes),
+      notes: persistedNotes,
+      ...(editedContact ? {
+        stackNarration: persistedNotes,
+        contactDetails: {
+          name: editedContact.name,
+          organization: editedContact.agency,
+          phone: editedContact.phone,
+          email: editedContact.email,
+        },
+      } : {}),
       type: cardType,
       entityType: existing?.type === cardType
         ? existing.entityType
@@ -15170,12 +15201,27 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
         const draft = drafts[card.id];
         if (!draft || !selectedIds.has(card.id)) return card;
         const narration = draft.narration.trim();
+        const title = draft.title.trim() || card.title;
+        const subtitle = draft.subtitle.trim();
+        const isContactCard = this.isListingContactCard(card) && !card.tour;
+        const contact = isContactCard
+          ? contactDetailsForListingCard({ ...card, title, subtitle, contactDetails: null })
+          : null;
         return {
           ...card,
-          title: draft.title.trim() || card.title,
-          subtitle: draft.subtitle.trim(),
+          title,
+          subtitle,
           notes: card.tour ? card.notes : narration,
           tour: card.tour ? { ...card.tour, guideScript: narration } : card.tour,
+          ...(isContactCard ? {
+            stackNarration: narration,
+            contactDetails: {
+              name: contact?.name || '',
+              organization: contact?.agency || '',
+              phone: contact?.phone || '',
+              email: contact?.email || '',
+            },
+          } : {}),
           stackNarrationSource: this.stackScriptRicherNarration(
             this.stackScriptLengthSourceNarrations()[card.id],
             narration,
@@ -15897,6 +15943,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
     }
 
     this.personalVoiceCreating.set(true);
+    this.personalVoiceUploadProgress.set(0);
     this.personalVoiceError.set(null);
     try {
       const response = await this.personalVoiceService.createVoice({
@@ -15904,6 +15951,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
         name,
         durationSeconds: duration,
         replacingVoiceId,
+        onUploadProgress: (percentage) => this.personalVoiceUploadProgress.set(percentage),
       });
       if (!response.voice) {
         throw new Error('The personal voice was not returned after processing.');
@@ -15920,6 +15968,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       this.personalVoiceError.set(this.cardImageActionErrorMessage(error, 'Your voice could not be created. Check the recording and try again.'));
     } finally {
       this.personalVoiceCreating.set(false);
+      this.personalVoiceUploadProgress.set(null);
     }
   }
 
@@ -16014,12 +16063,9 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
 
   private async setPersonalVoiceFile(file: File, knownDuration?: number): Promise<void> {
     this.personalVoiceError.set(null);
-    if (!file.type.startsWith('audio/')) {
-      this.personalVoiceError.set('Choose an audio recording such as MP3, WAV, M4A, OGG, or WebM.');
-      return;
-    }
-    if (file.size <= 0 || file.size > 15 * 1024 * 1024) {
-      this.personalVoiceError.set('The voice recording must be smaller than 15 MB.');
+    const validationError = personalVoiceFileValidationError(file);
+    if (validationError) {
+      this.personalVoiceError.set(validationError);
       return;
     }
     try {
@@ -16445,7 +16491,7 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
   }
 
   private persistedStackCardNarrationText(card: BoardCard): string {
-    if (this.isListingContactCard(card)) return listingContactNarration(card);
+    if (this.isListingContactCard(card)) return listingContactScript(card);
     return (card.notes || card.shortSummary || card.subtitle).trim();
   }
 
@@ -21466,6 +21512,10 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
             stackNarrationSource: typeof (card as Partial<BoardCard>).stackNarrationSource === 'string'
               ? (card as Partial<BoardCard>).stackNarrationSource!.replace(/\s+/g, ' ').trim().slice(0, 3000)
               : '',
+            stackNarration: typeof (card as Partial<BoardCard>).stackNarration === 'string'
+              ? (card as Partial<BoardCard>).stackNarration!.trim().slice(0, 3000)
+              : '',
+            contactDetails: this.normalizeListingContactData((card as Partial<BoardCard>).contactDetails),
             nearby: this.normalizeNearbyGemMetrics((card as Partial<BoardCard>).nearby),
             stickers: this.normalizeStickers(card.stickers),
             tour: this.normalizeCardTour((card as BoardCard).tour),
@@ -21934,6 +21984,10 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       shortSummary: typeof data['shortSummary'] === 'string' ? data['shortSummary'] : (typeof data['subtitle'] === 'string' ? data['subtitle'] : ''),
       rank: typeof data['rank'] === 'number' ? Math.max(0, Math.min(100, Math.trunc(data['rank']))) : this.rankFromTags(data['tags']),
       nearby: this.normalizeNearbyGemMetrics(data['nearby']),
+      contactDetails: this.normalizeListingContactData(data['contactDetails']),
+      stackNarration: typeof data['stackNarration'] === 'string'
+        ? data['stackNarration'].trim().slice(0, 3000)
+        : '',
       videoNarrationRevision: typeof data['videoNarrationRevision'] === 'number'
         ? Math.max(0, Math.trunc(data['videoNarrationRevision']))
         : 0,
@@ -22866,6 +22920,21 @@ export class BoardsComponent implements AfterViewInit, OnDestroy {
       return 'region';
     }
     return 'place';
+  }
+
+  private normalizeListingContactData(value: unknown): ListingContactData | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const data = value as Record<string, unknown>;
+    const clean = (field: string, maxLength: number) => typeof data[field] === 'string'
+      ? data[field].replace(/\s+/g, ' ').trim().slice(0, maxLength)
+      : '';
+    const contactDetails: ListingContactData = {
+      name: clean('name', 120),
+      organization: clean('organization', 140),
+      phone: clean('phone', 60),
+      email: clean('email', 180).toLowerCase(),
+    };
+    return Object.values(contactDetails).some(Boolean) ? contactDetails : undefined;
   }
 
   private inferLegacyCardScope(data: Record<string, unknown>): BoardCardScope {

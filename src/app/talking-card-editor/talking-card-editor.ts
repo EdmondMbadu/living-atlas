@@ -22,6 +22,7 @@ import {
 } from '../boards/talking-card';
 import { buildListingAgentPersonaPrompt } from '../boards/listing-talking-card';
 import {
+  personalVoiceFileValidationError,
   PersonalVoiceService,
   type PersonalVoice,
   type PersonalVoiceLibrary,
@@ -106,6 +107,7 @@ export class TalkingCardEditorComponent implements OnDestroy, OnInit {
   readonly personalVoiceOwnVoiceConfirmed = signal(false);
   readonly personalVoiceConsentConfirmed = signal(false);
   readonly personalVoiceCreating = signal(false);
+  readonly personalVoiceUploadProgress = signal<number | null>(null);
   readonly personalVoiceDeletingId = signal<string | null>(null);
   readonly publishAvatar = signal(false);
   readonly imageFile = signal<File | null>(null);
@@ -749,6 +751,7 @@ export class TalkingCardEditorComponent implements OnDestroy, OnInit {
       return;
     }
     this.personalVoiceCreating.set(true);
+    this.personalVoiceUploadProgress.set(0);
     this.voiceErrorMessage.set(null);
     try {
       const library = await this.personalVoiceService.createVoice({
@@ -756,6 +759,7 @@ export class TalkingCardEditorComponent implements OnDestroy, OnInit {
         durationSeconds,
         name: this.personalVoiceName(),
         replacingVoiceId,
+        onUploadProgress: (percentage) => this.personalVoiceUploadProgress.set(percentage),
       });
       this.applyPersonalVoiceLibrary(library);
       const savedVoice = library.voices.find((voice) => voice.id === (library.voice?.id ?? replacingVoiceId))
@@ -769,6 +773,7 @@ export class TalkingCardEditorComponent implements OnDestroy, OnInit {
       this.voiceErrorMessage.set(this.personalVoiceErrorMessage(error, 'Your voice could not be created.'));
     } finally {
       this.personalVoiceCreating.set(false);
+      this.personalVoiceUploadProgress.set(null);
     }
   }
 
@@ -1264,12 +1269,9 @@ export class TalkingCardEditorComponent implements OnDestroy, OnInit {
 
   private async setPersonalVoiceFile(file: File, knownDuration?: number): Promise<void> {
     this.voiceErrorMessage.set(null);
-    if (!file.type.startsWith('audio/')) {
-      this.voiceErrorMessage.set('Choose an audio recording such as MP3, WAV, M4A, OGG, or WebM.');
-      return;
-    }
-    if (file.size <= 0 || file.size > 15 * 1024 * 1024) {
-      this.voiceErrorMessage.set('The voice recording must be smaller than 15 MB.');
+    const validationError = personalVoiceFileValidationError(file);
+    if (validationError) {
+      this.voiceErrorMessage.set(validationError);
       return;
     }
     try {

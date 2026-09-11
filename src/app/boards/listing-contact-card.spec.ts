@@ -2,6 +2,7 @@ import {
   isListingContactCard,
   listingContactCardDetails,
   listingContactNarration,
+  listingContactScript,
 } from './listing-contact-card';
 
 describe('listing contact card', () => {
@@ -67,5 +68,62 @@ describe('listing contact card', () => {
     expect(narration).toContain('Contact Edmond Mbadu');
     expect(narration).toContain('arrange a private showing');
     expect(narration).not.toContain('MLS status gibberish');
+  });
+
+  it('uses an authored contact-card script instead of generated contact copy', () => {
+    const script = 'This is the exact closing narration the author wants visitors to hear.';
+    expect(listingContactScript({
+      ...legacyCard,
+      notes: script,
+    })).toBe(script);
+  });
+
+  it('preserves an explicit script even when it includes labeled contact details', () => {
+    const script = 'Please call when ready. Phone: 484-255-9613\nEmail: jim@example.com';
+    expect(listingContactScript({
+      ...legacyCard,
+      stackNarration: script,
+    })).toBe(script);
+  });
+
+  it('keeps generated narration as the fallback for legacy contact metadata notes', () => {
+    expect(listingContactScript(legacyCard)).toBe(listingContactNarration(legacyCard));
+  });
+
+  it('prefers structured contact details so script edits cannot break actions', () => {
+    expect(listingContactCardDetails({
+      title: 'Let us connect',
+      notes: 'A completely editable narration with no embedded contact metadata.',
+      tags: ['contact-card'],
+      contactDetails: {
+        name: 'Jim Walker',
+        organization: 'Mind Palace, Inc',
+        phone: '(484) 255-9613',
+        email: 'JIM.WALKER@MINDPALACE.COM',
+      },
+    })).toEqual({
+      name: 'Jim Walker',
+      agency: 'Mind Palace, Inc',
+      phone: '(484) 255-9613',
+      email: 'jim.walker@mindpalace.com',
+      phoneHref: 'tel:4842559613',
+      emailHref: 'mailto:jim.walker@mindpalace.com',
+    });
+  });
+
+  it('prefers legacy subtitle contact data over arbitrary authored narration', () => {
+    expect(listingContactCardDetails({
+      title: 'Contact Jim Walker',
+      subtitle: 'Mind Palace, Inc · Phone: 4842559613 · Email: jim.walker@mindpalace.com',
+      notes: 'At the shore, this seaside gem will not be available for long.',
+      tags: ['contact-card'],
+    })).toEqual({
+      name: 'Jim Walker',
+      agency: 'Mind Palace, Inc',
+      phone: '4842559613',
+      email: 'jim.walker@mindpalace.com',
+      phoneHref: 'tel:4842559613',
+      emailHref: 'mailto:jim.walker@mindpalace.com',
+    });
   });
 });

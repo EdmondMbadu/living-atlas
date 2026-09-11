@@ -85,3 +85,33 @@ test('existing Atlas-owner image uploads remain allowed and outsiders remain den
   const otherStorage = testEnvironment.authenticatedContext(otherUid).storage();
   await assertFails(uploadBytes(ref(otherStorage, existingPath), new Uint8Array([2]), { contentType: 'image/png' }));
 });
+
+test('voice samples accept audio through 60 MB and reject larger uploads', async () => {
+  const ownerStorage = testEnvironment.authenticatedContext(ownerUid).storage();
+  const bytes = new Uint8Array((60 * 1024 * 1024) + 1);
+  await assertSucceeds(uploadBytes(
+    ref(ownerStorage, `users/${ownerUid}/voice-samples/new/at-limit.wav`),
+    bytes.subarray(0, 60 * 1024 * 1024),
+    { contentType: 'audio/wav' },
+  ));
+  await assertFails(uploadBytes(
+    ref(ownerStorage, `users/${ownerUid}/voice-samples/new/over-limit.wav`),
+    bytes,
+    { contentType: 'audio/wav' },
+  ));
+});
+
+test('voice samples remain private and reject non-audio content', async () => {
+  const path = `users/${ownerUid}/voice-samples/new/private.mp3`;
+  const ownerStorage = testEnvironment.authenticatedContext(ownerUid).storage();
+  await assertSucceeds(uploadBytes(ref(ownerStorage, path), new Uint8Array([1]), { contentType: 'audio/mpeg' }));
+
+  const otherStorage = testEnvironment.authenticatedContext(otherUid).storage();
+  await assertFails(getBytes(ref(otherStorage, path)));
+  await assertFails(uploadBytes(ref(otherStorage, path), new Uint8Array([2]), { contentType: 'audio/mpeg' }));
+  await assertFails(uploadBytes(
+    ref(ownerStorage, `users/${ownerUid}/voice-samples/new/not-audio.txt`),
+    new Uint8Array([1]),
+    { contentType: 'text/plain' },
+  ));
+});

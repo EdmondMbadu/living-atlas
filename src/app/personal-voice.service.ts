@@ -1,7 +1,7 @@
 import { isPlatformBrowser } from '@angular/common';
 import { inject, Injectable, PLATFORM_ID } from '@angular/core';
 import { httpsCallable } from 'firebase/functions';
-import { ref as storageRef, uploadBytes } from 'firebase/storage';
+import { ref as storageRef, uploadBytesResumable } from 'firebase/storage';
 import { AuthService } from './auth.service';
 import { getFirebaseFunctions, getFirebaseStorage } from './firebase.client';
 import { personalStackNarratorVoiceId } from './boards/stack-voice';
@@ -40,6 +40,38 @@ export interface CreatePersonalVoiceInput {
   durationSeconds: number;
   name: string;
   replacingVoiceId?: string | null;
+  onUploadProgress?: (percentage: number) => void;
+}
+
+export const PERSONAL_VOICE_MAX_FILE_BYTES = 60 * 1024 * 1024;
+export const PERSONAL_VOICE_MAX_FILE_LABEL = '60 MB';
+
+const personalVoiceMimeByExtension: Readonly<Record<string, string>> = {
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  webm: 'audio/webm',
+};
+
+export function personalVoiceContentType(file: Pick<File, 'name' | 'type'>): string {
+  if (file.type.toLowerCase().startsWith('audio/')) return file.type.toLowerCase();
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || '';
+  return personalVoiceMimeByExtension[extension] || '';
+}
+
+export function personalVoiceFileValidationError(
+  file: Pick<File, 'name' | 'size' | 'type'>,
+): string | null {
+  if (!personalVoiceContentType(file)) {
+    return 'Choose an audio recording such as MP3, WAV, M4A, OGG, or WebM.';
+  }
+  if (file.size <= 0 || file.size > PERSONAL_VOICE_MAX_FILE_BYTES) {
+    return `The voice recording must be no larger than ${PERSONAL_VOICE_MAX_FILE_LABEL}.`;
+  }
+  return null;
 }
 
 export function normalizePersonalVoiceLibrary(
@@ -112,10 +144,25 @@ export class PersonalVoiceService {
     const safeName = input.file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').slice(-90)
       || 'voice.webm';
     const path = `users/${uid}/voice-samples/${replacingVoiceId || 'new'}/${Date.now()}-${safeName}`;
-    await uploadBytes(storageRef(this.requireStorage(), path), input.file, {
-      contentType: input.file.type || 'audio/webm',
+    const upload = uploadBytesResumable(storageRef(this.requireStorage(), path), input.file, {
+      contentType: personalVoiceContentType(input.file) || 'audio/webm',
       customMetadata: { durationSeconds: String(Math.round(input.durationSeconds)) },
     });
+    input.onUploadProgress?.(0);
+    await new Promise<void>((resolve, reject) => {
+      upload.on(
+        'state_changed',
+        (snapshot) => {
+          const percentage = snapshot.totalBytes > 0
+            ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            : 0;
+          input.onUploadProgress?.(percentage);
+        },
+        reject,
+        resolve,
+      );
+    });
+    input.onUploadProgress?.(100);
     const callable = httpsCallable<{
       name: string;
       sampleStoragePath: string;
@@ -127,7 +174,7 @@ export class PersonalVoiceService {
     }, PersonalVoiceLibraryWireResponse>(
       this.requireFunctions(),
       'createPersonalNarratorVoice',
-      { timeout: 120_000 },
+      { timeout: 300_000 },
     );
     const { data } = await callable({
       name: input.name.replace(/\s+/g, ' ').trim().slice(0, 48) || 'My voice',

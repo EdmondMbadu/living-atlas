@@ -1,4 +1,9 @@
-import { normalizePersonalVoiceLibrary } from './personal-voice.service';
+import {
+  PERSONAL_VOICE_MAX_FILE_BYTES,
+  normalizePersonalVoiceLibrary,
+  personalVoiceContentType,
+  personalVoiceFileValidationError,
+} from './personal-voice.service';
 
 describe('normalizePersonalVoiceLibrary', () => {
   it('preserves a legacy personal voice and its one-voice entitlement', () => {
@@ -71,5 +76,28 @@ describe('normalizePersonalVoiceLibrary', () => {
 
     expect(library.defaultVoiceId).toBe('first');
     expect(library.voice?.id).toBe('second');
+  });
+});
+
+describe('personal voice file validation', () => {
+  it('accepts audio through the 60 MB boundary', () => {
+    const file = { name: 'voice.wav', type: 'audio/wav', size: PERSONAL_VOICE_MAX_FILE_BYTES };
+    expect(personalVoiceFileValidationError(file)).toBeNull();
+  });
+
+  it('rejects audio above 60 MB', () => {
+    const file = { name: 'voice.wav', type: 'audio/wav', size: PERSONAL_VOICE_MAX_FILE_BYTES + 1 };
+    expect(personalVoiceFileValidationError(file)).toContain('60 MB');
+  });
+
+  it('normalizes an M4A with an empty browser MIME type', () => {
+    const file = { name: 'voice.m4a', type: '', size: 1024 };
+    expect(personalVoiceContentType(file)).toBe('audio/mp4');
+    expect(personalVoiceFileValidationError(file)).toBeNull();
+  });
+
+  it('continues to reject non-audio files', () => {
+    expect(personalVoiceFileValidationError({ name: 'clip.mov', type: 'video/quicktime', size: 1024 }))
+      .toContain('audio recording');
   });
 });

@@ -341,7 +341,7 @@ const personalNarratorVoiceSubcollection = 'voices';
 const personalNarratorVoiceConsentVersion = 'v1';
 const personalNarratorVoiceMinDurationSeconds = 20;
 const personalNarratorVoiceMaxDurationSeconds = 180;
-const personalNarratorVoiceMaxBytes = 15 * 1024 * 1024;
+const personalNarratorVoiceMaxBytes = 60 * 1024 * 1024;
 const freePersonalNarratorVoiceLimit = 1;
 const paidPersonalNarratorVoiceLimit = 5;
 const personalNarratorReservationTtlMs = 15 * 60 * 1000;
@@ -21277,8 +21277,8 @@ export const listPersonalNarratorVoices = getPersonalNarratorVoice;
 export const createPersonalNarratorVoice = onCall(
   {
     region: callableRegion,
-    timeoutSeconds: 120,
-    memory: '512MiB',
+    timeoutSeconds: 300,
+    memory: '1GiB',
     cors: true,
     secrets: [elevenLabsApiKey],
   },
@@ -21334,11 +21334,23 @@ export const createPersonalNarratorVoice = onCall(
     if (!exists) {
       throw new HttpsError('not-found', 'The uploaded voice sample could not be found.');
     }
+    let retainUploadedSample = false;
+    const cleanupUploadedSample = async () => {
+      if (retainUploadedSample) return;
+      await sampleFile.delete({ ignoreNotFound: true }).catch((error) => {
+        logger.warn('Rejected personal voice sample cleanup failed', {
+          userId,
+          sampleStoragePath,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      });
+    };
+    try {
     const [sampleMetadata] = await sampleFile.getMetadata();
     const contentType = String(sampleMetadata.contentType ?? '').toLowerCase();
     const sampleSize = Number(sampleMetadata.size ?? 0);
     if (!contentType.startsWith('audio/') || !sampleSize || sampleSize > personalNarratorVoiceMaxBytes) {
-      throw new HttpsError('invalid-argument', 'Upload an audio file no larger than 15 MB.');
+      throw new HttpsError('invalid-argument', 'Upload an audio file no larger than 60 MB.');
     }
 
     const apiKey = elevenLabsApiKey.value();
@@ -21419,7 +21431,12 @@ export const createPersonalNarratorVoice = onCall(
     form.append('description', 'Personal LivingWiki narrator');
     form.append('remove_background_noise', 'true');
     const filename = sampleStoragePath.split('/').pop() || 'voice-sample.webm';
-    form.append('files', new Blob([Uint8Array.from(sampleBuffer)], { type: contentType }), filename);
+    const sampleBytes = new Uint8Array(
+      sampleBuffer.buffer as ArrayBuffer,
+      sampleBuffer.byteOffset,
+      sampleBuffer.byteLength,
+    );
+    form.append('files', new Blob([sampleBytes], { type: contentType }), filename);
 
     let providerResponse: Response;
     try {
@@ -21523,6 +21540,7 @@ export const createPersonalNarratorVoice = onCall(
         }
       });
       slotReserved = false;
+      retainUploadedSample = true;
     } catch (error) {
       await deleteElevenLabsPersonalVoice(apiKey, providerVoiceId, false);
       await releaseReservedSlot();
@@ -21590,6 +21608,9 @@ export const createPersonalNarratorVoice = onCall(
         voiceRef.id,
       ),
     };
+    } finally {
+      await cleanupUploadedSample();
+    }
   },
 );
 

@@ -7691,7 +7691,7 @@
                             <span class="material-symbols-outlined">{{ personalVoiceFile() ? 'check_circle' : 'audio_file' }}</span>
                             <span>
                               <strong>{{ personalVoiceFileLabel() }}</strong>
-                              <small i18n>Audio only · 20–180 seconds · up to 15 MB</small>
+                              <small i18n>Audio only · 20–180 seconds · up to 60 MB</small>
                             </span>
                           </div>
                           <label class="stack-personal-voice-setup__consent">
@@ -7709,7 +7709,11 @@
                             (click)="createPersonalNarratorVoice(board)"
                           >
                             <span class="material-symbols-outlined">{{ personalVoiceCreating() ? 'progress_activity' : 'auto_awesome' }}</span>
-                            {{ personalVoiceCreating() ? 'Creating your voice…' : personalVoiceSetupVoiceId() ? 'Replace this voice' : 'Create this voice' }}
+                            {{ personalVoiceCreating()
+                              ? personalVoiceUploadProgress() !== null && personalVoiceUploadProgress()! < 100
+                                ? 'Uploading… ' + personalVoiceUploadProgress() + '%'
+                                : 'Creating your voice…'
+                              : personalVoiceSetupVoiceId() ? 'Replace this voice' : 'Create this voice' }}
                           </button>
                         </section>
                       }

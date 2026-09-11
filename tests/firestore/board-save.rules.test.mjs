@@ -726,6 +726,13 @@ test('owner can save a fresh narration revision with final-screen settings', asy
         id: 'card-1',
         title: 'Closing card',
         notes: 'A clean narration take.',
+        stackNarration: 'A clean narration take.',
+        contactDetails: {
+          name: 'Jim Walker',
+          organization: 'Mind Palace, Inc',
+          phone: '4842559613',
+          email: 'jim.walker@mindpalace.com',
+        },
         videoNarrationRevision: 1,
       }],
       socialVideoRenderVersion: '',

@@ -39,7 +39,7 @@ service firebase.storage {
         && request.auth.uid == userId
         && request.resource.contentType.matches('audio/.*')
         && request.resource.size > 0
-        && request.resource.size <= 15 * 1024 * 1024;
+        && request.resource.size <= 60 * 1024 * 1024;
     }
 
     match /users/{userId}/board-doc-exports/{fileName=**} {

@@ -389,13 +389,17 @@
                 </div>
                 <div class="talking-editor__voice-file" [class.is-ready]="!!personalVoiceFile()">
                   <span class="material-symbols-outlined">{{ personalVoiceFile() ? 'check_circle' : 'audio_file' }}</span>
-                  <span><strong>{{ personalVoiceFileLabel() }}</strong><small>Audio only · 20–180 seconds · up to 15 MB</small></span>
+                  <span><strong>{{ personalVoiceFileLabel() }}</strong><small>Audio only · 20–180 seconds · up to 60 MB</small></span>
                 </div>
                 <label class="talking-editor__voice-consent"><input type="checkbox" [ngModel]="personalVoiceOwnVoiceConfirmed()" (ngModelChange)="personalVoiceOwnVoiceConfirmed.set($event)" /><span>I confirm this recording contains only my own voice.</span></label>
                 <label class="talking-editor__voice-consent"><input type="checkbox" [ngModel]="personalVoiceConsentConfirmed()" (ngModelChange)="personalVoiceConsentConfirmed.set($event)" /><span>I consent to LivingWiki and ElevenLabs processing it to create my reusable voice.</span></label>
                 <button type="button" class="talking-editor__voice-create" [disabled]="personalVoiceCreating() || !personalVoiceFile() || !personalVoiceOwnVoiceConfirmed() || !personalVoiceConsentConfirmed()" (click)="createPersonalVoice()">
                   <span class="material-symbols-outlined" [class.talking-editor__spin]="personalVoiceCreating()">{{ personalVoiceCreating() ? 'progress_activity' : 'auto_awesome' }}</span>
-                  {{ personalVoiceCreating() ? 'Creating your voice…' : personalVoiceSetupVoiceId() ? 'Replace this voice' : 'Create this voice' }}
+                  {{ personalVoiceCreating()
+                    ? personalVoiceUploadProgress() !== null && personalVoiceUploadProgress()! < 100
+                      ? 'Uploading… ' + personalVoiceUploadProgress() + '%'
+                      : 'Creating your voice…'
+                    : personalVoiceSetupVoiceId() ? 'Replace this voice' : 'Create this voice' }}
                 </button>
               </section>
             }
