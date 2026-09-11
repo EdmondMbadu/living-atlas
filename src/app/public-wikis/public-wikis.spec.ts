@@ -115,6 +115,114 @@ describe('PublicWikisComponent home pagination', () => {
     expect(component.hasMoreMobileDiscoverBoards()).toBeFalse();
   });
 
+  it('searches discover boards across titles, places, creators, and card details', () => {
+    const component = createComponent(true);
+    component.mobileDiscoverBoards.set([
+      {
+        ...board(1),
+        id: 'montreal-coffee',
+        title: 'Café guide to Montréal',
+        ownerDisplayName: 'Amélie Tremblay',
+      },
+      {
+        ...board(2),
+        id: 'philadelphia-weekend',
+        title: 'A quiet weekend',
+        cards: [{
+          title: 'Morning walk',
+          subtitle: 'Center City, Philadelphia',
+          notes: 'Architecture and public art',
+          entityName: 'Rittenhouse Square',
+          locationText: 'Philadelphia Pennsylvania ///parks.porch.green',
+          searchText: 'museum neighborhood',
+          type: 'place',
+          status: 'visited',
+          spotifyArtistName: '',
+          spotifyAlbumName: '',
+          shortSummary: 'A leafy city square',
+          tags: ['outdoors'],
+        }],
+      },
+    ]);
+
+    component.onDiscoverSearchInput('cafe montreal');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['montreal-coffee']);
+
+    component.onDiscoverSearchInput('rittenhouse philadelphia');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['philadelphia-weekend']);
+
+    component.onDiscoverSearchInput('architecture museum');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['philadelphia-weekend']);
+
+    component.onDiscoverSearchInput('amelie');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['montreal-coffee']);
+  });
+
+  it('ranks a board-title match ahead of a match found only inside a card', () => {
+    const component = createComponent(true);
+    component.mobileDiscoverBoards.set([
+      {
+        ...board(1),
+        id: 'card-match',
+        title: 'European weekends',
+        cards: [{ title: 'Paris', entityName: '', subtitle: '', notes: '', locationText: '', searchText: '', type: 'place', status: 'saved', spotifyArtistName: '', spotifyAlbumName: '', shortSummary: '', tags: [] }],
+      },
+      { ...board(2), id: 'title-match', title: 'Paris food guide' },
+    ]);
+
+    component.onDiscoverSearchInput('Paris');
+
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['title-match', 'card-match']);
+  });
+
+  it('keeps Firestore place and tour metadata available to discover search', () => {
+    const component = createComponent(true);
+    const parsedBoard = (component as any).mobileBoardFromRecord('tour-board', {
+      title: 'Hidden corners',
+      visibility: 'public',
+      summarySearchText: 'historic landmarks in Pennsylvania',
+      cards: [{
+        id: 'stop-1',
+        title: 'First stop',
+        subtitle: 'Historic district',
+        entityName: 'Eastern State Penitentiary',
+        what3wordsAddress: 'stone.arches.history',
+        tour: {
+          address: '2027 Fairmount Avenue, Philadelphia',
+          guideScript: 'A landmark known for its radial prison design.',
+        },
+      }],
+    });
+    component.mobileDiscoverBoards.set([parsedBoard]);
+
+    component.onDiscoverSearchInput('fairmount philadelphia');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['tour-board']);
+
+    component.onDiscoverSearchInput('radial prison');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['tour-board']);
+
+    component.onDiscoverSearchInput('pennsylvania landmarks');
+    expect(component.mobileDiscoverFilteredBoards().map((item) => item.id)).toEqual(['tour-board']);
+  });
+
+  it('paginates filtered discover results and restores the full list when cleared', async () => {
+    const component = createComponent(true);
+    component.mobileDiscoverBoards.set(Array.from({ length: 25 }, (_, index) => ({
+      ...board(index),
+      title: index < 15 ? `Garden board ${index}` : `City board ${index}`,
+    })));
+
+    component.onDiscoverSearchInput('garden');
+    expect(component.mobileDiscoverPreviewBoards().length).toBe(10);
+
+    await component.showMoreMobileDiscoverBoards();
+    expect(component.mobileDiscoverPreviewBoards().length).toBe(15);
+
+    component.clearDiscoverSearch();
+    expect(component.mobileDiscoverFilteredBoards().length).toBe(25);
+    expect(component.mobileDiscoverPreviewBoards().length).toBe(10);
+  });
+
   it('automatically reveals the next discover batch when its sentinel enters view', async () => {
     const component = createComponent(true);
     component.mobileDiscoverBoards.set(Array.from({ length: 25 }, (_, index) => board(index)));

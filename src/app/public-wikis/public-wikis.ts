@@ -97,6 +97,10 @@ interface MobileBoardCard {
   spotifyAlbumName: string;
   spotifyArtworkUrl: string;
   tags: string[];
+  shortSummary: string;
+  entityName: string;
+  locationText: string;
+  searchText: string;
 }
 
 interface MobileBoard {
@@ -120,6 +124,7 @@ interface MobileBoard {
   cards: MobileBoardCard[];
   createdAt: string;
   updatedAt: string;
+  searchText: string;
 }
 
 interface MobileFriend {
@@ -199,6 +204,8 @@ const MOBILE_BOARD_ACTIONS_STORAGE_KEY = 'lw-board-actions';
 const MOBILE_DEMO_BOARD_IDS = new Set(['board-summer-places', 'board-eats', 'board-weekend']);
 const HOME_SECTION_PAGE_SIZE = 10;
 const HOME_BOARD_QUERY_PAGE_SIZE = HOME_SECTION_PAGE_SIZE + 1;
+const DISCOVER_SEARCH_QUERY_PAGE_SIZE = 50;
+const DISCOVER_SEARCH_DEBOUNCE_MS = 140;
 const DISCOVER_AUTOLOAD_ROOT_MARGIN_PX = 600;
 const PUBLIC_WIKI_AUTOLOAD_ROOT_MARGIN_PX = 520;
 
@@ -250,6 +257,91 @@ export function appendDiscoverBoardPage<T extends { id: string; title: string; c
     ...stableExistingBoards,
     ...sortDiscoverBoardsNewestFirst([...incomingById.values()]),
   ];
+}
+
+type DiscoverBoardSearchDocument = {
+  board: MobileBoard;
+  ordinal: number;
+  title: string;
+  overview: string;
+  cardTitles: string;
+  places: string;
+  details: string;
+  all: string;
+};
+
+export function normalizeDiscoverSearchValue(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function discoverSearchDocument(board: MobileBoard, ordinal: number): DiscoverBoardSearchDocument {
+  const title = normalizeDiscoverSearchValue(board.title);
+  const overview = normalizeDiscoverSearchValue([
+    board.description,
+    board.ownerDisplayName,
+    board.ownerPublicSlug,
+    board.kind,
+    board.searchText,
+  ].join(' '));
+  const cardTitles = normalizeDiscoverSearchValue(
+    board.cards.map((card) => `${card.title} ${card.entityName}`).join(' '),
+  );
+  const places = normalizeDiscoverSearchValue(
+    board.cards.map((card) => `${card.subtitle} ${card.entityName} ${card.locationText}`).join(' '),
+  );
+  const details = normalizeDiscoverSearchValue(board.cards.map((card) => [
+    card.notes,
+    card.shortSummary,
+    card.type,
+    card.status,
+    card.spotifyArtistName,
+    card.spotifyAlbumName,
+    card.tags.join(' '),
+    card.searchText,
+  ].join(' ')).join(' '));
+  return {
+    board,
+    ordinal,
+    title,
+    overview,
+    cardTitles,
+    places,
+    details,
+    all: `${title} ${overview} ${cardTitles} ${places} ${details}`,
+  };
+}
+
+function discoverSearchScore(document: DiscoverBoardSearchDocument, query: string): number | null {
+  const tokens = [...new Set(query.split(' ').filter(Boolean))];
+  if (!tokens.length || !tokens.every((token) => document.all.includes(token))) return null;
+
+  let score = 0;
+  if (document.title === query) score += 1_200;
+  else if (document.title.startsWith(query)) score += 900;
+  else if (document.title.includes(query)) score += 700;
+  if (document.cardTitles.includes(query)) score += 420;
+  if (document.places.includes(query)) score += 340;
+  if (document.overview.includes(query)) score += 220;
+  if (document.details.includes(query)) score += 120;
+
+  const startsWithToken = (value: string, token: string): boolean =>
+    value.split(' ').some((word) => word.startsWith(token));
+  for (const token of tokens) {
+    if (startsWithToken(document.title, token)) score += 150;
+    else if (document.title.includes(token)) score += 100;
+    if (startsWithToken(document.cardTitles, token)) score += 75;
+    else if (document.cardTitles.includes(token)) score += 50;
+    if (startsWithToken(document.places, token)) score += 60;
+    else if (document.places.includes(token)) score += 40;
+    if (document.overview.includes(token)) score += 25;
+    if (document.details.includes(token)) score += 10;
+  }
+  return score;
 }
 
 const CITY_DENSITY_PER_KM2_BY_KEY: Record<string, number> = {
@@ -590,6 +682,7 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
   readonly mobileVideos = signal<VideoLibraryItem[]>([]);
   readonly mobileBoardsLoading = signal(false);
   readonly mobileDiscoverLoading = signal(false);
+  readonly discoverSearchTerm = signal('');
   readonly mobileFriendsLoading = signal(false);
   readonly mobileVideosLoading = signal(false);
   readonly likedBoardIds = signal<Set<string>>(new Set());
@@ -634,6 +727,8 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
   private mobileBoardCursor: QueryDocumentSnapshot<DocumentData> | null = null;
   private mobileDiscoverCursor: QueryDocumentSnapshot<DocumentData> | null = null;
   private mobileDiscoverUsesNewestFirstQuery = true;
+  private discoverSearchLoadTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
   private homeRailLayoutCheckQueued = false;
   private discoverLoadSentinelElement: HTMLElement | null = null;
   private discoverLoadObserver: IntersectionObserver | null = null;
@@ -669,8 +764,23 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
     this.mobileBoards()
       .map((board) => this.mobileCardFromBoard(board, 'board')),
   );
+  readonly discoverSearchQuery = computed(() =>
+    normalizeDiscoverSearchValue(this.discoverSearchTerm()),
+  );
+  readonly mobileDiscoverSearchDocuments = computed(() =>
+    this.mobileDiscoverBoards().map((board, ordinal) => discoverSearchDocument(board, ordinal)),
+  );
+  readonly mobileDiscoverFilteredBoards = computed(() => {
+    const query = this.discoverSearchQuery();
+    if (!query) return this.mobileDiscoverBoards();
+    return this.mobileDiscoverSearchDocuments()
+      .map((document) => ({ document, score: discoverSearchScore(document, query) }))
+      .filter((result): result is { document: DiscoverBoardSearchDocument; score: number } => result.score !== null)
+      .sort((left, right) => right.score - left.score || left.document.ordinal - right.document.ordinal)
+      .map((result) => result.document.board);
+  });
   readonly mobileDiscoverPreviewBoards = computed(() =>
-    this.mobileDiscoverBoards().slice(0, this.mobileDiscoverLimit()),
+    this.mobileDiscoverFilteredBoards().slice(0, this.mobileDiscoverLimit()),
   );
   readonly allMobileSavedBoardCards = computed(() => {
     const saved = this.savedBoardIds();
@@ -1014,11 +1124,15 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.discoverLoadObserver?.disconnect();
     this.discoverLoadObserver = null;
     this.publicWikiLoadObserver?.disconnect();
     this.publicWikiLoadObserver = null;
     if (this.isBrowser) {
+      if (this.discoverSearchLoadTimer !== null) {
+        clearTimeout(this.discoverSearchLoadTimer);
+      }
       if (this.mobileVideosIdleHandle !== null && 'cancelIdleCallback' in window) {
         window.cancelIdleCallback(this.mobileVideosIdleHandle);
       }
@@ -1076,6 +1190,16 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
     this.mobileFeaturedCityLimit.set(HOME_SECTION_PAGE_SIZE);
     this.directoryActiveSuggestionIndex.set(0);
     this.directoryAutocompleteOpen.set(Boolean(value.trim()));
+  }
+
+  onDiscoverSearchInput(value: string): void {
+    this.discoverSearchTerm.set(value);
+    this.mobileDiscoverLimit.set(HOME_SECTION_PAGE_SIZE);
+    this.scheduleDiscoverSearchLoad();
+  }
+
+  clearDiscoverSearch(): void {
+    this.onDiscoverSearchInput('');
   }
 
   onDirectorySearchFocus(): void {
@@ -1419,8 +1543,45 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
     if (this.mobileDiscoverLoadingMore()) return;
     const nextLimit = this.mobileDiscoverLimit() + HOME_SECTION_PAGE_SIZE;
     this.mobileDiscoverLimit.set(nextLimit);
-    while (this.mobileDiscoverBoards().length < nextLimit && this.mobileDiscoverHasMore()) {
-      await this.fetchNextMobileDiscoverPage(this.authService.uid());
+    while (this.mobileDiscoverFilteredBoards().length < nextLimit && this.mobileDiscoverHasMore()) {
+      const fetched = await this.fetchNextMobileDiscoverPage(
+        this.authService.uid(),
+        this.discoverSearchQuery() ? DISCOVER_SEARCH_QUERY_PAGE_SIZE : HOME_BOARD_QUERY_PAGE_SIZE,
+      );
+      if (!fetched) break;
+    }
+  }
+
+  private scheduleDiscoverSearchLoad(): void {
+    if (!this.isBrowser || this.destroyed) return;
+    if (this.discoverSearchLoadTimer !== null) clearTimeout(this.discoverSearchLoadTimer);
+    this.discoverSearchLoadTimer = null;
+    if (!this.discoverSearchQuery()) return;
+    this.discoverSearchLoadTimer = setTimeout(() => {
+      this.discoverSearchLoadTimer = null;
+      void this.ensureDiscoverSearchResults();
+    }, DISCOVER_SEARCH_DEBOUNCE_MS);
+  }
+
+  private async ensureDiscoverSearchResults(): Promise<void> {
+    const queryAtStart = this.discoverSearchQuery();
+    if (!queryAtStart || this.mobileDiscoverLoading()) return;
+    while (
+      !this.destroyed
+      && this.discoverSearchQuery() === queryAtStart
+      && this.mobileDiscoverFilteredBoards().length < this.mobileDiscoverLimit()
+      && this.mobileDiscoverHasMore()
+    ) {
+      const fetched = await this.fetchNextMobileDiscoverPage(
+        this.authService.uid(),
+        DISCOVER_SEARCH_QUERY_PAGE_SIZE,
+      );
+      if (!fetched) {
+        if (this.discoverSearchQuery() === queryAtStart && this.mobileDiscoverHasMore()) {
+          this.scheduleDiscoverSearchLoad();
+        }
+        break;
+      }
     }
   }
 
@@ -1631,13 +1792,17 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
       this.mobileDiscoverHasMore.set(false);
     } finally {
       this.mobileDiscoverLoading.set(false);
+      if (this.discoverSearchQuery()) this.scheduleDiscoverSearchLoad();
     }
   }
 
-  private async fetchNextMobileDiscoverPage(uid: string): Promise<void> {
+  private async fetchNextMobileDiscoverPage(
+    uid: string,
+    pageSize = HOME_BOARD_QUERY_PAGE_SIZE,
+  ): Promise<boolean> {
     const firestore = this.firestore;
     if (!firestore || !this.mobileDiscoverHasMore() || this.mobileDiscoverLoadingMore()) {
-      return;
+      return false;
     }
 
     this.mobileDiscoverLoadingMore.set(true);
@@ -1647,14 +1812,14 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
         collection(firestore, 'boards'),
         where('visibility', '==', 'public'),
         ...(cursor ? [startAfter(cursor)] : []),
-        limit(HOME_BOARD_QUERY_PAGE_SIZE),
+        limit(pageSize),
       );
       const newestFirstQuery = () => query(
         collection(firestore, 'boards'),
         where('visibility', '==', 'public'),
         orderBy('created_at_iso', 'desc'),
         ...(cursor ? [startAfter(cursor)] : []),
-        limit(HOME_BOARD_QUERY_PAGE_SIZE),
+        limit(pageSize),
       );
       let snapshot: QuerySnapshot<DocumentData>;
       if (this.mobileDiscoverUsesNewestFirstQuery) {
@@ -1681,9 +1846,11 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
         .filter((board) => !MOBILE_DEMO_BOARD_IDS.has(board.id) && board.ownerUserId !== uid);
       this.mobileDiscoverBoards.update((existingBoards) => appendDiscoverBoardPage(existingBoards, boards));
       this.mobileDiscoverCursor = snapshot.docs.at(-1) ?? this.mobileDiscoverCursor;
-      this.mobileDiscoverHasMore.set(snapshot.docs.length === HOME_BOARD_QUERY_PAGE_SIZE);
+      this.mobileDiscoverHasMore.set(snapshot.docs.length === pageSize);
+      return true;
     } catch {
       this.mobileDiscoverHasMore.set(false);
+      return false;
     } finally {
       this.mobileDiscoverLoadingMore.set(false);
     }
@@ -1849,6 +2016,12 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
     const profilePictureType = data['owner_profile_picture_type'] === 'image' || data['owner_profile_picture_type'] === 'icon'
       ? data['owner_profile_picture_type']
       : null;
+    const tourMeta = data['tourMeta'] && typeof data['tourMeta'] === 'object'
+      ? data['tourMeta'] as Record<string, unknown>
+      : {};
+    const nearbyGems = data['nearbyGems'] && typeof data['nearbyGems'] === 'object'
+      ? data['nearbyGems'] as Record<string, unknown>
+      : {};
     return {
       id,
       kind,
@@ -1872,6 +2045,14 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
         .filter((card): card is MobileBoardCard => !!card),
       createdAt: this.stringField(data, 'created_at_iso') || new Date(0).toISOString(),
       updatedAt: this.stringField(data, 'updated_at_iso') || new Date(0).toISOString(),
+      searchText: [
+        this.stringField(data, 'summarySearchText'),
+        this.stringField(data, 'backNote'),
+        this.stringField(data, 'atlasId'),
+        this.stringField(tourMeta, 'locationLabel'),
+        this.stringField(tourMeta, 'startAddress'),
+        this.stringField(nearbyGems, 'locationLabel'),
+      ].filter(Boolean).join(' '),
     };
   }
 
@@ -1884,6 +2065,34 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
     if (!title) {
       return null;
     }
+    const tour = data['tour'] && typeof data['tour'] === 'object'
+      ? data['tour'] as Record<string, unknown>
+      : {};
+    const shortSummary = this.stringField(data, 'shortSummary') || this.stringField(data, 'short_summary');
+    const entityName = this.stringField(data, 'entityName') || this.stringField(data, 'entity_name');
+    const locationText = [
+      this.stringField(data, 'what3wordsAddress'),
+      this.stringField(data, 'what3words_address'),
+      this.stringField(data, 'googleMapsUrl'),
+      this.stringField(tour, 'address'),
+      this.stringField(tour, 'startAddress'),
+      this.stringField(tour, 'endAddress'),
+      this.stringField(tour, 'locationLabel'),
+      this.stringField(tour, 'nearestPlace'),
+    ].filter(Boolean).join(' ');
+    const searchText = [
+      this.stringField(data, 'scope'),
+      this.stringField(data, 'imageContext'),
+      this.stringField(data, 'merchant'),
+      this.stringField(data, 'productCategory'),
+      this.stringField(data, 'youtubeVideoTitle'),
+      this.stringField(data, 'youtubeChannelTitle'),
+      this.stringField(data, 'sourceUrl'),
+      this.stringField(data, 'productUrl'),
+      this.stringField(tour, 'guideScript'),
+      this.stringField(tour, 'legInstruction'),
+      this.stringField(tour, 'navScript'),
+    ].filter(Boolean).join(' ');
     return {
       id: this.stringField(data, 'id') || title,
       title,
@@ -1900,6 +2109,10 @@ export class PublicWikisComponent implements OnInit, AfterViewChecked, OnDestroy
       spotifyAlbumName: this.stringField(data, 'spotifyAlbumName'),
       spotifyArtworkUrl: this.stringField(data, 'spotifyArtworkUrl'),
       tags: Array.isArray(data['tags']) ? data['tags'].filter((tag): tag is string => typeof tag === 'string') : [],
+      shortSummary,
+      entityName,
+      locationText,
+      searchText,
     };
   }
 

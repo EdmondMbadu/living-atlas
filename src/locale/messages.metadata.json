@@ -8531,6 +8531,10 @@
     "source": "AI generation did not return any usable cards. Please try again.",
     "file": "src/app/boards/boards.ts"
   },
+  "6529071904243136030": {
+    "source": "Clear board search",
+    "file": "src/app/public-wikis/public-wikis.html"
+  },
   "653080074482451123": {
     "source": "The Fortune 500 Living Directory",
     "file": "src/app/public-wiki-catalog.ts"
@@ -9334,6 +9338,10 @@
   "7122661321319980206": {
     "source": "Reading document",
     "file": "src/app/marketing/marketing.ts"
+  },
+  "712633016065968483": {
+    "source": "Search titles, places, creators, or topics…",
+    "file": "src/app/public-wikis/public-wikis.html"
   },
   "7127864144505863678": {
     "source": "Place",
@@ -12294,6 +12302,10 @@
   "9162350905253460360": {
     "source": "Ship Channel pollution",
     "file": "src/app/fence-line/fence-line.ts"
+  },
+  "9163635942070777322": {
+    "source": "Search public boards",
+    "file": "src/app/public-wikis/public-wikis.html"
   },
   "916581608141208398": {
     "source": "This chat is unavailable",

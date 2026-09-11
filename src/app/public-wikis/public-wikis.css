@@ -1067,6 +1067,107 @@ button.mobile-talk-action {
   padding: 1rem;
 }
 
+.mobile-discover-search {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+  border: 2px solid var(--home-l2);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--home-s) 94%, var(--home-warm));
+  box-shadow: var(--home-shadow);
+  padding: 0.55rem;
+}
+
+.mobile-discover-search__field {
+  display: flex;
+  min-height: 3.35rem;
+  align-items: center;
+  gap: 0.55rem;
+  border: 2px solid transparent;
+  border-radius: 0.75rem;
+  background: var(--home-s);
+  padding: 0 0.45rem 0 0.8rem;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.mobile-discover-search__field:focus-within {
+  border-color: var(--mobile-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mobile-green) 18%, transparent);
+}
+
+.mobile-discover-search__field > .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: var(--mobile-green);
+  font-size: 1.4rem;
+  font-variation-settings: 'FILL' 1;
+}
+
+.mobile-discover-search__field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--home-title);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.mobile-discover-search__field input::placeholder {
+  color: var(--home-muted);
+  opacity: 0.82;
+}
+
+.mobile-discover-search__field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.mobile-discover-search__field button {
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 0.65rem;
+  background: var(--home-soft);
+  color: var(--home-muted);
+  cursor: pointer;
+}
+
+.mobile-discover-search__field button:hover,
+.mobile-discover-search__field button:focus-visible {
+  background: color-mix(in srgb, var(--mobile-green) 13%, var(--home-s));
+  color: var(--mobile-green);
+  outline: 2px solid color-mix(in srgb, var(--mobile-green) 38%, transparent);
+  outline-offset: 1px;
+}
+
+.mobile-discover-search__status {
+  display: flex;
+  min-height: 1.35rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--home-muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  padding: 0 0.35rem;
+}
+
+.mobile-discover-search__progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--mobile-green);
+}
+
+.mobile-discover-search__progress .material-symbols-outlined {
+  font-size: 0.95rem;
+  animation: mobile-discover-spin 900ms linear infinite;
+}
+
 .mobile-discover-back {
   display: inline-flex;
   width: fit-content;
@@ -1082,6 +1183,44 @@ button.mobile-talk-action {
   line-height: 1;
   padding: 0.55rem 0.7rem;
   text-decoration: none;
+}
+
+.mobile-discover-empty--search {
+  display: grid;
+  min-height: 14rem;
+  grid-column: 1 / -1;
+  place-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.mobile-discover-empty--search > .material-symbols-outlined {
+  color: var(--mobile-green);
+  font-size: 2.2rem;
+}
+
+.mobile-discover-search__spinner {
+  animation: mobile-discover-spin 900ms linear infinite;
+}
+
+.mobile-discover-empty--search strong {
+  color: var(--home-title);
+  font-size: 1.05rem;
+}
+
+.mobile-discover-empty--search button {
+  margin-top: 0.35rem;
+  border: 2px solid var(--home-l2);
+  border-radius: 999px;
+  background: var(--home-s);
+  box-shadow: var(--home-shadow);
+  color: var(--mobile-green);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 950;
+  padding: 0.6rem 0.85rem;
 }
 
 .mobile-search-wrap label {
@@ -2179,6 +2318,23 @@ button.mobile-talk-action {
 
   .mobile-discover-section {
     padding: 1.25rem 0 0.35rem;
+  }
+
+  .mobile-discover-search {
+    margin-bottom: 1rem;
+    border-width: 1px;
+    padding: 0.7rem;
+  }
+
+  .mobile-discover-search__field {
+    min-height: 3.9rem;
+    border-width: 1px;
+    padding-right: 0.6rem;
+    padding-left: 1rem;
+  }
+
+  .mobile-discover-search__field input {
+    font-size: 0.98rem;
   }
 
   .mobile-discover-head {

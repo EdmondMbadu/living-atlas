@@ -432,10 +432,53 @@
           </div>
         </div>
 
+        <div class="mobile-discover-search" role="search" aria-label="Search public boards" i18n-aria-label>
+          <label class="sr-only" for="discover-board-search" i18n>Search public boards</label>
+          <div class="mobile-discover-search__field">
+            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+            <input
+              id="discover-board-search"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              [ngModel]="discoverSearchTerm()"
+              (ngModelChange)="onDiscoverSearchInput($event)"
+              placeholder="Search titles, places, creators, or topics…"
+              i18n-placeholder
+            />
+            @if (discoverSearchTerm()) {
+              <button
+                type="button"
+                aria-label="Clear board search"
+                i18n-aria-label
+                (click)="clearDiscoverSearch()"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            }
+          </div>
+          @if (discoverSearchQuery()) {
+            <div class="mobile-discover-search__status" aria-live="polite">
+              <span>
+                {{ mobileDiscoverFilteredBoards().length }}
+                {{ mobileDiscoverFilteredBoards().length === 1 ? 'match' : 'matches' }}{{
+                  mobileDiscoverHasMore() ? ' so far' : ''
+                }}
+              </span>
+              @if (mobileDiscoverLoadingMore()) {
+                <span class="mobile-discover-search__progress">
+                  <span class="material-symbols-outlined" aria-hidden="true">progress_activity</span>
+                  Searching more boards…
+                </span>
+              }
+            </div>
+          }
+        </div>
+
         <div class="mobile-discover-page-grid">
           @if (mobileDiscoverLoading()) {
             <div class="mobile-discover-empty" i18n>Loading...</div>
-          } @else if (mobileDiscoverBoards().length) {
+          } @else if (mobileDiscoverPreviewBoards().length) {
             @for (board of mobileDiscoverPreviewBoards(); track board.id) {
               <article class="mobile-discover-card">
                 <a [routerLink]="boardViewLink(board)" class="mobile-discover-card__media" [style.background]="boardAccent(board)">
@@ -472,6 +515,21 @@
                 </div>
               </article>
             }
+          } @else if (discoverSearchQuery()) {
+            <div class="mobile-discover-empty mobile-discover-empty--search">
+              <span
+                class="material-symbols-outlined"
+                [class.mobile-discover-search__spinner]="mobileDiscoverLoadingMore()"
+                aria-hidden="true"
+              >
+                {{ mobileDiscoverLoadingMore() ? 'progress_activity' : 'search_off' }}
+              </span>
+              <strong>{{ mobileDiscoverLoadingMore() ? 'Searching more boards…' : 'No matching boards' }}</strong>
+              @if (!mobileDiscoverLoadingMore()) {
+                <span>Try a title, place, creator, card, or topic.</span>
+                <button type="button" (click)="clearDiscoverSearch()">Clear search</button>
+              }
+            </div>
           } @else {
             <div class="mobile-discover-empty" i18n>No boards yet.</div>
           }
